@@ -1,4 +1,4 @@
-# KYL League
+# KYL_ARENA
 
 > Stop checking Strava profiles manually.
 >
