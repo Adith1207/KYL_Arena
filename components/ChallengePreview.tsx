@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Bike, Flame, Footprints, Medal } from "lucide-react";
+import ScrollReveal from "@/components/ScrollReveal";
 
 interface Participant {
   rank: number;
@@ -76,7 +77,7 @@ export default function ChallengePreview() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         
         {/* Header */}
-        <div className="mx-auto max-w-3xl text-center mb-12 space-y-4">
+        <ScrollReveal className="mx-auto max-w-3xl text-center mb-12 space-y-4" direction="up">
           <h2 className="text-xs font-bold uppercase tracking-wider text-lime-400">
             Live Challenge Preview
           </h2>
@@ -86,10 +87,10 @@ export default function ChallengePreview() {
           <p className="text-base text-zinc-400">
             Toggle between sports below to view how automated leaderboards look, update, and inspire your community.
           </p>
-        </div>
+        </ScrollReveal>
 
         {/* Interactive Sport Selectors */}
-        <div className="flex justify-center gap-2 mb-8">
+        <ScrollReveal className="flex justify-center gap-2 mb-8" direction="up" delayMs={100}>
           {Object.values(challenges).map((chal) => (
             <button
               key={chal.id}
@@ -104,10 +105,12 @@ export default function ChallengePreview() {
               {chal.sport}
             </button>
           ))}
-        </div>
+        </ScrollReveal>
 
         {/* Leaderboard Card Mockup */}
-        <div className="mx-auto max-w-2xl rounded-2xl border border-white/5 bg-zinc-900/20 p-5 sm:p-8 backdrop-blur-md shadow-2xl">
+        <ScrollReveal className="mx-auto max-w-2xl" direction="up" delayMs={200} zoom={true}>
+          <div className="rounded-2xl border border-white/5 bg-zinc-900/20 p-5 sm:p-8 backdrop-blur-md shadow-2xl">
+
           {/* Header Info */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-white/5 pb-5 mb-6 gap-3">
             <div>
@@ -188,6 +191,7 @@ export default function ChallengePreview() {
           </div>
 
         </div>
+        </ScrollReveal>
 
       </div>
     </section>

@@ -1,4 +1,5 @@
 import { Link2, Trophy, Users, TrendingUp, Award, Flag, Activity, Navigation, Mountain } from "lucide-react";
+import ScrollReveal from "@/components/ScrollReveal";
 
 interface FeatureCardProps {
   icon: React.ReactNode;
@@ -8,7 +9,7 @@ interface FeatureCardProps {
 
 function FeatureCard({ icon, title, description }: FeatureCardProps) {
   return (
-    <div className="flex flex-col items-center text-center p-6 rounded-2xl bg-zinc-900/10 border border-white/5 hover:border-lime-500/20 transition-all duration-300">
+    <div className="flex flex-col items-center text-center p-6 rounded-2xl bg-zinc-900/10 border border-white/5 hover:border-lime-500/20 transition-all duration-300 h-full">
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-lime-400/10 text-lime-400">
         {icon}
       </div>
@@ -78,35 +79,38 @@ export default function Features() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-16">
         
         {/* Title */}
-        <div className="text-center">
+        <ScrollReveal className="text-center">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
             Why <span className="text-lime-400">KYL Arena</span>?
           </h2>
-        </div>
+        </ScrollReveal>
 
-        {/* Feature Grid - center aligned */}
+        {/* Feature Grid - center aligned with staggered entrance */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 max-w-6xl mx-auto">
           {features.map((feature, index) => (
-            <FeatureCard
-              key={index}
-              icon={feature.icon}
-              title={feature.title}
-              description={feature.description}
-            />
+            <ScrollReveal key={index} delayMs={index * 100} className="h-full">
+              <FeatureCard
+                icon={feature.icon}
+                title={feature.title}
+                description={feature.description}
+              />
+            </ScrollReveal>
           ))}
         </div>
 
         {/* Stats Row Container */}
-        <div className="max-w-5xl mx-auto rounded-2xl border border-white/5 bg-zinc-900/10 grid grid-cols-2 md:grid-cols-5 overflow-hidden">
-          {stats.map((stat, index) => (
-            <StatItem
-              key={index}
-              icon={stat.icon}
-              value={stat.value}
-              label={stat.label}
-            />
-          ))}
-        </div>
+        <ScrollReveal delayMs={200}>
+          <div className="max-w-5xl mx-auto rounded-2xl border border-white/5 bg-zinc-900/10 grid grid-cols-2 md:grid-cols-5 overflow-hidden">
+            {stats.map((stat, index) => (
+              <StatItem
+                key={index}
+                icon={stat.icon}
+                value={stat.value}
+                label={stat.label}
+              />
+            ))}
+          </div>
+        </ScrollReveal>
 
       </div>
     </section>

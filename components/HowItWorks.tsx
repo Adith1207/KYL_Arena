@@ -3,6 +3,7 @@
 import { Link2, Flag, Activity, Trophy, Calendar, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import ScrollReveal from "@/components/ScrollReveal";
 
 interface StepItemProps {
   number: string;
@@ -72,11 +73,11 @@ export default function HowItWorks() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         
         {/* Title */}
-        <div className="mb-12">
+        <ScrollReveal className="mb-12" direction="up">
           <h2 className="text-3xl font-extrabold text-white tracking-tight">
             How It Works
           </h2>
-        </div>
+        </ScrollReveal>
 
         {/* Horizontal Splitting: Steps Left, Challenge Card Right */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
@@ -84,98 +85,106 @@ export default function HowItWorks() {
           {/* Left Side: 4 Steps */}
           <div className="lg:col-span-6 space-y-8 py-2">
             {steps.map((step, idx) => (
-              <StepItem
+              <ScrollReveal
                 key={step.number}
-                number={step.number}
-                icon={step.icon}
-                title={step.title}
-                description={step.description}
-                isLast={idx === steps.length - 1}
-              />
+                direction="left"
+                delayMs={idx * 150}
+                durationMs={700}
+              >
+                <StepItem
+                  number={step.number}
+                  icon={step.icon}
+                  title={step.title}
+                  description={step.description}
+                  isLast={idx === steps.length - 1}
+                />
+              </ScrollReveal>
             ))}
           </div>
 
           {/* Right Side: Current Challenge Card */}
           <div className="lg:col-span-6 w-full max-w-xl mx-auto lg:mx-0">
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold text-lime-400 uppercase tracking-widest">
-                Current Challenge
-              </h3>
+            <ScrollReveal direction="right" delayMs={200} zoom={true} durationMs={800}>
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-lime-400 uppercase tracking-widest">
+                  Current Challenge
+                </h3>
 
-              {/* Challenge Panel */}
-              <div className="rounded-2xl overflow-hidden border border-white/5 bg-zinc-900/10 shadow-xl">
-                
-                {/* Top Half: Image background */}
-                <div className="relative h-56 w-full bg-[url('/cycling_challenge.png')] bg-cover bg-center">
-                  {/* Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/90 via-zinc-950/40 to-transparent" />
+                {/* Challenge Panel */}
+                <div className="rounded-2xl overflow-hidden border border-white/5 bg-zinc-900/10 shadow-xl">
+                  
+                  {/* Top Half: Image background */}
+                  <div className="relative h-56 w-full bg-[url('/cycling_challenge.png')] bg-cover bg-center">
+                    {/* Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/90 via-zinc-950/40 to-transparent" />
 
-                  {/* Ongoing Badge */}
-                  <div className="absolute top-4 right-4 bg-lime-400 text-black text-[10px] font-black uppercase px-2.5 py-1 rounded-md tracking-wider">
-                    Ongoing
-                  </div>
+                    {/* Ongoing Badge */}
+                    <div className="absolute top-4 right-4 bg-lime-400 text-black text-[10px] font-black uppercase px-2.5 py-1 rounded-md tracking-wider">
+                      Ongoing
+                    </div>
 
-                  {/* Title & Dates */}
-                  <div className="absolute bottom-4 left-6 space-y-1">
-                    <h4 className="text-2xl font-black text-white uppercase tracking-tight">
-                      June Cycling Challenge
-                    </h4>
-                    <div className="flex items-center gap-1.5 text-xs text-zinc-300 font-semibold">
-                      <Calendar className="h-3.5 w-3.5 text-lime-400" />
-                      <span>1 Jun - 30 Jun 2026</span>
+                    {/* Title & Dates */}
+                    <div className="absolute bottom-4 left-6 space-y-1">
+                      <h4 className="text-2xl font-black text-white uppercase tracking-tight">
+                        June Cycling Challenge
+                      </h4>
+                      <div className="flex items-center gap-1.5 text-xs text-zinc-300 font-semibold">
+                        <Calendar className="h-3.5 w-3.5 text-lime-400" />
+                        <span>1 Jun - 30 Jun 2026</span>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Bottom Half: Details & CTA */}
+                  <div className="p-6 bg-zinc-900/40 flex flex-col sm:flex-row items-center justify-between gap-6">
+                    {/* Dynamic stats list */}
+                    <div className="grid grid-cols-3 gap-6 w-full sm:w-auto">
+                      <div className="text-left">
+                        <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider block">
+                          Participants
+                        </span>
+                        <span className="text-lg font-black text-white">87</span>
+                      </div>
+                      <div className="text-left border-l border-white/5 pl-4">
+                        <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider block">
+                          Target
+                        </span>
+                        <span className="text-lg font-black text-white">500 km</span>
+                      </div>
+                      <div className="text-left border-l border-white/5 pl-4">
+                        <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider block">
+                          Remaining
+                        </span>
+                        <span className="text-lg font-black text-white">14 days</span>
+                      </div>
+                    </div>
+
+                    {/* CTA button */}
+                    <Button
+                      variant="default"
+                      className="w-full sm:w-auto bg-lime-400 hover:bg-lime-300 text-black font-extrabold px-6 py-5 rounded-lg flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition-all"
+                      onClick={() => alert("Connecting Strava to join June Cycling challenge!")}
+                    >
+                      Join Now
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+
                 </div>
 
-                {/* Bottom Half: Details & CTA */}
-                <div className="p-6 bg-zinc-900/40 flex flex-col sm:flex-row items-center justify-between gap-6">
-                  {/* Dynamic stats list */}
-                  <div className="grid grid-cols-3 gap-6 w-full sm:w-auto">
-                    <div className="text-left">
-                      <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider block">
-                        Participants
-                      </span>
-                      <span className="text-lg font-black text-white">87</span>
-                    </div>
-                    <div className="text-left border-l border-white/5 pl-4">
-                      <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider block">
-                        Target
-                      </span>
-                      <span className="text-lg font-black text-white">500 km</span>
-                    </div>
-                    <div className="text-left border-l border-white/5 pl-4">
-                      <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider block">
-                        Remaining
-                      </span>
-                      <span className="text-lg font-black text-white">14 days</span>
-                    </div>
-                  </div>
-
-                  {/* CTA button */}
-                  <Button
-                    variant="default"
-                    className="w-full sm:w-auto bg-lime-400 hover:bg-lime-300 text-black font-extrabold px-6 py-5 rounded-lg flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition-all"
-                    onClick={() => alert("Connecting Strava to join June Cycling challenge!")}
+                {/* View all link */}
+                <div className="text-left">
+                  <Link
+                    href="#challenge-preview"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-lime-400 hover:text-lime-300 transition-colors uppercase tracking-wider"
                   >
-                    Join Now
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
+                    View All Challenges
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
                 </div>
 
               </div>
-
-              {/* View all link */}
-              <div className="text-left">
-                <Link
-                  href="#challenge-preview"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-lime-400 hover:text-lime-300 transition-colors uppercase tracking-wider"
-                >
-                  View All Challenges
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-
-            </div>
+            </ScrollReveal>
           </div>
 
         </div>
