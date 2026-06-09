@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, Trophy, Flame, Shield, ArrowRight } from "lucide-react";
+import { ArrowLeft, Loader2, Trophy, Flame, Shield, Activity } from "lucide-react";
 
 export default function LoginPage() {
   const [loadingProvider, setLoadingProvider] = useState<"google" | "strava" | null>(null);
@@ -11,7 +11,7 @@ export default function LoginPage() {
   const handleLogin = (provider: "google" | "strava") => {
     setLoadingProvider(provider);
     
-    // Simulate API redirect latency
+    // Simulate auth redirect latency
     setTimeout(() => {
       setLoadingProvider(null);
       alert(`Simulation: Redirecting to ${provider === "strava" ? "Strava OAuth Flow" : "Google Authentication"}...`);
@@ -21,25 +21,27 @@ export default function LoginPage() {
   return (
     <div className="relative min-h-screen bg-zinc-950 text-white selection:bg-lime-400 selection:text-black overflow-hidden flex flex-col justify-between">
       
-      {/* Background Radial & Grid Effects */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
-      <div className="absolute top-0 left-1/4 -translate-x-1/2 w-[500px] h-[500px] bg-lime-500/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 translate-x-1/2 w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-[150px] pointer-events-none" />
+      {/* Background Radial Ambient Glows */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808005_1px,transparent_1px),linear-gradient(to_bottom,#80808005_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
+      <div className="absolute top-0 left-1/4 -translate-x-1/2 w-[500px] h-[500px] bg-lime-500/5 rounded-full blur-[120px] pointer-events-none animate-pulse duration-[8000ms]" />
+      <div className="absolute bottom-0 right-1/4 translate-x-1/2 w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-[150px] pointer-events-none animate-pulse duration-[10000ms]" />
 
-      {/* Main Container */}
-      <div className="relative z-10 flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-screen w-full">
+      {/* Main Responsive Container */}
+      <div className="relative z-10 flex-1 flex flex-col lg:grid lg:grid-cols-12 min-h-screen w-full">
         
-        {/* Left Side: Desktop-Only Premium Visual Panel */}
-        <div className="hidden lg:flex lg:col-span-6 xl:col-span-7 relative flex-col justify-between p-16 overflow-hidden border-r border-white/5">
-          {/* Subtle overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-950 opacity-90" />
+        {/* Left/Top Panel: Cinematic Visual Panel */}
+        <div className="relative flex flex-col justify-between p-6 sm:p-10 lg:p-16 h-[38vh] lg:h-auto lg:col-span-6 xl:col-span-7 overflow-hidden border-b lg:border-b-0 lg:border-r border-white/5">
           
-          {/* Diagonal slash background highlight */}
-          <div className="absolute -top-[40%] -right-[30%] w-[80%] h-[150%] bg-gradient-to-b from-lime-500/5 to-transparent rotate-12 transform blur-2xl pointer-events-none" />
+          {/* Background image & gradient overlay */}
+          <div className="absolute inset-0 bg-[url('/login_sports_backdrop.png')] bg-cover bg-center transition-transform duration-[20000ms] hover:scale-105" />
+          
+          {/* Black-to-Green Gradient Overlay for premium Nike/Strava look and high readability */}
+          <div className="absolute inset-0 bg-gradient-to-tr from-zinc-950 via-zinc-950/80 to-lime-950/40 opacity-90 lg:opacity-95" />
+          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent lg:hidden" />
 
           {/* Logo Area */}
-          <Link href="/" className="relative z-10 flex items-center gap-3 group">
-            <svg className="h-10 w-10 shrink-0 transition-transform duration-500 group-hover:rotate-12" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <Link href="/" className="relative z-10 flex items-center gap-3 group self-start">
+            <svg className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 transition-transform duration-500 group-hover:rotate-12" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
               {/* Green Runner */}
               <g fill="#22c55e">
                 <circle cx="48" cy="20" r="7" />
@@ -61,134 +63,149 @@ export default function LoginPage() {
               </g>
             </svg>
             <div className="flex flex-col">
-              <span className="text-xl font-black tracking-wider text-white leading-none">
+              <span className="text-base sm:text-xl font-black tracking-wider text-white leading-none">
                 KYL <span className="text-lime-400">ARENA</span>
               </span>
-              <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mt-1">
+              <span className="text-[8px] sm:text-[9px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5 sm:mt-1">
                 Know Your Limits
               </span>
             </div>
           </Link>
 
-          {/* Epic Slogan / Large typography */}
-          <div className="relative z-10 my-auto space-y-8 max-w-lg">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-lime-500/20 bg-lime-500/5 text-lime-400 text-xs font-semibold tracking-wide uppercase">
+          {/* Slogan / Large typography */}
+          <div className="relative z-10 my-auto space-y-3 lg:space-y-6 max-w-lg mt-auto lg:mt-auto">
+            
+            {/* Desktop Only Badges */}
+            <div className="hidden lg:inline-flex items-center gap-2 px-3 py-1 rounded-full border border-lime-500/20 bg-lime-500/5 text-lime-400 text-xs font-semibold tracking-wide uppercase">
               <Trophy className="h-3.5 w-3.5" />
               Next-Gen Fitness Challenges
             </div>
             
-            <h1 className="text-6xl xl:text-7xl font-black uppercase tracking-tighter leading-[0.95]">
-              IRUNGA <br />
-              <span className="text-lime-400">BHAI!</span>
-            </h1>
+            <div className="space-y-1 sm:space-y-2">
+              <h1 className="text-3xl sm:text-4xl lg:text-6xl xl:text-7xl font-black uppercase tracking-tighter leading-[0.9] italic select-none">
+                ENTER THE <br className="hidden lg:inline" />
+                <span className="text-lime-400 not-italic">ARENA</span>
+              </h1>
+              
+              <div className="text-xs sm:text-sm lg:text-xl font-bold tracking-wider text-zinc-300 uppercase flex items-center gap-2">
+                <span>Compete</span>
+                <span className="text-lime-400 font-extrabold">•</span>
+                <span>Track</span>
+                <span className="text-lime-400 font-extrabold">•</span>
+                <span>Conquer</span>
+              </div>
+            </div>
             
-            <p className="text-lg text-zinc-400 leading-relaxed font-medium">
+            <p className="hidden lg:block text-base text-zinc-400 leading-relaxed font-medium">
               No manual spreadsheets. No tedious profile verification. Connect your fitness tracker and immediately jump into local and global challenges.
             </p>
 
-            <div className="grid grid-cols-2 gap-6 pt-4">
+            {/* Desktop Features */}
+            <div className="hidden lg:grid grid-cols-2 gap-6 pt-4">
               <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-zinc-900 border border-white/5 text-lime-400 shrink-0">
-                  <Flame className="h-5 w-5" />
+                <div className="p-2 rounded-lg bg-zinc-900/80 border border-white/5 text-lime-400 shrink-0">
+                  <Flame className="h-4.5 w-4.5" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm text-white uppercase">Automated Sync</h4>
-                  <p className="text-xs text-zinc-500 mt-0.5">Activities sync effortlessly from your Strava profile in real time.</p>
+                  <h4 className="font-bold text-xs text-white uppercase tracking-wider">Automated Sync</h4>
+                  <p className="text-[11px] text-zinc-500 mt-0.5">Activities sync effortlessly from your Strava profile in real time.</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-zinc-900 border border-white/5 text-lime-400 shrink-0">
-                  <Shield className="h-5 w-5" />
+                <div className="p-2 rounded-lg bg-zinc-900/80 border border-white/5 text-lime-400 shrink-0">
+                  <Shield className="h-4.5 w-4.5" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm text-white uppercase">Fair Competition</h4>
-                  <p className="text-xs text-zinc-500 mt-0.5">Verification rules prevent duplicate or tampered activities.</p>
+                  <h4 className="font-bold text-xs text-white uppercase tracking-wider">Fair Competition</h4>
+                  <p className="text-[11px] text-zinc-500 mt-0.5">Verification rules prevent duplicate or tampered activities.</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Left Footer Info */}
-          <div className="relative z-10 flex justify-between items-center text-xs text-zinc-500">
+          {/* Left Footer Info (Desktop only) */}
+          <div className="relative z-10 hidden lg:flex justify-between items-center text-xs text-zinc-650">
             <span>© 2026 KYL Arena. All rights reserved.</span>
             <span>Built by Know Your Limits Community</span>
           </div>
         </div>
 
-        {/* Right Side: Centered Mobile-First Login Card */}
-        <div className="lg:col-span-6 xl:col-span-5 flex flex-col justify-between p-6 sm:p-10 md:p-16 relative">
+        {/* Right Panel: Login card container */}
+        <div className="flex-1 lg:col-span-6 xl:col-span-5 flex flex-col justify-between p-6 sm:p-10 lg:p-16 relative min-h-[62vh] lg:min-h-0 overflow-y-auto">
           
-          {/* Header Mobile / Navigation Row */}
-          <div className="flex items-center justify-between w-full">
-            <Link 
-              href="/" 
-              className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-400 hover:text-white transition-colors group/back"
-            >
-              <ArrowLeft className="h-4 w-4 transition-transform group-hover/back:-translate-x-1" />
-              Back
-            </Link>
-
-            {/* Mobile-only Header Logo */}
-            <div className="flex lg:hidden items-center gap-2">
-              <svg className="h-7 w-7" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <g fill="#22c55e">
-                  <circle cx="48" cy="20" r="7" />
-                  <path d="M 28 69 C 14 78, 12 79, 10 80 C 15 78, 25 65, 32 50 C 37 40, 48 30, 60 22 C 60 23, 56 28, 48 35 C 42 42, 34 50, 28 69 Z" />
-                </g>
-                <g fill="#ef4444">
-                  <circle cx="78" cy="32" r="7" />
-                  <path d="M 46 48 C 58 40, 68 35, 75 42 Z" />
-                </g>
-                <g fill="#3b82f6">
-                  <circle cx="53" cy="68" r="7" />
-                  <path d="M 6 81 C 12 83, 25 75, 35 68 Z" />
-                </g>
-              </svg>
-              <span className="text-sm font-black tracking-wider text-white">
-                KYL <span className="text-lime-400">ARENA</span>
-              </span>
-            </div>
-            
-            <div className="w-12 h-1 lg:hidden" /> {/* Spacer to align elements */}
+          {/* Subtle topogeographical contour map vector backdrop */}
+          <div className="absolute inset-0 pointer-events-none opacity-[0.04] text-lime-500 select-none overflow-hidden">
+            <svg className="w-full h-full object-cover" viewBox="0 0 800 800" fill="none" stroke="currentColor" strokeWidth="1.5" xmlns="http://www.w3.org/2000/svg">
+              {/* Contour lines loop A */}
+              <path d="M100 250 C 150 200, 250 180, 300 240 C 350 300, 300 400, 250 450 C 200 500, 100 480, 80 400 C 60 320, 50 300, 100 250 Z" />
+              <path d="M120 270 C 160 230, 230 210, 270 260 C 310 310, 280 380, 230 420 C 180 460, 120 440, 100 380 C 80 320, 80 310, 120 270 Z" strokeDasharray="3 3" />
+              <path d="M140 290 C 170 260, 210 240, 240 280 C 270 320, 250 360, 210 390 C 170 420, 130 400, 120 360 C 110 320, 110 320, 140 290 Z" />
+              
+              {/* Contour lines loop B */}
+              <path d="M500 550 C 580 500, 680 520, 720 580 C 760 640, 700 720, 640 740 C 580 760, 480 720, 460 660 C 440 600, 420 600, 500 550 Z" />
+              <path d="M520 570 C 590 530, 660 540, 690 590 C 720 640, 680 700, 630 710 C 580 720, 500 690, 480 640 C 460 590, 450 610, 520 570 Z" strokeDasharray="4 2" />
+              
+              {/* Tactical network traces */}
+              <path d="M 50 120 L 250 140 L 320 70 L 500 170 L 620 110 L 750 200" strokeDasharray="6 6" />
+              <circle cx="250" cy="140" r="4" fill="currentColor" />
+              <circle cx="500" cy="170" r="4" fill="currentColor" />
+              <circle cx="750" cy="200" r="4" fill="currentColor" />
+            </svg>
           </div>
 
-          {/* Login Form Card Content */}
-          <div className="my-auto w-full max-w-sm mx-auto space-y-8 py-8">
+          {/* Navigation link / back button */}
+          <div className="relative z-10 flex items-center justify-between w-full">
+            <Link 
+              href="/" 
+              className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-colors group/back"
+            >
+              <ArrowLeft className="h-4 w-4 transition-transform group-hover/back:-translate-x-0.5" />
+              Back
+            </Link>
             
-            {/* Title / Slogan block */}
-            <div className="text-center space-y-3">
-              <div className="text-xs font-black tracking-widest text-lime-400 uppercase select-none">
-                KYL ARENA ONBOARDING
+            {/* Active Status Header */}
+            <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
+              <span className="h-1.5 w-1.5 rounded-full bg-lime-400 animate-ping" />
+              Live Leaderboard Sync
+            </div>
+          </div>
+
+          {/* Center Content: Login Form Card */}
+          <div className="my-auto w-full max-w-sm mx-auto space-y-6 py-6 relative z-10">
+            
+            {/* Title block */}
+            <div className="text-center space-y-2">
+              <div className="inline-flex items-center gap-1 text-[10px] font-black tracking-widest text-lime-400 uppercase select-none border border-lime-400/20 px-2.5 py-0.5 rounded-md bg-lime-400/5">
+                <Activity className="h-3 w-3" /> Athlete Portal
               </div>
-              <h2 className="text-3xl sm:text-4xl font-extrabold uppercase tracking-tight text-white">
-                Enter the Arena
+              <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white italic">
+                Step into the Arena
               </h2>
-              <div className="text-xs font-bold tracking-tight text-zinc-300 uppercase select-none flex items-center justify-center gap-1.5">
-                <span>Compete</span><span className="text-lime-400 font-extrabold">•</span>
-                <span>Track</span><span className="text-lime-400 font-extrabold">•</span>
-                <span>Conquer</span>
-              </div>
-              <p className="text-zinc-400 text-xs sm:text-sm mt-2">
-                Connect your account to immediately unlock challenge stats, track progress and join active tournaments.
+              <p className="text-zinc-400 text-xs sm:text-sm">
+                Unlock automated challenge verification, global statistics, and climb community rankings.
               </p>
             </div>
 
-            {/* Authentication Buttons Card */}
-            <div className="bg-zinc-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.4)] relative overflow-hidden group">
-              {/* Highlight glowing border element */}
-              <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/20 to-transparent" />
+            {/* Authentication Glass Card */}
+            <div className="bg-zinc-900/35 backdrop-blur-lg border border-white/5 rounded-2xl p-5 sm:p-7 shadow-[0_8px_32px_rgba(0,0,0,0.5)] relative overflow-hidden group hover:border-white/10 transition-all duration-300">
               
-              <div className="space-y-4">
+              {/* Subtle top card glow line */}
+              <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/25 to-transparent" />
+              
+              {/* Background card pulse blob */}
+              <div className="absolute -bottom-10 -right-10 w-24 h-24 bg-lime-400/5 rounded-full blur-xl pointer-events-none group-hover:bg-lime-400/10 transition-all duration-500" />
+              
+              <div className="space-y-3.5 relative z-10">
                 
                 {/* Strava Authentication Button (Primary CTA) */}
                 <Button
                   onClick={() => handleLogin("strava")}
                   disabled={loadingProvider !== null}
-                  className="w-full h-14 bg-[#FC6100] hover:bg-[#E55500] text-white font-extrabold rounded-xl transition-all duration-300 flex items-center justify-center gap-3 text-xs uppercase tracking-wider shadow-[0_4px_20px_rgba(252,97,0,0.25)] hover:shadow-[0_6px_25px_rgba(252,97,0,0.35)] hover:scale-[1.01] active:scale-[0.99]"
+                  className="w-full h-14 bg-[#FC6100] hover:bg-[#E55500] text-white font-extrabold rounded-xl transition-all duration-300 flex items-center justify-center gap-3 text-xs uppercase tracking-wider shadow-[0_4px_16px_rgba(252,97,0,0.2)] hover:shadow-[0_6px_22px_rgba(252,97,0,0.35)] hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
                 >
                   {loadingProvider === "strava" ? (
                     <>
-                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                       Connecting Strava...
                     </>
                   ) : (
@@ -207,11 +224,11 @@ export default function LoginPage() {
                   onClick={() => handleLogin("google")}
                   disabled={loadingProvider !== null}
                   variant="outline"
-                  className="w-full h-14 bg-zinc-950 hover:bg-zinc-900 border-zinc-800 hover:border-zinc-700 text-white font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-3 text-xs uppercase tracking-wider hover:scale-[1.01] active:scale-[0.99]"
+                  className="w-full h-14 bg-zinc-950 hover:bg-zinc-900 border-zinc-800 hover:border-zinc-700 text-white font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-3 text-xs uppercase tracking-wider hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
                 >
                   {loadingProvider === "google" ? (
                     <>
-                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                       Connecting Google...
                     </>
                   ) : (
@@ -242,15 +259,15 @@ export default function LoginPage() {
 
               </div>
 
-              {/* Motivational Footer Note */}
-              <div className="mt-6 flex justify-center items-center gap-2 text-[10px] uppercase font-semibold text-zinc-500 tracking-wider">
-                <span className="h-1.5 w-1.5 rounded-full bg-lime-400 animate-pulse" />
-                Ready to sync cycling, running & walking
+              {/* Motivational message */}
+              <div className="mt-5 text-center text-[9px] uppercase font-bold text-zinc-500 tracking-widest flex items-center justify-center gap-1.5">
+                <span className="inline-block w-1 h-1 rounded-full bg-lime-400 animate-ping" />
+                Cycling • Running • Walking Verified
               </div>
             </div>
 
             {/* Terms and Privacy disclaimer */}
-            <p className="text-[11px] text-zinc-500 text-center leading-relaxed max-w-[280px] mx-auto">
+            <p className="text-[10px] sm:text-[11px] text-zinc-500 text-center leading-relaxed max-w-[270px] mx-auto">
               By connecting your profile, you agree to the KYL Arena{" "}
               <Link href="#" className="underline text-zinc-400 hover:text-white transition-colors">
                 Terms of Service
@@ -264,7 +281,7 @@ export default function LoginPage() {
           </div>
 
           {/* Footer Mobile View */}
-          <div className="flex flex-col items-center gap-2 lg:hidden text-[10px] text-zinc-650 mt-8 text-center">
+          <div className="flex flex-col items-center gap-1.5 lg:hidden text-[9px] text-zinc-600 mt-4 text-center relative z-10">
             <span>© 2026 KYL Arena. Built by Know Your Limits Community.</span>
           </div>
         </div>
