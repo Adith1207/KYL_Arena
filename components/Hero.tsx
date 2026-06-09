@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import ScrollReveal from "@/components/ScrollReveal";
@@ -53,11 +54,13 @@ export default function Hero() {
                 <Button
                   variant="default"
                   size="lg"
-                  className="bg-lime-400 hover:bg-lime-300 text-black font-extrabold rounded-lg h-12 px-6 flex items-center gap-2 text-xs uppercase tracking-wider transition-all hover:scale-102"
-                  onClick={() => alert("Redirecting to challenge registration!")}
+                  className="bg-lime-400 hover:bg-lime-300 text-black font-extrabold rounded-lg h-12 px-6 flex items-center gap-2 text-xs uppercase tracking-wider transition-all hover:scale-102 cursor-pointer"
+                  asChild
                 >
-                  Join Challenge
-                  <ArrowRight className="h-4 w-4" />
+                  <Link href="/login">
+                    Join Challenge
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
                 </Button>
                 <Button
                   variant="outline"

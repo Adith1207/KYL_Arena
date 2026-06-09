@@ -162,11 +162,13 @@ export default function HowItWorks() {
                     {/* CTA button */}
                     <Button
                       variant="default"
-                      className="w-full sm:w-auto bg-lime-400 hover:bg-lime-300 text-black font-extrabold px-6 py-5 rounded-lg flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition-all"
-                      onClick={() => alert("Connecting Strava to join June Cycling challenge!")}
+                      className="w-full sm:w-auto bg-lime-400 hover:bg-lime-300 text-black font-extrabold px-6 py-5 rounded-lg flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition-all cursor-pointer"
+                      asChild
                     >
-                      Join Now
-                      <ArrowRight className="h-4 w-4" />
+                      <Link href="/login">
+                        Join Now
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
                     </Button>
                   </div>
 

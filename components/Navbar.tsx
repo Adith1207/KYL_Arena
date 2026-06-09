@@ -88,18 +88,18 @@ export default function Navbar() {
             <Button
               variant="default"
               size="lg"
-              className="bg-lime-400 hover:bg-lime-300 text-black font-bold px-6 py-5 rounded-lg shadow-lg shadow-lime-400/25 transition-all text-xs uppercase tracking-wider"
-              onClick={() => alert("Redirecting to active challenges!")}
+              className="bg-lime-400 hover:bg-lime-300 text-black font-bold px-6 py-5 rounded-lg shadow-lg shadow-lime-400/25 transition-all text-xs uppercase tracking-wider cursor-pointer"
+              asChild
             >
-              Join Challenge
+              <Link href="/login">Join Challenge</Link>
             </Button>
             <Button
               variant="outline"
               size="lg"
-              className="border-zinc-800 text-white hover:bg-zinc-900 rounded-lg px-6 py-5 text-xs uppercase tracking-wider font-bold"
-              onClick={() => alert("Opening Login Dialog!")}
+              className="border-zinc-800 text-white hover:bg-zinc-900 rounded-lg px-6 py-5 text-xs uppercase tracking-wider font-bold cursor-pointer"
+              asChild
             >
-              Login
+              <Link href="/login">Login</Link>
             </Button>
           </div>
 
@@ -159,24 +159,22 @@ export default function Navbar() {
               <Button
                 variant="default"
                 size="lg"
-                className="w-full bg-lime-400 hover:bg-lime-300 text-black font-bold rounded-lg py-5 text-xs uppercase tracking-wider justify-center"
-                onClick={() => {
-                  setIsOpen(false);
-                  alert("Redirecting to active challenges!");
-                }}
+                className="w-full bg-lime-400 hover:bg-lime-300 text-black font-bold rounded-lg py-5 text-xs uppercase tracking-wider justify-center cursor-pointer"
+                asChild
               >
-                Join Challenge
+                <Link href="/login" onClick={() => setIsOpen(false)}>
+                  Join Challenge
+                </Link>
               </Button>
               <Button
                 variant="outline"
                 size="lg"
-                className="w-full border-zinc-800 text-white hover:bg-zinc-900 rounded-lg py-5 text-xs uppercase tracking-wider font-bold justify-center"
-                onClick={() => {
-                  setIsOpen(false);
-                  alert("Opening Login Dialog!");
-                }}
+                className="w-full border-zinc-800 text-white hover:bg-zinc-900 rounded-lg py-5 text-xs uppercase tracking-wider font-bold justify-center cursor-pointer"
+                asChild
               >
-                Login
+                <Link href="/login" onClick={() => setIsOpen(false)}>
+                  Login
+                </Link>
               </Button>
             </div>
           </div>
