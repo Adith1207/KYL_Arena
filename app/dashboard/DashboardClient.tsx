@@ -14,6 +14,11 @@ interface ProfileData {
   auth_provider: string;
   strava_connected: boolean;
   strava_athlete_id: string | null;
+  strava_connection?: {
+    athlete_name: string | null;
+    athlete_username: string | null;
+    athlete_avatar: string | null;
+  } | null;
 }
 
 interface DashboardClientProps {
@@ -23,6 +28,7 @@ interface DashboardClientProps {
 export default function DashboardClient({ initialProfile }: DashboardClientProps) {
   const [profile, setProfile] = useState<ProfileData>(initialProfile);
   const [loadingConnect, setLoadingConnect] = useState(false);
+  const [loadingDisconnect, setLoadingDisconnect] = useState(false);
   const [loadingLogout, setLoadingLogout] = useState(false);
 
   const handleLogout = async () => {
@@ -34,44 +40,46 @@ export default function DashboardClient({ initialProfile }: DashboardClientProps
   const handleConnectStrava = async () => {
     setLoadingConnect(true);
 
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const isMock = 
-      !url || 
-      url.includes("placeholder") || 
-      !anonKey || 
-      anonKey.includes("placeholder");
+    const clientId = process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID;
+    const isStravaMock = 
+      !clientId || 
+      clientId.includes("placeholder");
 
-    if (isMock) {
-      // Simulate OAuth connection delay
-      setTimeout(() => {
-        // Toggle mock states in storage & cookies
-        localStorage.setItem("kyl_mock_strava_linked", "true");
-        document.cookie = "kyl-mock-strava-linked=true; path=/; max-age=3600; SameSite=Lax";
-        
-        // Update local state to trigger render update
+    const callbackUrl = `${window.location.origin}/api/strava/callback`;
+
+    if (isStravaMock) {
+      // Redirect to server-side mock callback to insert DB connection & update state
+      window.location.href = `${callbackUrl}?code=mock_code&state=${profile.id}&mock=true`;
+    } else {
+      // Live Strava OAuth Authorization Redirect
+      window.location.href = `https://www.strava.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code&scope=read,activity:read_all&state=${profile.id}`;
+    }
+  };
+
+  const handleDisconnectStrava = async () => {
+    if (!confirm("Are you sure you want to disconnect your Strava account?")) {
+      return;
+    }
+    setLoadingDisconnect(true);
+    try {
+      const res = await fetch("/api/strava/disconnect", {
+        method: "POST",
+      });
+      if (res.ok) {
         setProfile((prev) => ({
           ...prev,
-          strava_connected: true,
-          strava_athlete_id: "strava-athlete-999",
+          strava_connected: false,
+          strava_athlete_id: null,
+          strava_connection: null,
         }));
-        setLoadingConnect(false);
-      }, 1500);
-    } else {
-      // Live integration redirect
-      const supabase = createClient();
-      const redirectTo = `${window.location.origin}/auth/callback`;
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "strava" as any,
-        options: {
-          redirectTo,
-        },
-      });
-
-      if (error) {
-        alert(`Failed to trigger Strava Link: ${error.message}`);
-        setLoadingConnect(false);
+      } else {
+        const data = await res.json();
+        alert(`Failed to disconnect: ${data.error || "Unknown error"}`);
       }
+    } catch (e) {
+      alert("Error disconnecting Strava.");
+    } finally {
+      setLoadingDisconnect(false);
     }
   };
 
@@ -178,7 +186,7 @@ export default function DashboardClient({ initialProfile }: DashboardClientProps
                 
                 {profile.strava_connected ? (
                   /* Strava Connected State */
-                  <div className="rounded-2xl border border-emerald-500/20 bg-emerald-950/5 p-5 text-left space-y-3 shadow-inner relative overflow-hidden group/connected">
+                  <div className="rounded-2xl border border-emerald-500/20 bg-emerald-950/5 p-5 text-left space-y-4 shadow-inner relative overflow-hidden group/connected">
                     <div className="absolute top-0 right-0 p-3 opacity-10 text-emerald-400 transition-transform group-hover/connected:scale-110">
                       <Award className="h-16 w-16" />
                     </div>
@@ -189,14 +197,53 @@ export default function DashboardClient({ initialProfile }: DashboardClientProps
                         Strava Connected ✅
                       </span>
                     </div>
+
+                    {/* Athlete Profile Summary */}
+                    {profile.strava_connection && (
+                      <div className="flex items-center gap-3 bg-zinc-950/40 p-3 rounded-xl border border-white/5">
+                        {profile.strava_connection.athlete_avatar ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={profile.strava_connection.athlete_avatar}
+                            alt={profile.strava_connection.athlete_name || "Athlete"}
+                            className="h-12 w-12 rounded-full object-cover ring-2 ring-emerald-500/30"
+                          />
+                        ) : (
+                          <div className="h-12 w-12 rounded-full bg-zinc-900 border border-white/10 flex items-center justify-center text-emerald-400 font-extrabold text-sm">
+                            {getInitials(profile.strava_connection.athlete_name || "A")}
+                          </div>
+                        )}
+                        <div className="space-y-0.5 text-left min-w-0">
+                          <h4 className="font-bold text-sm text-white truncate">
+                            {profile.strava_connection.athlete_name || "Strava Athlete"}
+                          </h4>
+                          {profile.strava_connection.athlete_username && (
+                            <p className="text-[11px] text-zinc-500 font-mono truncate">
+                              @{profile.strava_connection.athlete_username}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     
                     <p className="text-xs text-zinc-400 leading-relaxed font-medium">
                       Your Strava account is linked successfully. Your cycling, running, and walking activities will sync automatically to challenges and leaderboards.
                     </p>
                     
-                    <div className="text-[10px] text-zinc-550 flex items-center gap-1.5 bg-zinc-950/20 px-2.5 py-1.5 rounded-lg border border-white/5">
-                      <span className="font-bold uppercase">Athlete ID:</span>
-                      <code className="font-mono text-emerald-400/80">{profile.strava_athlete_id}</code>
+                    <div className="text-[10px] text-zinc-500 flex items-center justify-between gap-1.5 bg-zinc-950/20 px-2.5 py-1.5 rounded-lg border border-white/5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold uppercase text-zinc-400">Athlete ID:</span>
+                        <code className="font-mono text-emerald-400/80">{profile.strava_athlete_id}</code>
+                      </div>
+                      
+                      <Button
+                        onClick={handleDisconnectStrava}
+                        disabled={loadingDisconnect}
+                        variant="ghost"
+                        className="h-6 px-2 text-[9px] font-black uppercase tracking-wider text-red-400 hover:text-red-300 hover:bg-red-950/20 rounded border border-red-500/10 cursor-pointer"
+                      >
+                        {loadingDisconnect ? "Disconnecting..." : "Disconnect"}
+                      </Button>
                     </div>
                   </div>
                 ) : (

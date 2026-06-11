@@ -52,5 +52,28 @@ export default async function DashboardPage() {
     };
   }
 
-  return <DashboardClient initialProfile={profile} />;
+  // Fetch associated athlete details if Strava is connected
+  let stravaConnection = null;
+  if (profile.strava_connected) {
+    try {
+      const { data: connData, error: connError } = await supabase
+        .from("strava_connections")
+        .select("athlete_name, athlete_username, athlete_avatar")
+        .eq("user_id", user.id)
+        .single();
+      
+      if (!connError && connData) {
+        stravaConnection = connData;
+      }
+    } catch (e) {
+      console.error("Failed to query strava_connections:", e);
+    }
+  }
+
+  const combinedProfile = {
+    ...profile,
+    strava_connection: stravaConnection,
+  };
+
+  return <DashboardClient initialProfile={combinedProfile} />;
 }
