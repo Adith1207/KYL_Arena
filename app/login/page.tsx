@@ -11,13 +11,18 @@ export default function LoginPage() {
   const handleLogin = async (provider: "google" | "strava") => {
     setLoadingProvider(provider);
     
+    if (provider === "strava") {
+      window.location.href = "/api/strava/connect";
+      return;
+    }
+
     try {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
       
       const redirectTo = `${window.location.origin}/auth/callback`;
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: provider as any,
+        provider: "google",
         options: {
           redirectTo,
         },
@@ -25,7 +30,7 @@ export default function LoginPage() {
       
       if (error) {
         alert(`Authentication Error: ${error.message}`);
-        setLoadingProvider(provider === "strava" ? null : null);
+        setLoadingProvider(null);
       }
     } catch (e) {
       alert("Failed to initialize authentication.");

@@ -56,6 +56,9 @@ export async function createAdminClient(): Promise<SupabaseClient> {
     serviceRoleKey.includes("placeholder");
 
   if (isMock) {
+    if (url && !url.includes("placeholder")) {
+      console.warn("WARNING: SUPABASE_SERVICE_ROLE_KEY is a placeholder or not set, but NEXT_PUBLIC_SUPABASE_URL is configured. Bypassing administrative client to Mock Client. Database updates will be mocked!");
+    }
     const cookieStore = await cookies();
     return createMockServerClient(cookieStore) as unknown as SupabaseClient;
   }
