@@ -54,6 +54,9 @@ export default async function DashboardPage() {
 
   // Fetch associated athlete details if Strava is connected
   let stravaConnection = null;
+  let activities: any[] = [];
+  let activitiesCount = 0;
+
   if (profile.strava_connected) {
     try {
       const { data: connData, error: connError } = await supabase
@@ -68,11 +71,39 @@ export default async function DashboardPage() {
     } catch (e) {
       console.error("Failed to query strava_connections:", e);
     }
+
+    try {
+      // Fetch latest 5 activities
+      const { data: actData, error: actError } = await supabase
+        .from("activities")
+        .select("name, sport_type, distance, moving_time, start_date")
+        .eq("user_id", user.id)
+        .order("start_date", { ascending: false })
+        .limit(5);
+
+      if (!actError && actData) {
+        activities = actData;
+      }
+
+      // Fetch count of all activities
+      const { count, error: countError } = await supabase
+        .from("activities")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id);
+
+      if (!countError && count !== null) {
+        activitiesCount = count;
+      }
+    } catch (e) {
+      console.error("Failed to query activities for dashboard page:", e);
+    }
   }
 
   const combinedProfile = {
     ...profile,
     strava_connection: stravaConnection,
+    activities,
+    activities_count: activitiesCount,
   };
 
   return <DashboardClient initialProfile={combinedProfile} />;

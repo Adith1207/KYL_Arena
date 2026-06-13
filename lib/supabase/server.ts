@@ -146,81 +146,245 @@ function createMockServerClient(cookieStore: any) {
     },
 
     from(table: string) {
-      return {
-        select(columns?: string) {
-          return {
-            eq(column: string, value: any) {
-              return {
-                async single() {
-                  const providerCookie = cookieStore.get("kyl-mock-provider");
-                  const provider = providerCookie?.value || "google";
-                  const isStravaLinked = cookieStore.get("kyl-mock-strava-linked")?.value === "true";
-                  const isStrava = provider === "strava" || isStravaLinked;
-
-                  // For dashboard page.tsx: it queries strava_connections to get athlete_name etc.
-                  if (table === "strava_connections" && isStrava) {
-                    return {
-                      data: {
-                        athlete_name: "Adith Strava",
-                        athlete_username: "adith_strava",
-                        athlete_avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80",
-                      },
-                      error: null
-                    };
-                  }
-
-                  return {
-                    data: {
-                      id: "mock-uuid-12345678",
-                      email: provider === "strava" ? "athlete@strava.com" : "athlete@gmail.com",
-                      name: provider === "strava" ? "Adith Strava" : "Adith Google",
-                      avatar: provider === "strava" 
-                        ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" 
-                        : "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80",
-                      auth_provider: provider,
-                      strava_connected: isStrava,
-                      strava_athlete_id: isStrava ? "strava-athlete-999" : null,
-                    },
-                    error: null
-                  };
-                }
-              };
-            }
-          };
-        },
-
-        upsert(values: any) {
-          // If inserting or updating strava_connections mock status, we set the mock cookie
-          if (table === "strava_connections") {
-            cookieStore.set("kyl-mock-strava-linked", "true", { path: "/" });
-          }
-          return Promise.resolve({ error: null, data: null });
-        },
-
-        update(values: any) {
-          if (values.strava_connected === true) {
-            cookieStore.set("kyl-mock-strava-linked", "true", { path: "/" });
-          } else if (values.strava_connected === false) {
-            cookieStore.set("kyl-mock-strava-linked", "false", { path: "/" });
-          }
-          return {
-            eq(column: string, value: any) {
-              return Promise.resolve({ error: null, data: null });
-            }
-          };
-        },
-
-        delete() {
-          if (table === "strava_connections") {
-            cookieStore.set("kyl-mock-strava-linked", "false", { path: "/" });
-          }
-          return {
-            eq(column: string, value: any) {
-              return Promise.resolve({ error: null, data: null });
-            }
-          };
-        }
-      };
+      return new MockQueryBuilder(table, cookieStore) as any;
     }
   };
+}
+
+class MockQueryBuilder {
+  private table: string;
+  private cookieStore: any;
+  private isBrowser: boolean;
+  private mutationValues: any = null;
+  private limitCount: number = -1;
+
+  constructor(table: string, cookieStore?: any) {
+    this.table = table;
+    this.cookieStore = cookieStore;
+    this.isBrowser = typeof window !== "undefined";
+  }
+
+  select(columns?: string, options?: any) {
+    return this;
+  }
+
+  eq(column: string, value: any) {
+    return this;
+  }
+
+  order(column: string, options?: any) {
+    return this;
+  }
+
+  limit(count: number) {
+    this.limitCount = count;
+    return this;
+  }
+
+  upsert(values: any, options?: any) {
+    this.mutationValues = values;
+    if (this.table === "strava_connections") {
+      this.setCookieOrLocalStorage("kyl-mock-strava-linked", "true");
+    } else if (this.table === "activities") {
+      this.setCookieOrLocalStorage("kyl-mock-activities-synced", "true");
+      this.setCookieOrLocalStorage("kyl-mock-last-synced-at", new Date().toISOString());
+    }
+    return this;
+  }
+
+  update(values: any) {
+    this.mutationValues = values;
+    if (values.strava_connected === true) {
+      this.setCookieOrLocalStorage("kyl-mock-strava-linked", "true");
+    } else if (values.strava_connected === false) {
+      this.setCookieOrLocalStorage("kyl-mock-strava-linked", "false");
+      this.setCookieOrLocalStorage("kyl-mock-activities-synced", "false");
+      this.setCookieOrLocalStorage("kyl-mock-last-synced-at", "");
+    }
+    
+    if (values.last_synced_at) {
+      this.setCookieOrLocalStorage("kyl-mock-last-synced-at", values.last_synced_at);
+    }
+    return this;
+  }
+
+  delete() {
+    this.mutationValues = { deleted: true };
+    if (this.table === "strava_connections") {
+      this.setCookieOrLocalStorage("kyl-mock-strava-linked", "false");
+      this.setCookieOrLocalStorage("kyl-mock-activities-synced", "false");
+      this.setCookieOrLocalStorage("kyl-mock-last-synced-at", "");
+    }
+    return this;
+  }
+
+  async single() {
+    const res = await this.execute();
+    return {
+      data: Array.isArray(res.data) ? res.data[0] || null : res.data,
+      error: res.error,
+      count: res.count
+    };
+  }
+
+  then(onfulfilled?: (value: any) => any, onrejected?: (reason: any) => any) {
+    return this.execute().then(onfulfilled, onrejected);
+  }
+
+  private setCookieOrLocalStorage(name: string, value: string) {
+    if (this.isBrowser) {
+      localStorage.setItem(name.replace(/-/g, "_"), value);
+      document.cookie = `${name}=${value}; path=/; max-age=3600; SameSite=Lax`;
+    } else if (this.cookieStore) {
+      try {
+        this.cookieStore.set(name, value, { path: "/" });
+      } catch (e) {
+        // Safe catch
+      }
+    }
+  }
+
+  private getCookieOrLocalStorage(name: string): string | null {
+    if (this.isBrowser) {
+      return localStorage.getItem(name.replace(/-/g, "_"));
+    } else if (this.cookieStore) {
+      return this.cookieStore.get(name)?.value || null;
+    }
+    return null;
+  }
+
+  private async execute() {
+    if (this.mutationValues !== null) {
+      return { data: null, error: null, count: null };
+    }
+
+    let provider = "google";
+    let isStravaLinked = false;
+    let lastSyncedAt = null;
+
+    if (this.isBrowser) {
+      const mockUser = localStorage.getItem("kyl_mock_user");
+      if (mockUser) {
+        provider = JSON.parse(mockUser).app_metadata.provider;
+      }
+      isStravaLinked = localStorage.getItem("kyl_mock_strava_linked") === "true";
+      lastSyncedAt = localStorage.getItem("kyl_mock_last_synced_at");
+    } else if (this.cookieStore) {
+      provider = this.cookieStore.get("kyl-mock-provider")?.value || "google";
+      isStravaLinked = this.cookieStore.get("kyl-mock-strava-linked")?.value === "true";
+      lastSyncedAt = this.cookieStore.get("kyl-mock-last-synced-at")?.value || null;
+    }
+
+    const isStrava = provider === "strava" || isStravaLinked;
+
+    if (this.table === "profiles") {
+      return {
+        data: {
+          id: "mock-uuid-12345678",
+          email: isStrava ? "athlete@strava.com" : "athlete@gmail.com",
+          name: isStrava ? "Adith Strava" : "Adith Google",
+          avatar: isStrava 
+            ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" 
+            : "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80",
+          auth_provider: provider,
+          strava_connected: isStrava,
+          strava_athlete_id: isStrava ? "strava-athlete-999" : null,
+          last_synced_at: lastSyncedAt || null,
+        },
+        error: null,
+        count: null
+      };
+    }
+
+    if (this.table === "strava_connections") {
+      if (isStrava) {
+        return {
+          data: {
+            athlete_name: "Adith Strava",
+            athlete_username: "adith_strava",
+            athlete_avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80",
+            access_token: "mock_access_token_12345",
+            refresh_token: "mock_refresh_token_12345",
+            expires_at: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+            strava_athlete_id: "strava-athlete-999",
+          },
+          error: null,
+          count: null
+        };
+      }
+      return { data: null, error: new Error("No connection"), count: null };
+    }
+
+    if (this.table === "activities") {
+      if (!isStrava) {
+        return { data: [], error: null, count: 0 };
+      }
+      const hasSynced = this.getCookieOrLocalStorage("kyl-mock-activities-synced") === "true";
+      if (hasSynced) {
+        const mockActs = generateMockQueryActivities();
+        const sliced = this.limitCount > 0 ? mockActs.slice(0, this.limitCount) : mockActs;
+        return {
+          data: sliced,
+          error: null,
+          count: 30
+        };
+      } else {
+        return { data: [], error: null, count: 0 };
+      }
+    }
+
+    return { data: null, error: null, count: null };
+  }
+}
+
+function generateMockQueryActivities(): any[] {
+  const activities = [];
+  const sportTypes = ["Ride", "Run", "Walk"];
+  const names = {
+    "Ride": ["Morning Ride 🚴", "Weekend Century 🚴‍♂️", "Sunset Cruise 🌅", "Interval Training 🔥", "Commute to Office 💼"],
+    "Run": ["Evening Jog 🏃", "Interval Session ⚡", "Long Run 🌳", "Recovery Run 🍃", "Morning Miles 🌅"],
+    "Walk": ["Lunch Walk 🚶", "Evening Stroll 🌇", "Dog Walk 🐾", "Park Wander 🌲", "Morning Coffee Walk ☕"]
+  };
+
+  const now = new Date();
+
+  for (let i = 0; i < 30; i++) {
+    const sportType = sportTypes[i % sportTypes.length];
+    const sportNames = names[sportType as keyof typeof names];
+    const name = sportNames[i % sportNames.length];
+
+    let distance = 0;
+    let movingTime = 0;
+    let elevationGain = 0;
+
+    if (sportType === "Ride") {
+      distance = Math.round((20 + (i * 2.5)) * 1000);
+      movingTime = Math.round((distance / 25) * 3.6);
+      elevationGain = Math.round(150 + (i * 35));
+    } else if (sportType === "Run") {
+      distance = Math.round((5 + (i * 0.5)) * 1000);
+      movingTime = Math.round((distance / 10) * 3.6);
+      elevationGain = Math.round(20 + (i * 5));
+    } else {
+      distance = Math.round((2 + (i * 0.2)) * 1000);
+      movingTime = Math.round((distance / 5) * 3.6);
+      elevationGain = Math.round(5 + i);
+    }
+
+    const startDate = new Date(now.getTime() - (i * 1.5 * 24 * 60 * 60 * 1000));
+
+    activities.push({
+      name,
+      distance,
+      moving_time: movingTime,
+      elapsed_time: movingTime + 120,
+      sport_type: sportType,
+      start_date: startDate.toISOString(),
+      start_date_local: startDate.toISOString(),
+      average_speed: Number((distance / movingTime).toFixed(2)),
+      total_elevation_gain: elevationGain,
+    });
+  }
+
+  return activities;
 }

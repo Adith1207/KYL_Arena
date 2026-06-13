@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Loader2, LogOut, Activity, AlertTriangle, CheckCircle, ShieldAlert, Award, ArrowLeft } from "lucide-react";
+import { Loader2, LogOut, Activity, AlertTriangle, CheckCircle, ShieldAlert, Award, ArrowLeft, Bike, Footprints } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 interface ProfileData {
@@ -14,6 +14,15 @@ interface ProfileData {
   auth_provider: string;
   strava_connected: boolean;
   strava_athlete_id: string | null;
+  last_synced_at?: string | null;
+  activities?: {
+    name: string;
+    sport_type: string;
+    distance: number;
+    moving_time: number;
+    start_date: string;
+  }[];
+  activities_count?: number;
   strava_connection?: {
     athlete_name: string | null;
     athlete_username: string | null;
@@ -30,6 +39,32 @@ export default function DashboardClient({ initialProfile }: DashboardClientProps
   const [loadingConnect, setLoadingConnect] = useState(false);
   const [loadingDisconnect, setLoadingDisconnect] = useState(false);
   const [loadingLogout, setLoadingLogout] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  const handleSyncActivities = async () => {
+    setIsSyncing(true);
+    setSyncError(null);
+    try {
+      const res = await fetch("/api/strava/sync");
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        setProfile((prev) => ({
+          ...prev,
+          last_synced_at: data.last_synced_at,
+          activities: data.latest_activities,
+          activities_count: data.activities_count,
+        }));
+      } else {
+        setSyncError(data.error || "Failed to synchronize activities. Please try again.");
+      }
+    } catch (e) {
+      setSyncError("Network error synchronizing activities.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleLogout = async () => {
     setLoadingLogout(true);
@@ -231,6 +266,49 @@ export default function DashboardClient({ initialProfile }: DashboardClientProps
                         {loadingDisconnect ? "Disconnecting..." : "Disconnect"}
                       </Button>
                     </div>
+
+                    {/* Sync Activities Action & Stats */}
+                    <div className="border-t border-white/5 pt-4 space-y-3">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="space-y-0.5 text-left">
+                          <p className="text-zinc-500 font-bold uppercase text-[8px] tracking-wider">Last Sync</p>
+                          <p className="font-mono text-zinc-300 text-[11px]">
+                            {profile.last_synced_at 
+                              ? new Date(profile.last_synced_at).toLocaleString() 
+                              : "Never Synced"}
+                          </p>
+                        </div>
+                        <div className="space-y-0.5 text-right">
+                          <p className="text-zinc-500 font-bold uppercase text-[8px] tracking-wider">Total Activities</p>
+                          <p className="font-mono text-emerald-400 font-extrabold text-[11px]">{profile.activities_count || 0}</p>
+                        </div>
+                      </div>
+
+                      {syncError && (
+                        <div className="flex items-center gap-1.5 p-2.5 rounded-xl bg-red-950/20 border border-red-500/10 text-red-400 text-[10px] text-left">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                          <span>{syncError}</span>
+                        </div>
+                      )}
+
+                      <Button
+                        onClick={handleSyncActivities}
+                        disabled={isSyncing}
+                        className="w-full h-10 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-800 text-black font-extrabold rounded-xl transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer shadow-[0_2px_8px_rgba(16,185,129,0.15)] hover:scale-[1.01] active:scale-[0.99]"
+                      >
+                        {isSyncing ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Syncing Activities...
+                          </>
+                        ) : (
+                          <>
+                            <Activity className="h-4 w-4" />
+                            Sync Activities
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   /* Strava Not Connected State */
@@ -297,6 +375,69 @@ export default function DashboardClient({ initialProfile }: DashboardClientProps
 
             </div>
           </div>
+
+          {/* Latest Activities Card */}
+          {profile.strava_connected && profile.activities && profile.activities.length > 0 && (
+            <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] relative overflow-hidden group">
+              {/* Top border ambient highlight */}
+              <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-emerald-400/20 to-transparent" />
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                    LATEST SYNCED ACTIVITIES
+                  </h3>
+                  <span className="text-[9px] text-zinc-500 font-medium font-mono">
+                    Showing 5 newest
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {profile.activities.map((activity, index) => {
+                    const isRide = activity.sport_type === "Ride";
+                    const isRun = activity.sport_type === "Run";
+                    
+                    return (
+                      <div 
+                        key={index} 
+                        className="flex items-center justify-between p-3 rounded-xl bg-zinc-950/40 border border-white/5 hover:border-white/10 transition-all hover:translate-x-0.5 group/activity"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {/* Sport Specific Icon */}
+                          <div className={`p-2 rounded-lg shrink-0 ${
+                            isRide ? "bg-amber-500/10 text-amber-400" :
+                            isRun ? "bg-emerald-500/10 text-emerald-400" :
+                            "bg-blue-500/10 text-blue-400"
+                          }`}>
+                            {isRide ? <Bike className="h-4 w-4" /> :
+                             isRun ? <Footprints className="h-4 w-4" /> :
+                             <Footprints className="h-4 w-4" />}
+                          </div>
+                          <div className="text-left min-w-0">
+                            <h4 className="text-xs font-bold text-white truncate max-w-[160px] sm:max-w-[190px]">
+                              {activity.name}
+                            </h4>
+                            <p className="text-[9px] text-zinc-500 font-medium uppercase tracking-wide mt-0.5">
+                              {activity.sport_type} • {new Date(activity.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <p className="text-xs font-mono font-bold text-white">
+                            {(activity.distance / 1000).toFixed(2)} km
+                          </p>
+                          <p className="text-[9px] text-zinc-500 font-mono mt-0.5">
+                            {Math.round(activity.moving_time / 60)} min
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
           
         </div>
       </main>
