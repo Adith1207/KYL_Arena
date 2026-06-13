@@ -37,23 +37,9 @@ export default function DashboardClient({ initialProfile }: DashboardClientProps
     await supabase.auth.signOut();
   };
 
-  const handleConnectStrava = async () => {
+  const handleConnectStrava = () => {
     setLoadingConnect(true);
-
-    const clientId = process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID;
-    const isStravaMock = 
-      !clientId || 
-      clientId.includes("placeholder");
-
-    const callbackUrl = `${window.location.origin}/api/strava/callback`;
-
-    if (isStravaMock) {
-      // Redirect to server-side mock callback to insert DB connection & update state
-      window.location.href = `${callbackUrl}?code=mock_code&state=${profile.id}&mock=true`;
-    } else {
-      // Live Strava OAuth Authorization Redirect
-      window.location.href = `https://www.strava.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code&scope=read,activity:read_all&state=${profile.id}`;
-    }
+    window.location.href = "/api/strava/connect";
   };
 
   const handleDisconnectStrava = async () => {

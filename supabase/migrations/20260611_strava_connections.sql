@@ -36,3 +36,28 @@ CREATE POLICY "Users can update their own Strava connections"
 CREATE POLICY "Users can delete their own Strava connections" 
   ON public.strava_connections FOR DELETE 
   USING (auth.uid() = user_id);
+
+-- Revoke all table-level access from default roles to implement column-level security
+REVOKE ALL ON public.strava_connections FROM PUBLIC;
+REVOKE ALL ON public.strava_connections FROM authenticated;
+REVOKE ALL ON public.strava_connections FROM anon;
+
+-- Grant column-level SELECT privileges for non-sensitive data to authenticated users
+GRANT SELECT (
+  user_id,
+  strava_athlete_id,
+  athlete_name,
+  athlete_username,
+  athlete_avatar,
+  expires_at,
+  created_at,
+  updated_at
+) ON public.strava_connections TO authenticated;
+
+-- Grant DELETE privileges to authenticated users (for account disconnecting)
+GRANT DELETE ON public.strava_connections TO authenticated;
+
+-- Grant full control to service_role and postgres roles for system processes
+GRANT ALL ON public.strava_connections TO service_role;
+GRANT ALL ON public.strava_connections TO postgres;
+

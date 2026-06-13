@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
+
 
 /**
  * Route Handler: GET /api/strava/callback
@@ -35,7 +36,7 @@ export async function GET(request: Request) {
   }
 
   // Check if Strava API connection should be mocked
-  const clientId = process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID;
+  const clientId = process.env.STRAVA_CLIENT_ID || process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID;
   const clientSecret = process.env.STRAVA_CLIENT_SECRET;
   const isMock = 
     isMockParam ||
@@ -51,7 +52,8 @@ export async function GET(request: Request) {
     console.log("Simulating Strava connection callback in Mock Mode.");
 
     // 1. Save mock connection details
-    const { error: insertError } = await supabase
+    const supabaseAdmin = await createAdminClient();
+    const { error: insertError } = await supabaseAdmin
       .from("strava_connections")
       .upsert({
         user_id: user.id,
@@ -71,7 +73,7 @@ export async function GET(request: Request) {
     }
 
     // 2. Update user profile flags
-    const { error: profileError } = await supabase
+    const { error: profileError } = await supabaseAdmin
       .from("profiles")
       .update({
         strava_connected: true,
@@ -113,7 +115,8 @@ export async function GET(request: Request) {
     const athleteName = [athlete.firstname, athlete.lastname].filter(Boolean).join(" ");
 
     // 1. Save token credentials and athlete metadata
-    const { error: insertError } = await supabase
+    const supabaseAdmin = await createAdminClient();
+    const { error: insertError } = await supabaseAdmin
       .from("strava_connections")
       .upsert({
         user_id: user.id,
@@ -133,7 +136,7 @@ export async function GET(request: Request) {
     }
 
     // 2. Update public profile connected flags
-    const { error: profileError } = await supabase
+    const { error: profileError } = await supabaseAdmin
       .from("profiles")
       .update({
         strava_connected: true,

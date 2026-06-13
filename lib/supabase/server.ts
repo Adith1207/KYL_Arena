@@ -41,6 +41,39 @@ export async function createClient(): Promise<SupabaseClient> {
 }
 
 /**
+ * Creates an administrative server-side Supabase client instance using the service role key.
+ * This client bypasses Row Level Security (RLS) policies.
+ * Falls back to a Mock Client if environment values are empty or set to placeholders.
+ */
+export async function createAdminClient(): Promise<SupabaseClient> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  const isMock = 
+    !url || 
+    url.includes("placeholder") || 
+    !serviceRoleKey || 
+    serviceRoleKey.includes("placeholder");
+
+  if (isMock) {
+    const cookieStore = await cookies();
+    return createMockServerClient(cookieStore) as unknown as SupabaseClient;
+  }
+
+  return createServerClient(url, serviceRoleKey, {
+    cookies: {
+      getAll() {
+        return [];
+      },
+      setAll() {
+        // No-op
+      },
+    },
+  }) as unknown as SupabaseClient;
+}
+
+
+/**
  * Generates a mock server client matching the Supabase JS server client structure.
  */
 function createMockServerClient(cookieStore: any) {
@@ -121,6 +154,18 @@ function createMockServerClient(cookieStore: any) {
                   const isStravaLinked = cookieStore.get("kyl-mock-strava-linked")?.value === "true";
                   const isStrava = provider === "strava" || isStravaLinked;
 
+                  // For dashboard page.tsx: it queries strava_connections to get athlete_name etc.
+                  if (table === "strava_connections" && isStrava) {
+                    return {
+                      data: {
+                        athlete_name: "Adith Strava",
+                        athlete_username: "adith_strava",
+                        athlete_avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80",
+                      },
+                      error: null
+                    };
+                  }
+
                   return {
                     data: {
                       id: "mock-uuid-12345678",
@@ -137,6 +182,38 @@ function createMockServerClient(cookieStore: any) {
                   };
                 }
               };
+            }
+          };
+        },
+
+        upsert(values: any) {
+          // If inserting or updating strava_connections mock status, we set the mock cookie
+          if (table === "strava_connections") {
+            cookieStore.set("kyl-mock-strava-linked", "true", { path: "/" });
+          }
+          return Promise.resolve({ error: null, data: null });
+        },
+
+        update(values: any) {
+          if (values.strava_connected === true) {
+            cookieStore.set("kyl-mock-strava-linked", "true", { path: "/" });
+          } else if (values.strava_connected === false) {
+            cookieStore.set("kyl-mock-strava-linked", "false", { path: "/" });
+          }
+          return {
+            eq(column: string, value: any) {
+              return Promise.resolve({ error: null, data: null });
+            }
+          };
+        },
+
+        delete() {
+          if (table === "strava_connections") {
+            cookieStore.set("kyl-mock-strava-linked", "false", { path: "/" });
+          }
+          return {
+            eq(column: string, value: any) {
+              return Promise.resolve({ error: null, data: null });
             }
           };
         }

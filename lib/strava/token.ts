@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 
 /**
  * Server-side utility to retrieve a valid Strava access token for a user.
@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
  * Transparently supports simulated refresh if running in Mock Mode.
  */
 export async function getValidStravaToken(userId: string): Promise<string | null> {
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   // Retrieve the athlete's token entry
   const { data: conn, error } = await supabase
@@ -30,7 +30,7 @@ export async function getValidStravaToken(userId: string): Promise<string | null
   }
 
   // Token is expired/expiring. Refresh is required.
-  const clientId = process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID;
+  const clientId = process.env.STRAVA_CLIENT_ID || process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID;
   const clientSecret = process.env.STRAVA_CLIENT_SECRET;
   const isMock = 
     !clientId || 
