@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Loader2, LogOut, Activity, AlertTriangle, CheckCircle, ShieldAlert, Award, ArrowLeft } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { Loader2, LogOut, Activity, AlertTriangle, CheckCircle, ShieldAlert, Award, ArrowLeft, Bike, Footprints } from "lucide-react";
 
 interface ProfileData {
   id: string;
@@ -14,27 +13,110 @@ interface ProfileData {
   auth_provider: string;
   strava_connected: boolean;
   strava_athlete_id: string | null;
+  last_synced_at?: string | null;
+  activities?: {
+    name: string;
+    sport_type: string;
+    distance: number;
+    moving_time: number;
+    start_date: string;
+  }[];
+  activities_count?: number;
   strava_connection?: {
     athlete_name: string | null;
     athlete_username: string | null;
     athlete_avatar: string | null;
+    created_at?: string | null;
   } | null;
 }
 
 interface DashboardClientProps {
   initialProfile: ProfileData;
+  errorParam?: string;
+  infoParam?: string;
+  diagnostics?: {
+    supabaseUser: {
+      id: string;
+      email: string;
+      provider: string;
+      lastSignIn: string;
+    };
+    athleteId: string;
+    existingConnectionCount: number;
+    oauthCallbackResult: string;
+    profileLookupResult: string;
+  };
 }
 
-export default function DashboardClient({ initialProfile }: DashboardClientProps) {
+export default function DashboardClient({ 
+  initialProfile, 
+  errorParam, 
+  infoParam, 
+  diagnostics 
+}: DashboardClientProps) {
   const [profile, setProfile] = useState<ProfileData>(initialProfile);
   const [loadingConnect, setLoadingConnect] = useState(false);
   const [loadingDisconnect, setLoadingDisconnect] = useState(false);
   const [loadingLogout, setLoadingLogout] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => {
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, []);
+
+  const handleSyncActivities = async () => {
+    setIsSyncing(true);
+    setSyncError(null);
+    try {
+      const res = await fetch("/api/strava/sync");
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        setProfile((prev) => ({
+          ...prev,
+          last_synced_at: data.last_synced_at,
+          activities: data.latest_activities,
+          activities_count: data.activities_count,
+        }));
+      } else {
+        setSyncError(data.error || "Failed to synchronize activities. Please try again.");
+      }
+    } catch {
+      setSyncError("Network error synchronizing activities.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const [currentConnectionCount, setCurrentConnectionCount] = useState<number | undefined>(
+    diagnostics?.existingConnectionCount
+  );
 
   const handleLogout = async () => {
     setLoadingLogout(true);
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (e) {
+      console.error("Sign out error:", e);
+    } finally {
+      // Clear localStorage
+      localStorage.removeItem("kyl_mock_user");
+      localStorage.removeItem("kyl_mock_strava_linked");
+      localStorage.removeItem("kyl_mock_activities_synced");
+      localStorage.removeItem("kyl_mock_last_synced_at");
+      
+      // Always redirect to login page
+      window.location.href = "/login";
+    }
   };
 
   const handleConnectStrava = () => {
@@ -58,11 +140,12 @@ export default function DashboardClient({ initialProfile }: DashboardClientProps
           strava_athlete_id: null,
           strava_connection: null,
         }));
+        setCurrentConnectionCount(prev => prev !== undefined ? Math.max(0, prev - 1) : 0);
       } else {
         const data = await res.json();
         alert(`Failed to disconnect: ${data.error || "Unknown error"}`);
       }
-    } catch (e) {
+    } catch {
       alert("Error disconnecting Strava.");
     } finally {
       setLoadingDisconnect(false);
@@ -137,6 +220,45 @@ export default function DashboardClient({ initialProfile }: DashboardClientProps
 
             <div className="space-y-6 relative z-10">
               
+              {/* Alert Banners */}
+              {errorParam && (
+                <div className="flex items-start gap-3 p-4 rounded-2xl bg-red-950/25 border border-red-500/20 text-red-400 text-xs text-left animate-in fade-in duration-300">
+                  <AlertTriangle className="h-5 w-5 shrink-0 text-red-500 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-extrabold uppercase tracking-wider text-[10px] text-red-500">Authentication Alert</p>
+                    <p className="font-medium text-zinc-300">
+                      {errorParam === "strava_already_linked"
+                        ? "This Strava account is already linked to another account."
+                        : errorParam === "invalid_state"
+                        ? "Security verification failed (Invalid State). Please try connecting again."
+                        : errorParam === "oauth_exchange_failed"
+                        ? "Failed to exchange authorization tokens with Strava."
+                        : errorParam === "db_insert_failed"
+                        ? "Failed to save Strava connection in the database."
+                        : errorParam === "signup_failed"
+                        ? "Failed to register an athlete profile account."
+                        : errorParam === "signin_failed"
+                        ? "Failed to establish a login session."
+                        : errorParam === "db_query_failed"
+                        ? "Database verification query failed."
+                        : `Error: ${errorParam}`}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {infoParam === "already_connected" && (
+                <div className="flex items-start gap-3 p-4 rounded-2xl bg-emerald-950/25 border border-emerald-500/20 text-emerald-400 text-xs text-left animate-in fade-in duration-300">
+                  <CheckCircle className="h-5 w-5 shrink-0 text-emerald-500 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-extrabold uppercase tracking-wider text-[10px] text-emerald-400">Notice</p>
+                    <p className="font-medium text-zinc-300">
+                      Your Strava account is already successfully linked.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Profile Details Row */}
               <div className="flex items-center gap-4 border-b border-white/5 pb-6">
                 {profile.avatar ? (
@@ -216,19 +338,77 @@ export default function DashboardClient({ initialProfile }: DashboardClientProps
                       Your Strava account is linked successfully. Your cycling, running, and walking activities will sync automatically to challenges and leaderboards.
                     </p>
                     
-                    <div className="text-[10px] text-zinc-500 flex items-center justify-between gap-1.5 bg-zinc-950/20 px-2.5 py-1.5 rounded-lg border border-white/5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold uppercase text-zinc-400">Athlete ID:</span>
-                        <code className="font-mono text-emerald-400/80">{profile.strava_athlete_id}</code>
+                    <div className="space-y-2 text-[10px] text-zinc-500 bg-zinc-950/20 p-3 rounded-lg border border-white/5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold uppercase text-zinc-400">Athlete ID:</span>
+                          <code className="font-mono text-emerald-400/80">{profile.strava_athlete_id}</code>
+                        </div>
+                        
+                        <Button
+                          onClick={handleDisconnectStrava}
+                          disabled={loadingDisconnect}
+                          variant="ghost"
+                          className="h-5 px-1.5 text-[9px] font-black uppercase tracking-wider text-red-400 hover:text-red-300 hover:bg-red-950/20 rounded border border-red-500/10 cursor-pointer"
+                        >
+                          {loadingDisconnect ? "Disconnecting..." : "Disconnect"}
+                        </Button>
                       </div>
-                      
+
+                      {profile.strava_connection?.created_at && (
+                        <div className="flex items-center gap-1.5 pt-1.5 border-t border-white/5">
+                          <span className="font-bold uppercase text-zinc-400">Connected Date:</span>
+                          <span className="text-zinc-350 font-mono" suppressHydrationWarning>
+                            {new Date(profile.strava_connection.created_at).toLocaleDateString(undefined, {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            })}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sync Activities Action & Stats */}
+                    <div className="border-t border-white/5 pt-4 space-y-3">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="space-y-0.5 text-left">
+                          <p className="text-zinc-500 font-bold uppercase text-[8px] tracking-wider">Last Sync</p>
+                          <p className="font-mono text-zinc-300 text-[11px]" suppressHydrationWarning>
+                            {profile.last_synced_at 
+                              ? new Date(profile.last_synced_at).toLocaleString() 
+                              : "Never Synced"}
+                          </p>
+                        </div>
+                        <div className="space-y-0.5 text-right">
+                          <p className="text-zinc-500 font-bold uppercase text-[8px] tracking-wider">Total Activities</p>
+                          <p className="font-mono text-emerald-400 font-extrabold text-[11px]">{profile.activities_count || 0}</p>
+                        </div>
+                      </div>
+
+                      {syncError && (
+                        <div className="flex items-center gap-1.5 p-2.5 rounded-xl bg-red-950/20 border border-red-500/10 text-red-400 text-[10px] text-left">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                          <span>{syncError}</span>
+                        </div>
+                      )}
+
                       <Button
-                        onClick={handleDisconnectStrava}
-                        disabled={loadingDisconnect}
-                        variant="ghost"
-                        className="h-6 px-2 text-[9px] font-black uppercase tracking-wider text-red-400 hover:text-red-300 hover:bg-red-950/20 rounded border border-red-500/10 cursor-pointer"
+                        onClick={handleSyncActivities}
+                        disabled={isSyncing}
+                        className="w-full h-10 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-800 text-black font-extrabold rounded-xl transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer shadow-[0_2px_8px_rgba(16,185,129,0.15)] hover:scale-[1.01] active:scale-[0.99]"
                       >
-                        {loadingDisconnect ? "Disconnecting..." : "Disconnect"}
+                        {isSyncing ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Syncing Activities...
+                          </>
+                        ) : (
+                          <>
+                            <Activity className="h-4 w-4" />
+                            Sync Activities
+                          </>
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -297,6 +477,114 @@ export default function DashboardClient({ initialProfile }: DashboardClientProps
 
             </div>
           </div>
+
+          {/* Latest Activities Card */}
+          {profile.strava_connected && profile.activities && profile.activities.length > 0 && (
+            <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] relative overflow-hidden group">
+              {/* Top border ambient highlight */}
+              <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-emerald-400/20 to-transparent" />
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                    LATEST SYNCED ACTIVITIES
+                  </h3>
+                  <span className="text-[9px] text-zinc-500 font-medium font-mono">
+                    Showing 5 newest
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {profile.activities.map((activity, index) => {
+                    const isRide = activity.sport_type === "Ride";
+                    const isRun = activity.sport_type === "Run";
+                    
+                    return (
+                      <div 
+                        key={index} 
+                        className="flex items-center justify-between p-3 rounded-xl bg-zinc-950/40 border border-white/5 hover:border-white/10 transition-all hover:translate-x-0.5 group/activity"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {/* Sport Specific Icon */}
+                          <div className={`p-2 rounded-lg shrink-0 ${
+                            isRide ? "bg-amber-500/10 text-amber-400" :
+                            isRun ? "bg-emerald-500/10 text-emerald-400" :
+                            "bg-blue-500/10 text-blue-400"
+                          }`}>
+                            {isRide ? <Bike className="h-4 w-4" /> :
+                             isRun ? <Footprints className="h-4 w-4" /> :
+                             <Footprints className="h-4 w-4" />}
+                          </div>
+                          <div className="text-left min-w-0">
+                            <h4 className="text-xs font-bold text-white truncate max-w-[160px] sm:max-w-[190px]">
+                              {activity.name}
+                            </h4>
+                            <p className="text-[9px] text-zinc-500 font-medium uppercase tracking-wide mt-0.5" suppressHydrationWarning>
+                              {activity.sport_type} • {new Date(activity.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <p className="text-xs font-mono font-bold text-white">
+                            {(activity.distance / 1000).toFixed(2)} km
+                          </p>
+                          <p className="text-[9px] text-zinc-500 font-mono mt-0.5">
+                            {Math.round(activity.moving_time / 60)} min
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Diagnostics Console Accordion */}
+          {diagnostics && (
+            <div className="bg-zinc-900/20 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden mt-6 animate-in fade-in duration-300">
+              <details className="group">
+                <summary className="flex items-center justify-between p-4 text-xs font-black uppercase tracking-wider text-zinc-400 hover:text-white cursor-pointer select-none">
+                  <span className="flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-lime-400" />
+                    Session Diagnostics Console
+                  </span>
+                  <span className="text-[10px] text-zinc-500 group-open:rotate-180 transition-transform duration-200">
+                    ▼
+                  </span>
+                </summary>
+                
+                <div className="p-4 border-t border-white/5 bg-zinc-950/90 text-left font-mono text-[10px] text-zinc-400 space-y-3.5 overflow-x-auto leading-relaxed">
+                  <div className="space-y-1">
+                    <p className="text-zinc-500 uppercase tracking-widest text-[9px] font-bold">1. Current Supabase User</p>
+                    <div className="pl-3 border-l border-lime-500/20 space-y-0.5">
+                      <p><span className="text-zinc-500">ID:</span> {diagnostics.supabaseUser.id}</p>
+                      <p><span className="text-zinc-500">Email:</span> {diagnostics.supabaseUser.email}</p>
+                      <p><span className="text-zinc-500">Auth Provider:</span> <span className="text-lime-400">{diagnostics.supabaseUser.provider}</span></p>
+                      <p><span className="text-zinc-500">Last Sign-In:</span> {diagnostics.supabaseUser.lastSignIn}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-zinc-500 uppercase tracking-widest text-[9px] font-bold">2. Linked Athlete Connection</p>
+                    <div className="pl-3 border-l border-lime-500/20 space-y-0.5">
+                      <p><span className="text-zinc-500">Athlete ID:</span> {profile.strava_athlete_id || "None connected"}</p>
+                      <p><span className="text-zinc-500">Database Connection Count:</span> {currentConnectionCount ?? 0}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-zinc-500 uppercase tracking-widest text-[9px] font-bold">3. Authentication Callback Logs</p>
+                    <div className="pl-3 border-l border-lime-500/20 space-y-0.5">
+                      <p><span className="text-zinc-500">Callback Result:</span> <span className={diagnostics.oauthCallbackResult.includes("Error") ? "text-red-400" : "text-emerald-400"}>{diagnostics.oauthCallbackResult}</span></p>
+                      <p><span className="text-zinc-500">Profile Lookup Result:</span> {diagnostics.profileLookupResult}</p>
+                    </div>
+                  </div>
+                </div>
+              </details>
+            </div>
+          )}
           
         </div>
       </main>

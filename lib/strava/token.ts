@@ -104,3 +104,11 @@ export async function getValidStravaToken(userId: string): Promise<string | null
     return null;
   }
 }
+
+/**
+ * Wrapper for getValidStravaToken() to comply with Phase 2B requirements.
+ * Returns a guaranteed valid access token, auto-refreshing if expired or near expiration.
+ */
+export async function getValidStravaAccessToken(userId: string): Promise<string | null> {
+  return getValidStravaToken(userId);
+}

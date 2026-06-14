@@ -13,8 +13,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "KYL Arena — Automated Fitness Challenges for Communities",
+  title: {
+    default: "KYL Arena",
+    template: "%s — KYL Arena",
+  },
   description: "Stop checking Strava profiles manually. Create fitness challenges, track participants automatically, and manage your entire community from a single dashboard.",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({

@@ -18,23 +18,43 @@ export async function GET(request: Request) {
 
   if (!code || !state) {
     console.error("Missing code or state params in callback.");
-    return NextResponse.redirect(new URL("/dashboard?error=missing_params", origin));
+    return NextResponse.redirect(new URL("/login?error=missing_params", origin));
   }
 
   // Get active authenticated session user (if any)
   const supabase = await createClient();
   let { data: { user } } = await supabase.auth.getUser();
 
-  // Determine if this is a fresh login request vs linking an existing user
-  const isFreshLogin = state === "auth";
+  // Validate CSRF state parameter against HttpOnly cookie
+  const cookieStore = await cookies();
+  const storedCsrf = cookieStore.get("strava-oauth-state")?.value;
+
+  const stateParts = state.split(":");
+  const flowType = stateParts[0];
+  const csrfParam = stateParts[1];
+
+  if (!storedCsrf || !csrfParam || storedCsrf !== csrfParam) {
+    console.error("CSRF warning: State mismatch or missing secure cookie.", {
+      storedCsrf,
+      csrfParam,
+    });
+    // Clean up CSRF state cookie
+    cookieStore.delete("strava-oauth-state");
+    return NextResponse.redirect(new URL(user ? "/dashboard?error=invalid_state" : "/login?error=invalid_state", origin));
+  }
+
+  // Clean up state cookie on successful verification
+  cookieStore.delete("strava-oauth-state");
+
+  const isFreshLogin = flowType === "auth";
 
   if (!isFreshLogin) {
     if (!user) {
       console.error("Unauthorized callback request: state suggests linking but no active session.");
       return NextResponse.redirect(new URL("/login?error=unauthorized", origin));
     }
-    if (state !== user.id) {
-      console.error("CSRF warning: Callback state mismatch.", { state, userId: user.id });
+    if (flowType !== user.id) {
+      console.error("CSRF warning: Callback state user ID mismatch.", { flowType, userId: user.id });
       return NextResponse.redirect(new URL("/dashboard?error=invalid_state", origin));
     }
   }
@@ -50,7 +70,7 @@ export async function GET(request: Request) {
     clientSecret.includes("placeholder");
 
   if (isMock) {
-    let finalUserId = user?.id || "mock-uuid-12345678";
+    const finalUserId = user?.id || "mock-uuid-12345678";
     const mockAthleteId = `mock_athlete_${finalUserId.substring(0, 8)}`;
     const mockExpiresAt = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString();
 
@@ -64,8 +84,20 @@ export async function GET(request: Request) {
     }
     cookieStore.set("kyl-mock-strava-linked", "true", { path: "/" });
 
-    // 1. Save mock connection details
+    // 1. Verify that the mock athlete is not already linked to another account
     const supabaseAdmin = await createAdminClient();
+    const { data: existingMockConn, error: mockConnErr } = await supabaseAdmin
+      .from("strava_connections")
+      .select("user_id")
+      .eq("strava_athlete_id", mockAthleteId)
+      .maybeSingle();
+
+    if (!mockConnErr && existingMockConn && existingMockConn.user_id !== finalUserId) {
+      console.warn(`Mock Athlete ID ${mockAthleteId} already linked to another account: ${existingMockConn.user_id}`);
+      return NextResponse.redirect(new URL(user ? "/dashboard?error=strava_already_linked" : "/login?error=strava_already_linked", origin));
+    }
+
+    // 2. Save mock connection details
     const { error: insertError } = await supabaseAdmin
       .from("strava_connections")
       .upsert({
@@ -121,57 +153,171 @@ export async function GET(request: Request) {
     if (!res.ok) {
       const errText = await res.text();
       console.error("Strava OAuth exchange failed with status:", res.status, errText);
-      return NextResponse.redirect(new URL("/dashboard?error=oauth_exchange_failed", origin));
+      return NextResponse.redirect(new URL(isFreshLogin ? "/login?error=oauth_exchange_failed" : "/dashboard?error=oauth_exchange_failed", origin));
     }
 
     const data = await res.json();
     const expiresAtDate = new Date(data.expires_at * 1000).toISOString();
     const athlete = data.athlete;
     const athleteName = [athlete.firstname, athlete.lastname].filter(Boolean).join(" ");
+    const athleteIdStr = String(athlete.id);
 
-    // If this is a fresh login, we must establish a user session in Supabase first!
-    if (isFreshLogin) {
-      const email = athlete.email || `strava-${athlete.id}@kylarena.com`;
-      const password = `strava-oauth-secret-${athlete.id}-${clientSecret}`;
+    const supabaseAdmin = await createAdminClient();
 
-      // Try signing in
-      let { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    console.log("Diagnostic - callback route:", {
+      isFreshLogin,
+      userId: user?.id,
+      athleteId: athleteIdStr,
+    });
 
-      if (signInError) {
-        // Create user using admin client
-        const supabaseAdmin = await createAdminClient();
-        const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
-          email,
-          password,
-          email_confirm: true,
-          user_metadata: {
-            full_name: athleteName || "Strava Athlete",
-            avatar_url: athlete.profile || "",
-          },
-        });
+    // D1 & D2: Check if athlete already belongs to any account
+    const { data: existingConnection, error: connQueryError } = await supabaseAdmin
+      .from("strava_connections")
+      .select("user_id")
+      .eq("strava_athlete_id", athleteIdStr)
+      .maybeSingle();
 
-        if (createError) {
-          console.error("Failed to create Supabase user for Strava login:", createError);
-          return NextResponse.redirect(new URL("/login?error=signup_failed", origin));
+    console.log("Diagnostic - existing connection query:", {
+      existingConnection,
+      connQueryError,
+    });
+
+    if (connQueryError) {
+      console.error("Failed to query existing connections for athlete:", connQueryError);
+      return NextResponse.redirect(new URL(isFreshLogin ? "/login?error=db_query_failed" : "/dashboard?error=db_query_failed", origin));
+    }
+
+    // Check conflict or returning logic
+    if (existingConnection) {
+      if (user) {
+        // Authenticated user linking
+        if (existingConnection.user_id !== user.id) {
+          // D3: Reject if athlete already belongs to another user
+          console.warn(`Athlete ID ${athleteIdStr} already linked to another account: ${existingConnection.user_id}`);
+          return NextResponse.redirect(new URL("/dashboard?error=strava_already_linked", origin));
+        }
+        // If it's the same user, proceed to link/update
+      } else {
+        // B: Returning Strava Login
+        const { data: userData, error: userFetchError } = await supabaseAdmin.auth.admin.getUserById(existingConnection.user_id);
+        const existingUser = userData?.user;
+
+        if (userFetchError || !existingUser) {
+          console.error("Failed to fetch user for existing Strava connection:", userFetchError);
+          return NextResponse.redirect(new URL("/login?error=user_not_found", origin));
         }
 
-        user = createData.user;
+        user = existingUser;
 
-        // Sign in
-        const { error: secondSignInError } = await supabase.auth.signInWithPassword({
-          email,
+        // Set deterministic password to allow signInWithPassword
+        const password = `strava-oauth-secret-${athleteIdStr}-${clientSecret}`;
+        const { error: passwordUpdateError } = await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
+          password: password,
+        });
+
+        if (passwordUpdateError) {
+          console.error("Failed to set password on returning user login:", passwordUpdateError);
+          return NextResponse.redirect(new URL("/login?error=password_update_failed", origin));
+        }
+
+        // Establish Supabase session for this returning user
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: existingUser.email!,
           password,
         });
 
-        if (secondSignInError) {
-          console.error("Failed to sign in after user creation:", secondSignInError);
+        console.log("Diagnostic - sign in returning user result:", {
+          email: existingUser.email,
+          signInError,
+        });
+
+        if (signInError) {
+          console.error("Failed to sign in returning user:", signInError);
           return NextResponse.redirect(new URL("/login?error=signin_failed", origin));
         }
+      }
+    } else {
+      // Athlete connection doesn't exist yet
+      if (user) {
+        // Google User + Strava Linking
+        // Set secure deterministic password on the existing user for future logins
+        const password = `strava-oauth-secret-${athleteIdStr}-${clientSecret}`;
+        await supabaseAdmin.auth.admin.updateUserById(user.id, {
+          password: password,
+        });
       } else {
-        user = signInData.user;
+        // A: First-time Strava Login
+        const email = athlete.email || `strava-${athleteIdStr}@kylarena.com`;
+
+        // Check if a user with this email already exists
+        const { data: existingProfile, error: profileQueryErr } = await supabaseAdmin
+          .from("profiles")
+          .select("id, strava_connected")
+          .eq("email", email)
+          .maybeSingle();
+
+        console.log("Diagnostic - first-time email profile query:", {
+          email,
+          existingProfile,
+          profileQueryErr,
+        });
+
+        if (existingProfile) {
+          if (existingProfile.strava_connected) {
+            // Already connected to a different athlete ID
+            console.warn(`User with email ${email} is already connected to another Strava account.`);
+            return NextResponse.redirect(new URL("/login?error=strava_already_linked", origin));
+          }
+
+          // Link new Strava athlete to the existing user account
+          const password = `strava-oauth-secret-${athleteIdStr}-${clientSecret}`;
+          await supabaseAdmin.auth.admin.updateUserById(existingProfile.id, {
+            password: password,
+          });
+
+          // Sign in
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+
+          if (signInError) {
+            console.error("Failed to sign in existing user for first-time link:", signInError);
+            return NextResponse.redirect(new URL("/login?error=signin_failed", origin));
+          }
+
+          user = { id: existingProfile.id, email } as unknown as import("@supabase/supabase-js").User;
+        } else {
+          // Brand new user and profile
+          const password = `strava-oauth-secret-${athleteIdStr}-${clientSecret}`;
+          const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+            email,
+            password,
+            email_confirm: true,
+            user_metadata: {
+              full_name: athleteName || "Strava Athlete",
+              avatar_url: athlete.profile || "",
+            },
+          });
+
+          if (createError) {
+            console.error("Failed to create Supabase user on first-time Strava login:", createError);
+            return NextResponse.redirect(new URL("/login?error=signup_failed", origin));
+          }
+
+          user = createData.user;
+
+          // Sign in
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+
+          if (signInError) {
+            console.error("Failed to sign in after user creation:", signInError);
+            return NextResponse.redirect(new URL("/login?error=signin_failed", origin));
+          }
+        }
       }
     }
 
@@ -181,12 +327,11 @@ export async function GET(request: Request) {
     }
 
     // 1. Save token credentials and athlete metadata
-    const supabaseAdmin = await createAdminClient();
     const { error: insertError } = await supabaseAdmin
       .from("strava_connections")
       .upsert({
         user_id: user.id,
-        strava_athlete_id: String(athlete.id),
+        strava_athlete_id: athleteIdStr,
         athlete_name: athleteName || null,
         athlete_username: athlete.username || null,
         athlete_avatar: athlete.profile || null,
@@ -198,7 +343,7 @@ export async function GET(request: Request) {
 
     if (insertError) {
       console.error("Failed to store Strava credentials in database:", insertError);
-      return NextResponse.redirect(new URL("/login?error=db_insert_failed", origin));
+      return NextResponse.redirect(new URL(isFreshLogin ? "/login?error=db_insert_failed" : "/dashboard?error=db_insert_failed", origin));
     }
 
     // 2. Update public profile connected flags
@@ -206,7 +351,7 @@ export async function GET(request: Request) {
       .from("profiles")
       .update({
         strava_connected: true,
-        strava_athlete_id: String(athlete.id),
+        strava_athlete_id: athleteIdStr,
       })
       .eq("id", user.id);
 
@@ -217,6 +362,6 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/dashboard?strava_connected=success", origin));
   } catch (err) {
     console.error("Exceptional error during Strava OAuth callback handler:", err);
-    return NextResponse.redirect(new URL("/login?error=exceptional_failure", origin));
+    return NextResponse.redirect(new URL(isFreshLogin ? "/login?error=exceptional_failure" : "/dashboard?error=exceptional_failure", origin));
   }
 }
