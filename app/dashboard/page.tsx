@@ -47,24 +47,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       profileLookupResult = `Failed: ${profileError?.message || "No profile found"}`;
     }
   } catch (e: unknown) {
-    // Fallback if public profile query fails
-    profile = null;
     const errMsg = e instanceof Error ? e.message : "Unexpected exception";
     profileLookupResult = `Error: ${errMsg}`;
   }
 
-  // If profile is missing (e.g. database trigger didn't run), construct a fallback from metadata
-  if (!profile) {
-    const isStrava = user.app_metadata?.provider === "strava";
-    profile = {
-      id: user.id,
-      email: user.email,
-      name: user.user_metadata?.full_name || "Athlete",
-      avatar: user.user_metadata?.avatar_url || "",
-      auth_provider: user.app_metadata?.provider || "google",
-      strava_connected: isStrava,
-      strava_athlete_id: isStrava ? "strava-athlete-999" : null,
-    };
+  // Verify that the profile exists and matches the user ID exactly
+  if (!profile || profile.id !== user.id) {
+    console.error(`Security check failed: Profile missing or ID mismatch for user ${user.id}`);
+    redirect("/login?error=unauthorized");
   }
 
   // Fetch associated athlete details if Strava is connected
@@ -78,9 +68,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }[] = [];
   let activitiesCount = 0;
 
+  const supabaseAdmin = await createAdminClient();
+
   if (profile.strava_connected) {
     try {
-      const { data: connData, error: connError } = await supabase
+      const { data: connData, error: connError } = await supabaseAdmin
         .from("strava_connections")
         .select("athlete_name, athlete_username, athlete_avatar, created_at")
         .eq("user_id", user.id)
@@ -123,7 +115,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   // Fetch overall db connections count using admin client
   let totalConnectionsCount = 0;
   try {
-    const supabaseAdmin = await createAdminClient();
     const { count, error: countError } = await supabaseAdmin
       .from("strava_connections")
       .select("*", { count: "exact", head: true });

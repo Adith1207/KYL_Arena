@@ -227,7 +227,7 @@ function LoginPageContent() {
                       <p className="font-extrabold uppercase tracking-wider text-[9px] text-red-500">Authentication Error</p>
                       <p className="font-medium text-zinc-300">
                         {errorParam === "strava_already_linked"
-                          ? "This Strava account is already linked to another KYL Arena account."
+                          ? "This Strava account is already linked to another account."
                           : errorParam === "invalid_state"
                           ? "Security verification failed (Invalid State). Please try again."
                           : errorParam === "oauth_exchange_failed"

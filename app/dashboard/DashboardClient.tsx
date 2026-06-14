@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Loader2, LogOut, Activity, AlertTriangle, CheckCircle, ShieldAlert, Award, ArrowLeft, Bike, Footprints } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 
 interface ProfileData {
   id: string;
@@ -62,6 +61,18 @@ export default function DashboardClient({
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => {
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, []);
+
   const handleSyncActivities = async () => {
     setIsSyncing(true);
     setSyncError(null);
@@ -93,19 +104,15 @@ export default function DashboardClient({
   const handleLogout = async () => {
     setLoadingLogout(true);
     try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
+      await fetch("/api/auth/logout", { method: "POST" });
     } catch (e) {
       console.error("Sign out error:", e);
     } finally {
-      // Clear mock cookies
-      document.cookie = "kyl-mock-auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-      document.cookie = "kyl-mock-provider=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-      document.cookie = "kyl-mock-strava-linked=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-      
       // Clear localStorage
       localStorage.removeItem("kyl_mock_user");
       localStorage.removeItem("kyl_mock_strava_linked");
+      localStorage.removeItem("kyl_mock_activities_synced");
+      localStorage.removeItem("kyl_mock_last_synced_at");
       
       // Always redirect to login page
       window.location.href = "/login";
@@ -221,7 +228,7 @@ export default function DashboardClient({
                     <p className="font-extrabold uppercase tracking-wider text-[10px] text-red-500">Authentication Alert</p>
                     <p className="font-medium text-zinc-300">
                       {errorParam === "strava_already_linked"
-                        ? "This Strava account is already linked to another KYL Arena account."
+                        ? "This Strava account is already linked to another account."
                         : errorParam === "invalid_state"
                         ? "Security verification failed (Invalid State). Please try connecting again."
                         : errorParam === "oauth_exchange_failed"

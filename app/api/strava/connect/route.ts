@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
 
 /**
  * Route Handler: GET /api/strava/connect
@@ -15,9 +16,11 @@ export async function GET(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
 
   // If already connected, redirect back to dashboard
+  // Use admin client to protect sensitive tokens from unauthorized read permissions
   if (user) {
     try {
-      const { data: connection } = await supabase
+      const supabaseAdmin = await createAdminClient();
+      const { data: connection } = await supabaseAdmin
         .from("strava_connections")
         .select("strava_athlete_id")
         .eq("user_id", user.id)
@@ -32,9 +35,19 @@ export async function GET(request: Request) {
     }
   }
 
-  // Determine the state parameter: if user is logged in, pass user.id to link their account.
-  // Otherwise, pass "auth" to indicate a new login request.
-  const state = user ? user.id : "auth";
+  // Generate a cryptographically secure state parameter to mitigate CSRF attacks
+  const csrfState = crypto.randomUUID();
+  const state = user ? `${user.id}:${csrfState}` : `auth:${csrfState}`;
+
+  // Store the CSRF token in an HTTP-only cookie
+  const cookieStore = await cookies();
+  cookieStore.set("strava-oauth-state", csrfState, {
+    path: "/",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 600, // 10 minutes expiry
+  });
 
   // 2. Detect Mock Mode
   const clientId = process.env.STRAVA_CLIENT_ID || process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID;
@@ -60,12 +73,18 @@ export async function GET(request: Request) {
 
   // 3. Build live Strava OAuth authorization redirect URL
   // Scope requested: read, activity:read_all to access basic info and fitness activities
-  const stravaAuthUrl = `https://www.strava.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code&scope=read,activity:read_all&state=${state}`;
+  // Add re-auth parameter if config flag FORCE_STRAVA_REAUTH is enabled
+  const forceReauth = process.env.FORCE_STRAVA_REAUTH === "true";
+  let stravaAuthUrl = `https://www.strava.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code&scope=read,activity:read_all&state=${state}`;
+  if (forceReauth) {
+    stravaAuthUrl += "&approval_prompt=force";
+  }
 
   console.log("Diagnostic Log - Strava Connect Flow:");
   console.log(`- client ID loaded? ${clientId ? "yes" : "no"} (${clientId})`);
   console.log(`- client secret loaded? ${clientSecret ? "yes" : "no"}`);
   console.log(`- callback URL: ${callbackUrl}`);
+  console.log(`- force re-auth parameter: ${forceReauth}`);
   console.log(`- generated Strava authorization URL: ${stravaAuthUrl}`);
   console.log(`- isMock mode? ${isMock ? "yes" : "no"}`);
 

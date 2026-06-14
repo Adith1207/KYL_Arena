@@ -21,8 +21,15 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
 
-  // Protect the dashboard route
-  if (path.startsWith("/dashboard")) {
+  const isProtectedPath = 
+    path.startsWith("/dashboard") || 
+    path.startsWith("/api/strava/sync") || 
+    path.startsWith("/api/strava/disconnect") ||
+    path.startsWith("/challenges");
+
+  const isLoginPath = path.startsWith("/login");
+
+  if (isProtectedPath || isLoginPath) {
     let isAuthenticated = false;
 
     if (isMock) {
@@ -33,38 +40,29 @@ export async function middleware(request: NextRequest) {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         isAuthenticated = !!user;
-      } catch (e) {
+      } catch {
         isAuthenticated = false;
       }
     }
 
-    if (!isAuthenticated) {
+    if (isProtectedPath && !isAuthenticated) {
       const loginUrl = new URL("/login", request.url);
-      return NextResponse.redirect(loginUrl);
-    }
-  }
-
-  // Redirect authenticated athletes away from /login to the dashboard
-  if (path.startsWith("/login")) {
-    let isAuthenticated = false;
-
-    if (isMock) {
-      isAuthenticated = request.cookies.get("kyl-mock-auth")?.value === "true";
-    } else {
-      try {
-        const { createClient } = await import("@/lib/supabase/server");
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        isAuthenticated = !!user;
-      } catch (e) {
-        isAuthenticated = false;
-      }
+      const redirectResponse = NextResponse.redirect(loginUrl);
+      redirectResponse.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      return redirectResponse;
     }
 
-    if (isAuthenticated) {
+    if (isLoginPath && isAuthenticated) {
       const dashboardUrl = new URL("/dashboard", request.url);
       return NextResponse.redirect(dashboardUrl);
     }
+  }
+
+  // Set Cache-Control headers on all protected HTML pages to prevent browser back-forward cache (bfcache)
+  if (path.startsWith("/dashboard") || path.startsWith("/challenges")) {
+    response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
   }
 
   return response;

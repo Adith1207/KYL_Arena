@@ -25,16 +25,36 @@ export async function GET(request: Request) {
   const supabase = await createClient();
   let { data: { user } } = await supabase.auth.getUser();
 
-  // Determine if this is a fresh login request vs linking an existing user
-  const isFreshLogin = state === "auth";
+  // Validate CSRF state parameter against HttpOnly cookie
+  const cookieStore = await cookies();
+  const storedCsrf = cookieStore.get("strava-oauth-state")?.value;
+
+  const stateParts = state.split(":");
+  const flowType = stateParts[0];
+  const csrfParam = stateParts[1];
+
+  if (!storedCsrf || !csrfParam || storedCsrf !== csrfParam) {
+    console.error("CSRF warning: State mismatch or missing secure cookie.", {
+      storedCsrf,
+      csrfParam,
+    });
+    // Clean up CSRF state cookie
+    cookieStore.delete("strava-oauth-state");
+    return NextResponse.redirect(new URL(user ? "/dashboard?error=invalid_state" : "/login?error=invalid_state", origin));
+  }
+
+  // Clean up state cookie on successful verification
+  cookieStore.delete("strava-oauth-state");
+
+  const isFreshLogin = flowType === "auth";
 
   if (!isFreshLogin) {
     if (!user) {
       console.error("Unauthorized callback request: state suggests linking but no active session.");
       return NextResponse.redirect(new URL("/login?error=unauthorized", origin));
     }
-    if (state !== user.id) {
-      console.error("CSRF warning: Callback state mismatch.", { state, userId: user.id });
+    if (flowType !== user.id) {
+      console.error("CSRF warning: Callback state user ID mismatch.", { flowType, userId: user.id });
       return NextResponse.redirect(new URL("/dashboard?error=invalid_state", origin));
     }
   }
@@ -64,8 +84,20 @@ export async function GET(request: Request) {
     }
     cookieStore.set("kyl-mock-strava-linked", "true", { path: "/" });
 
-    // 1. Save mock connection details
+    // 1. Verify that the mock athlete is not already linked to another account
     const supabaseAdmin = await createAdminClient();
+    const { data: existingMockConn, error: mockConnErr } = await supabaseAdmin
+      .from("strava_connections")
+      .select("user_id")
+      .eq("strava_athlete_id", mockAthleteId)
+      .maybeSingle();
+
+    if (!mockConnErr && existingMockConn && existingMockConn.user_id !== finalUserId) {
+      console.warn(`Mock Athlete ID ${mockAthleteId} already linked to another account: ${existingMockConn.user_id}`);
+      return NextResponse.redirect(new URL(user ? "/dashboard?error=strava_already_linked" : "/login?error=strava_already_linked", origin));
+    }
+
+    // 2. Save mock connection details
     const { error: insertError } = await supabaseAdmin
       .from("strava_connections")
       .upsert({

@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 
 /**
  * Route Handler: POST /api/strava/disconnect
  * Disconnects the athlete's Strava account.
  * Deletes the stored credentials from public.strava_connections and clears flags on public.profiles.
  */
-export async function POST(request: Request) {
+export async function POST() {
   const supabase = await createClient();
 
   // Verify active user session
@@ -16,8 +16,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // 1. Remove credential entry from database
-  const { error: deleteError } = await supabase
+  // 1. Remove credential entry from database using admin client
+  const supabaseAdmin = await createAdminClient();
+  const { error: deleteError } = await supabaseAdmin
     .from("strava_connections")
     .delete()
     .eq("user_id", user.id);
