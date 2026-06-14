@@ -132,12 +132,23 @@ export async function GET(request: Request) {
 
     const supabaseAdmin = await createAdminClient();
 
+    console.log("Diagnostic - callback route:", {
+      isFreshLogin,
+      userId: user?.id,
+      athleteId: athleteIdStr,
+    });
+
     // D1 & D2: Check if athlete already belongs to any account
     const { data: existingConnection, error: connQueryError } = await supabaseAdmin
       .from("strava_connections")
       .select("user_id")
       .eq("strava_athlete_id", athleteIdStr)
       .maybeSingle();
+
+    console.log("Diagnostic - existing connection query:", {
+      existingConnection,
+      connQueryError,
+    });
 
     if (connQueryError) {
       console.error("Failed to query existing connections for athlete:", connQueryError);
@@ -183,6 +194,11 @@ export async function GET(request: Request) {
           password,
         });
 
+        console.log("Diagnostic - sign in returning user result:", {
+          email: existingUser.email,
+          signInError,
+        });
+
         if (signInError) {
           console.error("Failed to sign in returning user:", signInError);
           return NextResponse.redirect(new URL("/login?error=signin_failed", origin));
@@ -202,11 +218,17 @@ export async function GET(request: Request) {
         const email = athlete.email || `strava-${athleteIdStr}@kylarena.com`;
 
         // Check if a user with this email already exists
-        const { data: existingProfile } = await supabaseAdmin
+        const { data: existingProfile, error: profileQueryErr } = await supabaseAdmin
           .from("profiles")
           .select("id, strava_connected")
           .eq("email", email)
           .maybeSingle();
+
+        console.log("Diagnostic - first-time email profile query:", {
+          email,
+          existingProfile,
+          profileQueryErr,
+        });
 
         if (existingProfile) {
           if (existingProfile.strava_connected) {

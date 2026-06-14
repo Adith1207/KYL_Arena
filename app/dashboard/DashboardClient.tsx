@@ -351,7 +351,7 @@ export default function DashboardClient({
                       {profile.strava_connection?.created_at && (
                         <div className="flex items-center gap-1.5 pt-1.5 border-t border-white/5">
                           <span className="font-bold uppercase text-zinc-400">Connected Date:</span>
-                          <span className="text-zinc-350 font-mono">
+                          <span className="text-zinc-350 font-mono" suppressHydrationWarning>
                             {new Date(profile.strava_connection.created_at).toLocaleDateString(undefined, {
                               year: "numeric",
                               month: "long",
@@ -367,7 +367,7 @@ export default function DashboardClient({
                       <div className="flex items-center justify-between text-xs">
                         <div className="space-y-0.5 text-left">
                           <p className="text-zinc-500 font-bold uppercase text-[8px] tracking-wider">Last Sync</p>
-                          <p className="font-mono text-zinc-300 text-[11px]">
+                          <p className="font-mono text-zinc-300 text-[11px]" suppressHydrationWarning>
                             {profile.last_synced_at 
                               ? new Date(profile.last_synced_at).toLocaleString() 
                               : "Never Synced"}
@@ -512,7 +512,7 @@ export default function DashboardClient({
                             <h4 className="text-xs font-bold text-white truncate max-w-[160px] sm:max-w-[190px]">
                               {activity.name}
                             </h4>
-                            <p className="text-[9px] text-zinc-500 font-medium uppercase tracking-wide mt-0.5">
+                            <p className="text-[9px] text-zinc-500 font-medium uppercase tracking-wide mt-0.5" suppressHydrationWarning>
                               {activity.sport_type} • {new Date(activity.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                             </p>
                           </div>
