@@ -301,21 +301,61 @@ export async function GET(request: Request) {
           });
 
           if (createError) {
-            console.error("Failed to create Supabase user on first-time Strava login:", createError);
-            return NextResponse.redirect(new URL("/login?error=signup_failed", origin));
-          }
+            const isEmailExists = 
+              createError.status === 422 || 
+              createError.code === "email_exists" || 
+              createError.message.toLowerCase().includes("already") || 
+              createError.message.toLowerCase().includes("exist");
 
-          user = createData.user;
+            if (isEmailExists) {
+              console.log("User already exists in auth.users but profile is missing. Attempting recovery...");
+              const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+                perPage: 1000
+              });
 
-          // Sign in
-          const { error: signInError } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-          });
+              if (!listError && listData && listData.users) {
+                const existingUser = listData.users.find(
+                  (u) => u.email?.toLowerCase() === email.toLowerCase()
+                );
 
-          if (signInError) {
-            console.error("Failed to sign in after user creation:", signInError);
-            return NextResponse.redirect(new URL("/login?error=signin_failed", origin));
+                if (existingUser) {
+                  console.log(`Located existing user ${existingUser.id}. Overwriting password for link recovery.`);
+                  await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
+                    password: password,
+                  });
+
+                  const { error: signInError } = await supabase.auth.signInWithPassword({
+                    email,
+                    password,
+                  });
+
+                  if (!signInError) {
+                    user = existingUser;
+                  } else {
+                    console.error("Failed to sign in existing user on recovery:", signInError);
+                    return NextResponse.redirect(new URL("/login?error=signin_failed", origin));
+                  }
+                }
+              }
+            }
+
+            if (!user) {
+              console.error("Failed to create Supabase user on first-time Strava login:", createError);
+              return NextResponse.redirect(new URL("/login?error=signup_failed", origin));
+            }
+          } else {
+            user = createData.user;
+
+            // Sign in
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+              email,
+              password,
+            });
+
+            if (signInError) {
+              console.error("Failed to sign in after user creation:", signInError);
+              return NextResponse.redirect(new URL("/login?error=signin_failed", origin));
+            }
           }
         }
       }
