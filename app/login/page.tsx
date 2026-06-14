@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, Trophy, Flame, Shield, Activity } from "lucide-react";
+import { ArrowLeft, Loader2, Trophy, Flame, Shield, Activity, AlertTriangle } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
-export default function LoginPage() {
+function LoginPageContent() {
+  const searchParams = useSearchParams();
+  const errorParam = searchParams.get("error");
   const [loadingProvider, setLoadingProvider] = useState<"google" | "strava" | null>(null);
 
   const handleLogin = async (provider: "google" | "strava") => {
@@ -32,7 +35,7 @@ export default function LoginPage() {
         alert(`Authentication Error: ${error.message}`);
         setLoadingProvider(null);
       }
-    } catch (e) {
+    } catch {
       alert("Failed to initialize authentication.");
       setLoadingProvider(null);
     }
@@ -217,6 +220,32 @@ export default function LoginPage() {
               
               <div className="space-y-3.5 relative z-10">
                 
+                {errorParam && (
+                  <div className="flex items-start gap-3 p-4 rounded-xl bg-red-950/25 border border-red-500/20 text-red-400 text-xs text-left mb-2 animate-in fade-in duration-300">
+                    <AlertTriangle className="h-5 w-5 shrink-0 text-red-500 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="font-extrabold uppercase tracking-wider text-[9px] text-red-500">Authentication Error</p>
+                      <p className="font-medium text-zinc-300">
+                        {errorParam === "strava_already_linked"
+                          ? "This Strava account is already linked to another KYL Arena account."
+                          : errorParam === "invalid_state"
+                          ? "Security verification failed (Invalid State). Please try again."
+                          : errorParam === "oauth_exchange_failed"
+                          ? "Failed to exchange authorization tokens with Strava."
+                          : errorParam === "db_insert_failed"
+                          ? "Failed to save Strava connection in the database."
+                          : errorParam === "signup_failed"
+                          ? "Failed to register a new athlete profile."
+                          : errorParam === "signin_failed"
+                          ? "Failed to establish a login session."
+                          : errorParam === "db_query_failed"
+                          ? "Database verification query failed."
+                          : `Error: ${errorParam}`}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Strava Authentication Button (Primary CTA) */}
                 <Button
                   onClick={() => handleLogin("strava")}
@@ -307,5 +336,17 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-450 font-mono text-xs">
+        Loading Athlete Portal...
+      </div>
+    }>
+      <LoginPageContent />
+    </Suspense>
   );
 }

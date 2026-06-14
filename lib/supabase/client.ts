@@ -204,6 +204,15 @@ class MockQueryBuilder {
     };
   }
 
+  async maybeSingle() {
+    const res = await this.execute();
+    return {
+      data: Array.isArray(res.data) ? res.data[0] || null : res.data,
+      error: null,
+      count: res.count
+    };
+  }
+
   then(onfulfilled?: (value: any) => any, onrejected?: (reason: any) => any) {
     return this.execute().then(onfulfilled, onrejected);
   }

@@ -14,6 +14,24 @@ export async function GET(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
+  // If already connected, redirect back to dashboard
+  if (user) {
+    try {
+      const { data: connection } = await supabase
+        .from("strava_connections")
+        .select("strava_athlete_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (connection) {
+        console.log(`User ${user.id} is already connected to Strava Athlete ${connection.strava_athlete_id}. Redirecting to dashboard.`);
+        return NextResponse.redirect(new URL("/dashboard?info=already_connected", origin));
+      }
+    } catch (e) {
+      console.error("Failed to query strava_connections in connect route:", e);
+    }
+  }
+
   // Determine the state parameter: if user is logged in, pass user.id to link their account.
   // Otherwise, pass "auth" to indicate a new login request.
   const state = user ? user.id : "auth";
