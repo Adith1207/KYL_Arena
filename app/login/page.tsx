@@ -8,14 +8,34 @@ import { ArrowLeft, Loader2, Trophy, Flame, Shield, Activity } from "lucide-reac
 export default function LoginPage() {
   const [loadingProvider, setLoadingProvider] = useState<"google" | "strava" | null>(null);
 
-  const handleLogin = (provider: "google" | "strava") => {
+  const handleLogin = async (provider: "google" | "strava") => {
     setLoadingProvider(provider);
     
-    // Simulate auth redirect latency
-    setTimeout(() => {
+    if (provider === "strava") {
+      window.location.href = "/api/strava/connect";
+      return;
+    }
+
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      
+      const redirectTo = `${window.location.origin}/auth/callback`;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+        },
+      });
+      
+      if (error) {
+        alert(`Authentication Error: ${error.message}`);
+        setLoadingProvider(null);
+      }
+    } catch (e) {
+      alert("Failed to initialize authentication.");
       setLoadingProvider(null);
-      alert(`Simulation: Redirecting to ${provider === "strava" ? "Strava OAuth Flow" : "Google Authentication"}...`);
-    }, 2000);
+    }
   };
 
   return (
