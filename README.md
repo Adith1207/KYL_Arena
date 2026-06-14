@@ -152,15 +152,15 @@ Updated automatically from Strava activities.
 
 ### Phase 1
 
-- [ ] Authentication
-- [ ] User Profiles
-- [ ] Strava OAuth
+- ✅ Authentication
+- ✅ User Profiles
+- ✅ Strava OAuth
 
 ### Phase 2
 
-- [ ] Activity Synchronization
-- [ ] Activity Storage
-- [ ] Dashboard
+- ✅ Activity Synchronization
+- ✅ Activity Storage
+- ✅ Dashboard
 
 ### Phase 3
 
