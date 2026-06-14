@@ -2,15 +2,50 @@ import { NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { getValidStravaAccessToken } from "@/lib/strava/token";
 
+interface ActivityData {
+  name: string;
+  sport_type: string;
+  distance: number;
+  moving_time: number;
+  start_date: string;
+}
+
+interface ActivityInsert {
+  user_id: string;
+  strava_activity_id: number;
+  name: string;
+  distance: number;
+  moving_time: number;
+  elapsed_time: number;
+  sport_type: string;
+  start_date: string;
+  start_date_local: string | null;
+  average_speed: number | null;
+  total_elevation_gain: number | null;
+  raw_data: Record<string, unknown> | null;
+}
+
+interface StravaActivity {
+  id: number;
+  name?: string;
+  distance?: number;
+  moving_time?: number;
+  elapsed_time?: number;
+  sport_type?: string;
+  type?: string;
+  start_date: string;
+  start_date_local?: string;
+  average_speed?: number;
+  total_elevation_gain?: number;
+}
+
 /**
  * Route Handler: GET /api/strava/sync
  * Triggers activity synchronization for the authenticated athlete.
  * Fetches the latest 30 activities from Strava API (or simulates in Mock Mode).
  * Upserts them into public.activities and updates last_synced_at.
  */
-export async function GET(request: Request) {
-  const { origin } = new URL(request.url);
-
+export async function GET() {
   // 1. Verify active user session
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -49,7 +84,7 @@ export async function GET(request: Request) {
     !clientSecret || 
     clientSecret.includes("placeholder");
 
-  let activities: any[] = [];
+  let activities: ActivityInsert[] = [];
   const nowStr = new Date().toISOString();
 
   if (isMock) {
@@ -76,11 +111,11 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "Failed to fetch activities from Strava." }, { status: 400 });
       }
 
-      const rawActivities = await response.json();
+      const rawActivities = await response.json() as StravaActivity[];
       console.log(`Successfully fetched ${rawActivities.length} activities from Strava.`);
 
       // Format activities to match DB schema
-      activities = rawActivities.map((act: any) => ({
+      activities = rawActivities.map((act) => ({
         user_id: user.id,
         strava_activity_id: act.id,
         name: act.name || "Untitled Activity",
@@ -92,7 +127,7 @@ export async function GET(request: Request) {
         start_date_local: act.start_date_local || null,
         average_speed: act.average_speed || null,
         total_elevation_gain: act.total_elevation_gain || null,
-        raw_data: act,
+        raw_data: act as unknown as Record<string, unknown>,
       }));
     } catch (err) {
       console.error("Exceptional error during live Strava activity sync:", err);
@@ -138,7 +173,7 @@ export async function GET(request: Request) {
     console.error("Failed to query total activities count:", e);
   }
 
-  let latestActivities: any[] = [];
+  let latestActivities: ActivityData[] = [];
   try {
     const { data: actData, error: actError } = await supabaseAdmin
       .from("activities")
@@ -147,7 +182,7 @@ export async function GET(request: Request) {
       .order("start_date", { ascending: false })
       .limit(5);
     if (!actError && actData) {
-      latestActivities = actData;
+      latestActivities = actData as ActivityData[];
     }
   } catch (e) {
     console.error("Failed to query latest activities:", e);
@@ -168,8 +203,8 @@ export async function GET(request: Request) {
 /**
  * Helper: Generates 30 high-quality mock Strava activities for Mock Mode.
  */
-function generateMockActivities(userId: string): any[] {
-  const activities = [];
+function generateMockActivities(userId: string): ActivityInsert[] {
+  const activities: ActivityInsert[] = [];
   const sportTypes = ["Ride", "Run", "Walk"];
   const names = {
     "Ride": ["Morning Ride 🚴", "Weekend Century 🚴‍♂️", "Sunset Cruise 🌅", "Interval Training 🔥", "Commute to Office 💼"],
