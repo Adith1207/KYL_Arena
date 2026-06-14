@@ -23,6 +23,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const stravaConnected = typeof resolvedParams.strava_connected === "string" ? resolvedParams.strava_connected : undefined;
 
   const supabase = await createClient();
+  const supabaseAdmin = await createAdminClient();
   
   // Verify user session
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -51,10 +52,34 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     profileLookupResult = `Error: ${errMsg}`;
   }
 
-  // Verify that the profile exists and matches the user ID exactly
+  // Verify that the profile exists and matches the user ID exactly. If missing, automatically recreate it.
   if (!profile || profile.id !== user.id) {
-    console.error(`Security check failed: Profile missing or ID mismatch for user ${user.id}`);
-    redirect("/login?error=unauthorized");
+    console.log(`Profile missing or mismatched for authenticated user ${user.id}. Recreating from session metadata...`);
+    const var_name = user.user_metadata?.full_name || user.user_metadata?.name || "Athlete";
+    const var_avatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || "";
+    const var_provider = user.app_metadata?.provider || "google";
+
+    const { data: newProfile, error: createProfileError } = await supabaseAdmin
+      .from("profiles")
+      .insert({
+        id: user.id,
+        email: user.email,
+        name: var_name,
+        avatar: var_avatar,
+        auth_provider: var_provider,
+        strava_connected: var_provider === "strava",
+        strava_athlete_id: var_provider === "strava" ? user.user_metadata?.sub : null
+      })
+      .select()
+      .single();
+
+    if (createProfileError) {
+      console.error(`Failed to recreate profile for user ${user.id}:`, createProfileError);
+      redirect("/api/auth/logout?error=unauthorized");
+    } else {
+      profile = newProfile;
+      profileLookupResult = `Recreated Profile (strava_connected: ${newProfile.strava_connected})`;
+    }
   }
 
   // Fetch associated athlete details if Strava is connected
@@ -67,8 +92,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     start_date: string;
   }[] = [];
   let activitiesCount = 0;
-
-  const supabaseAdmin = await createAdminClient();
 
   if (profile.strava_connected) {
     try {
