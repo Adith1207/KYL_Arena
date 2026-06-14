@@ -3,7 +3,7 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import DashboardClient from "./DashboardClient";
 
 export const metadata = {
-  title: "Dashboard — KYL Arena",
+  title: "Dashboard",
   description: "Manage your connected trackers, view active challenges, and customize your athlete profile.",
 };
 
