@@ -103,57 +103,45 @@ export default function DashboardTour({
     }
   }, [currentStepIndex, isOpen, showCompletion, activeTab, activeStep.mobileTab, setActiveTab]);
 
-  // Handle coordinates calculation & scrolling targeting
-  const updateBoundingRect = React.useCallback(() => {
+  // Handle coordinates calculation & scrolling targeting dynamically in real-time
+  useEffect(() => {
     if (!isOpen || showCompletion) return;
+
+    const elementId = activeStep.elementId;
+    const element = document.getElementById(elementId);
     
-    const element = document.getElementById(activeStep.elementId);
+    // Smooth scroll the target element to the center
     if (element) {
-      // Scroll element to center of screen smoothly
       element.scrollIntoView({ behavior: "smooth", block: "center" });
-      
-      // Calculate coordinates after scroll animation settles
-      const updateCoords = () => {
-        const rect = element.getBoundingClientRect();
-        // Only update if dimensions have actually loaded / elements are visible
+    }
+
+    const handleUpdate = () => {
+      const el = document.getElementById(elementId);
+      if (el) {
+        const rect = el.getBoundingClientRect();
         if (rect.width > 0 && rect.height > 0) {
           setTargetRect(rect);
         }
-      };
-
-      // Poll slightly to allow scroll movement to finalize
-      const timer = setTimeout(updateCoords, 400);
-      return () => clearTimeout(timer);
-    } else {
-      setTargetRect(null);
-    }
-  }, [activeStep.elementId, isOpen, showCompletion]);
-
-  // Trigger recalculations on step changes, tab switching, and window resizing
-  useEffect(() => {
-    updateBoundingRect();
-    
-    const handleResize = () => {
-      if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
-      resizeTimeoutRef.current = setTimeout(updateBoundingRect, 100);
-    };
-
-    const handleScroll = () => {
-      const element = document.getElementById(activeStep.elementId);
-      if (element) {
-        setTargetRect(element.getBoundingClientRect());
+      } else {
+        setTargetRect(null);
       }
     };
 
-    window.addEventListener("resize", handleResize);
-    window.addEventListener("scroll", handleScroll, { passive: true });
+    // Calculate instantly
+    handleUpdate();
+
+    // Re-verify on resize, scroll, and periodically as scroll settles
+    window.addEventListener("resize", handleUpdate);
+    window.addEventListener("scroll", handleUpdate, { passive: true });
     
+    const interval = setInterval(handleUpdate, 100);
+
     return () => {
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("scroll", handleScroll);
-      if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
+      window.removeEventListener("resize", handleUpdate);
+      window.removeEventListener("scroll", handleUpdate);
+      clearInterval(interval);
     };
-  }, [currentStepIndex, activeTab, updateBoundingRect, isOpen, showCompletion, activeStep.elementId]);
+  }, [currentStepIndex, activeTab, isOpen, showCompletion, activeStep.elementId]);
 
   // Keyboard navigation shortcuts
   useEffect(() => {
