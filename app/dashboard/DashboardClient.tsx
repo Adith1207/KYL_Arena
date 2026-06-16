@@ -404,8 +404,8 @@ export default function DashboardClient({
                       className="absolute right-0 mt-2 w-44 rounded-2xl bg-zinc-950 border border-zinc-850 shadow-[0_10px_30px_rgba(0,0,0,0.8)] backdrop-blur-xl py-2 z-50 text-left overflow-hidden"
                     >
                       <div className="px-3.5 py-1 text-[8.5px] font-black text-zinc-500 uppercase tracking-widest border-b border-white/5">Help Menu</div>
-                      <a href="#tour-challenges-section" onClick={(e) => { e.preventDefault(); setIsHelpOpen(false); setActiveTab("challenges"); const el = document.getElementById("tour-challenges-section"); if (el) el.scrollIntoView({ behavior: "smooth" }); }} className="flex items-center px-4 py-2 text-[9.5px] uppercase font-bold text-zinc-400 hover:text-white hover:bg-zinc-900/50 transition-colors">FAQs & Support</a>
-                      <a href="#tour-leaderboard-section" onClick={(e) => { e.preventDefault(); setIsHelpOpen(false); setActiveTab("leaderboard"); const el = document.getElementById("tour-leaderboard-section"); if (el) el.scrollIntoView({ behavior: "smooth" }); }} className="flex items-center px-4 py-2 text-[9.5px] uppercase font-bold text-zinc-400 hover:text-white hover:bg-zinc-900/50 transition-colors">Community Rules</a>
+                      <a href="#tour-challenges-section" onClick={(e) => { e.preventDefault(); setIsHelpOpen(false); setActiveTab("challenges"); const suffix = window.innerWidth < 768 ? "-mobile" : "-desktop"; const el = document.getElementById(`tour-challenges-section${suffix}`); if (el) el.scrollIntoView({ behavior: "smooth" }); }} className="flex items-center px-4 py-2 text-[9.5px] uppercase font-bold text-zinc-400 hover:text-white hover:bg-zinc-900/50 transition-colors">FAQs & Support</a>
+                      <a href="#tour-leaderboard-section" onClick={(e) => { e.preventDefault(); setIsHelpOpen(false); setActiveTab("leaderboard"); const suffix = window.innerWidth < 768 ? "-mobile" : "-desktop"; const el = document.getElementById(`tour-leaderboard-section${suffix}`); if (el) el.scrollIntoView({ behavior: "smooth" }); }} className="flex items-center px-4 py-2 text-[9.5px] uppercase font-bold text-zinc-400 hover:text-white hover:bg-zinc-900/50 transition-colors">Community Rules</a>
                       <button
                         onClick={() => {
                           setIsHelpOpen(false);
@@ -493,21 +493,21 @@ export default function DashboardClient({
         <div className="block md:hidden space-y-6">
           {activeTab === "dashboard" && (
             <div className="space-y-6">
-              {renderHeroSection(currentState)}
-              {renderStatsGrid()}
-              {renderRecentActivities()}
+              {renderHeroSection(currentState, "-mobile")}
+              {renderStatsGrid("-mobile")}
+              {renderRecentActivities("-mobile")}
             </div>
           )}
 
           {activeTab === "challenges" && (
             <div className="space-y-6">
-              {renderChallengesSection(currentState)}
+              {renderChallengesSection(currentState, "-mobile")}
             </div>
           )}
 
           {activeTab === "leaderboard" && (
             <div className="space-y-6">
-              {renderLeaderboardSection()}
+              {renderLeaderboardSection("-mobile")}
             </div>
           )}
         </div>
@@ -517,15 +517,15 @@ export default function DashboardClient({
           
           {/* LEFT COLUMN: Main user activity & performance */}
           <div className="md:col-span-7 lg:col-span-8 space-y-6 lg:space-y-8">
-            {renderHeroSection(currentState)}
-            {renderStatsGrid()}
-            {renderRecentActivities()}
+            {renderHeroSection(currentState, "-desktop")}
+            {renderStatsGrid("-desktop")}
+            {renderRecentActivities("-desktop")}
           </div>
 
           {/* RIGHT COLUMN: Community details, challenges */}
           <div className="md:col-span-5 lg:col-span-4 space-y-6 lg:space-y-8">
-            {renderChallengesSection(currentState)}
-            {renderLeaderboardSection()}
+            {renderChallengesSection(currentState, "-desktop")}
+            {renderLeaderboardSection("-desktop")}
           </div>
 
         </div>
@@ -643,7 +643,7 @@ export default function DashboardClient({
   // ==========================================
 
   // Render State-Dependent Hero Section (A, B, C, D, E)
-  function renderHeroSection(stateLetter: "A" | "B" | "C" | "D" | "E") {
+  function renderHeroSection(stateLetter: "A" | "B" | "C" | "D" | "E", idSuffix = "") {
     return (
       <AnimatePresence mode="wait">
         <motion.div
@@ -652,7 +652,7 @@ export default function DashboardClient({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.98, y: -10 }}
           transition={{ duration: 0.35, ease: "easeInOut" }}
-          id="tour-hero-section"
+          id={`tour-hero-section${idSuffix}`}
           className="relative rounded-3xl bg-zinc-900/30 backdrop-blur-xl border border-white/5 p-6 sm:p-8 overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.5)] text-left group"
         >
           {/* Decorative neon accent strip */}
@@ -794,7 +794,8 @@ export default function DashboardClient({
               <Button
                 onClick={() => {
                   setActiveTab("challenges");
-                  const challengesEl = document.getElementById("tour-challenges-section");
+                  const suffix = window.innerWidth < 768 ? "-mobile" : "-desktop";
+                  const challengesEl = document.getElementById(`tour-challenges-section${suffix}`);
                   if (challengesEl) challengesEl.scrollIntoView({ behavior: "smooth" });
                 }}
                 className="w-full sm:w-auto px-6 h-11 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 text-xs uppercase tracking-wider hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
@@ -872,7 +873,8 @@ export default function DashboardClient({
               <div className="flex gap-3 pt-2">
                 <Button
                   onClick={() => {
-                    const leaderboardEl = document.getElementById("tour-leaderboard-section");
+                    const suffix = window.innerWidth < 768 ? "-mobile" : "-desktop";
+                    const leaderboardEl = document.getElementById(`tour-leaderboard-section${suffix}`);
                     if (leaderboardEl) leaderboardEl.scrollIntoView({ behavior: "smooth" });
                     setActiveTab("leaderboard");
                   }}
@@ -961,13 +963,13 @@ export default function DashboardClient({
   }
 
   // Render Athlete Performance Grid (Distance, Completed activities, Elevation, Streak)
-  function renderStatsGrid() {
+  function renderStatsGrid(idSuffix = "") {
     return (
       <motion.div 
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        id="tour-stats-section"
+        id={`tour-stats-section${idSuffix}`}
         className="grid grid-cols-2 lg:grid-cols-4 gap-4"
       >
         {/* Stat Card 1: Distance */}
@@ -1039,11 +1041,11 @@ export default function DashboardClient({
   }
 
   // Render Sugested or enrolled challenges
-  function renderChallengesSection(stateLetter: "A" | "B" | "C" | "D" | "E") {
+  function renderChallengesSection(stateLetter: "A" | "B" | "C" | "D" | "E", idSuffix = "") {
     const isEnrolled = stateLetter === "D" || stateLetter === "E";
 
     return (
-      <div id="tour-challenges-section" className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-5 text-left relative overflow-hidden group">
+      <div id={`tour-challenges-section${idSuffix}`} className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-5 text-left relative overflow-hidden group">
         <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/10 to-transparent" />
         
         <div className="flex items-center justify-between border-b border-white/5 pb-3">
@@ -1174,9 +1176,9 @@ export default function DashboardClient({
   }
 
   // Render Recent Synced Activities
-  function renderRecentActivities() {
+  function renderRecentActivities(idSuffix = "") {
     return (
-      <div id="tour-activities-section" className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-5 text-left relative overflow-hidden group">
+      <div id={`tour-activities-section${idSuffix}`} className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-5 text-left relative overflow-hidden group">
         <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/10 to-transparent" />
         
         <div className="flex items-center justify-between border-b border-white/5 pb-3">
@@ -1293,7 +1295,7 @@ export default function DashboardClient({
   }
 
   // Render Community Leaderboard Preview (Top 5)
-  function renderLeaderboardSection() {
+  function renderLeaderboardSection(idSuffix = "") {
     // Current user name
     const userName = profile.name.split(" ")[0];
 
@@ -1306,7 +1308,7 @@ export default function DashboardClient({
     ];
 
     return (
-      <div id="tour-leaderboard-section" className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-4 text-left relative overflow-hidden group">
+      <div id={`tour-leaderboard-section${idSuffix}`} className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-4 text-left relative overflow-hidden group">
         <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/10 to-transparent" />
         
         <div className="flex items-center justify-between border-b border-white/5 pb-3">
