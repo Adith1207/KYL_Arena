@@ -107,7 +107,17 @@ export default function DashboardTour({
   useEffect(() => {
     if (!isOpen || showCompletion) return;
 
-    const elementId = activeStep.elementId;
+    // Resolve element ID dynamically based on viewport size for responsive layout compatibility
+    const getTargetElementId = () => {
+      if (activeStep.elementId === "tour-profile-section") {
+        return activeStep.elementId;
+      }
+      const isMobile = window.innerWidth < 768;
+      const suffix = isMobile ? "-mobile" : "-desktop";
+      return `${activeStep.elementId}${suffix}`;
+    };
+
+    const elementId = getTargetElementId();
     const element = document.getElementById(elementId);
     
     // Smooth scroll the target element to the center
@@ -116,7 +126,8 @@ export default function DashboardTour({
     }
 
     const handleUpdate = () => {
-      const el = document.getElementById(elementId);
+      const currentElementId = getTargetElementId();
+      const el = document.getElementById(currentElementId);
       if (el) {
         const rect = el.getBoundingClientRect();
         if (rect.width > 0 && rect.height > 0) {
