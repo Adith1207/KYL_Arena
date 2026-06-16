@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { 
   Loader2, LogOut, Activity, AlertTriangle, CheckCircle, 
   Award, Bike, Footprints, Flame, Trophy, 
   ChevronRight, TrendingUp, Sparkles, Clock, Target, 
-  Dumbbell, Home, Users
+  Dumbbell, Home, Users, HelpCircle, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence, Variants } from "framer-motion";
+import DashboardTour from "@/components/DashboardTour";
 
 interface ActivityData {
   name: string;
@@ -30,6 +31,7 @@ interface ProfileData {
   last_synced_at?: string | null;
   activities?: ActivityData[];
   activities_count?: number;
+  tour_completed?: boolean;
   strava_connection?: {
     athlete_name: string | null;
     athlete_username: string | null;
@@ -80,6 +82,12 @@ export default function DashboardClient({
   // Responsive bottom nav tab selector for mobile screens
   const [activeTab, setActiveTab] = useState<"dashboard" | "challenges" | "leaderboard">("dashboard");
 
+  // Onboarding & Preferences Settings Menu States
+  const [isTourOpen, setIsTourOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const helpDropdownRef = useRef<HTMLDivElement>(null);
+
   // State Selector Simulator for verification purposes
   const [simulatedState, setSimulatedState] = useState<"auto" | "A" | "B" | "C" | "D" | "E">("auto");
   const [joinedChallenge, setJoinedChallenge] = useState<boolean>(false);
@@ -98,6 +106,30 @@ export default function DashboardClient({
     return () => {
       window.removeEventListener("pageshow", handlePageShow);
     };
+  }, []);
+
+  // Check for onboarding tour auto-launch on initial login
+  useEffect(() => {
+    const completedLocal = localStorage.getItem("kyl_arena_tour_completed") === "true";
+    const completedDB = profile.tour_completed === true;
+    
+    if (!completedLocal && !completedDB) {
+      const timer = setTimeout(() => {
+        setIsTourOpen(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [profile.tour_completed]);
+
+  // Click outside listener for Help Dropdown Menu
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (helpDropdownRef.current && !helpDropdownRef.current.contains(event.target as Node)) {
+        setIsHelpOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   // Determine current display State (A, B, C, D, E) based on database or simulation controls
@@ -166,6 +198,29 @@ export default function DashboardClient({
       localStorage.removeItem("kyl_mock_activities_synced");
       localStorage.removeItem("kyl_mock_last_synced_at");
       window.location.href = "/login";
+    }
+  };
+
+  const handleTourClose = async (completedOrSkipped: boolean) => {
+    setIsTourOpen(false);
+    
+    // In both actions, write to localStorage to prevent repeating auto-launches
+    localStorage.setItem("kyl_arena_tour_completed", "true");
+    
+    // Persist completion status to Supabase profile
+    if (completedOrSkipped) {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        await supabase
+          .from("profiles")
+          .update({ tour_completed: true })
+          .eq("id", profile.id);
+        
+        setProfile((prev) => ({ ...prev, tour_completed: true }));
+      } catch (e) {
+        console.error("Failed to update profile tour completed status:", e);
+      }
     }
   };
 
@@ -303,10 +358,14 @@ export default function DashboardClient({
               </div>
             </Link>
 
-            <div className="flex items-center gap-4">
-              {/* Profile Details header shortcut (Desktop Only) */}
-              <div className="hidden md:flex items-center gap-3 bg-zinc-900/40 border border-white/5 pl-3 pr-4 py-1.5 rounded-full backdrop-blur-sm">
-                <div className="text-right">
+            <div className="flex items-center gap-3">
+              {/* Profile Details header shortcut (Desktop/Mobile Settings trigger) */}
+              <div 
+                id="tour-profile-section" 
+                onClick={() => setIsSettingsOpen(true)}
+                className="flex items-center gap-2.5 md:gap-3 bg-zinc-900/40 border border-white/5 pl-2 pr-2 md:pl-3 md:pr-4 py-1.5 rounded-full backdrop-blur-sm cursor-pointer hover:border-lime-400/30 transition-colors"
+              >
+                <div className="hidden md:block text-right">
                   <p className="text-[10px] font-black text-white uppercase italic leading-none">{profile.name.split(" ")[0]}</p>
                   <p className="text-[8px] text-zinc-500 font-mono mt-0.5 leading-none">Rank #9</p>
                 </div>
@@ -318,11 +377,54 @@ export default function DashboardClient({
                 )}
               </div>
 
+              {/* Permanent Dashboard Header Tour Button */}
+              <Button
+                onClick={() => setIsTourOpen(true)}
+                className="hidden sm:flex h-9 px-3.5 border border-lime-400/25 hover:border-lime-400 bg-lime-400/5 hover:bg-lime-400/10 text-lime-400 font-extrabold rounded-xl transition-all flex items-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer"
+              >
+                <Sparkles className="h-3.5 w-3.5 animate-pulse" />
+                Tour
+              </Button>
+
+              {/* Help Menu Dropdown */}
+              <div className="relative" ref={helpDropdownRef}>
+                <button
+                  onClick={() => setIsHelpOpen(!isHelpOpen)}
+                  className="h-9 w-9 rounded-xl border border-zinc-850 hover:border-zinc-750 bg-zinc-900/40 hover:bg-zinc-900 text-zinc-400 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+                >
+                  <HelpCircle className="h-4.5 w-4.5" />
+                </button>
+
+                <AnimatePresence>
+                  {isHelpOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute right-0 mt-2 w-44 rounded-2xl bg-zinc-950 border border-zinc-850 shadow-[0_10px_30px_rgba(0,0,0,0.8)] backdrop-blur-xl py-2 z-50 text-left overflow-hidden"
+                    >
+                      <div className="px-3.5 py-1 text-[8.5px] font-black text-zinc-500 uppercase tracking-widest border-b border-white/5">Help Menu</div>
+                      <a href="#tour-challenges-section" onClick={(e) => { e.preventDefault(); setIsHelpOpen(false); setActiveTab("challenges"); const el = document.getElementById("tour-challenges-section"); if (el) el.scrollIntoView({ behavior: "smooth" }); }} className="flex items-center px-4 py-2 text-[9.5px] uppercase font-bold text-zinc-400 hover:text-white hover:bg-zinc-900/50 transition-colors">FAQs & Support</a>
+                      <a href="#tour-leaderboard-section" onClick={(e) => { e.preventDefault(); setIsHelpOpen(false); setActiveTab("leaderboard"); const el = document.getElementById("tour-leaderboard-section"); if (el) el.scrollIntoView({ behavior: "smooth" }); }} className="flex items-center px-4 py-2 text-[9.5px] uppercase font-bold text-zinc-400 hover:text-white hover:bg-zinc-900/50 transition-colors">Community Rules</a>
+                      <button
+                        onClick={() => {
+                          setIsHelpOpen(false);
+                          setIsTourOpen(true);
+                        }}
+                        className="w-full text-left flex items-center px-4 py-2 text-[9.5px] uppercase font-black text-lime-400 hover:bg-lime-950/20 transition-colors cursor-pointer border-t border-white/5"
+                      >
+                        Restart Tour
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
               <Button
                 onClick={handleLogout}
                 disabled={loadingLogout}
                 variant="outline"
-                className="h-9 px-3.5 border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-xl transition-all flex items-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer"
+                className="hidden sm:flex h-9 px-3.5 border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-xl transition-all items-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer"
               >
                 {loadingLogout ? <Loader2 className="h-3 w-3 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
                 Sign Out
@@ -523,6 +625,16 @@ export default function DashboardClient({
         </div>
       </div>
 
+      {/* Settings Modal Component */}
+      {renderSettingsModal()}
+
+      {/* Onboarding Tour Component */}
+      <DashboardTour
+        isOpen={isTourOpen}
+        onClose={handleTourClose}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+      />
     </div>
   );
 
@@ -540,6 +652,7 @@ export default function DashboardClient({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.98, y: -10 }}
           transition={{ duration: 0.35, ease: "easeInOut" }}
+          id="tour-hero-section"
           className="relative rounded-3xl bg-zinc-900/30 backdrop-blur-xl border border-white/5 p-6 sm:p-8 overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.5)] text-left group"
         >
           {/* Decorative neon accent strip */}
@@ -681,7 +794,7 @@ export default function DashboardClient({
               <Button
                 onClick={() => {
                   setActiveTab("challenges");
-                  const challengesEl = document.getElementById("challenges-section");
+                  const challengesEl = document.getElementById("tour-challenges-section");
                   if (challengesEl) challengesEl.scrollIntoView({ behavior: "smooth" });
                 }}
                 className="w-full sm:w-auto px-6 h-11 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 text-xs uppercase tracking-wider hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
@@ -759,7 +872,7 @@ export default function DashboardClient({
               <div className="flex gap-3 pt-2">
                 <Button
                   onClick={() => {
-                    const leaderboardEl = document.getElementById("leaderboard-section");
+                    const leaderboardEl = document.getElementById("tour-leaderboard-section");
                     if (leaderboardEl) leaderboardEl.scrollIntoView({ behavior: "smooth" });
                     setActiveTab("leaderboard");
                   }}
@@ -854,6 +967,7 @@ export default function DashboardClient({
         variants={containerVariants}
         initial="hidden"
         animate="visible"
+        id="tour-stats-section"
         className="grid grid-cols-2 lg:grid-cols-4 gap-4"
       >
         {/* Stat Card 1: Distance */}
@@ -929,7 +1043,7 @@ export default function DashboardClient({
     const isEnrolled = stateLetter === "D" || stateLetter === "E";
 
     return (
-      <div id="challenges-section" className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-5 text-left relative overflow-hidden group">
+      <div id="tour-challenges-section" className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-5 text-left relative overflow-hidden group">
         <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/10 to-transparent" />
         
         <div className="flex items-center justify-between border-b border-white/5 pb-3">
@@ -1062,7 +1176,7 @@ export default function DashboardClient({
   // Render Recent Synced Activities
   function renderRecentActivities() {
     return (
-      <div className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-5 text-left relative overflow-hidden group">
+      <div id="tour-activities-section" className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-5 text-left relative overflow-hidden group">
         <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/10 to-transparent" />
         
         <div className="flex items-center justify-between border-b border-white/5 pb-3">
@@ -1192,7 +1306,7 @@ export default function DashboardClient({
     ];
 
     return (
-      <div id="leaderboard-section" className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-4 text-left relative overflow-hidden group">
+      <div id="tour-leaderboard-section" className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-4 text-left relative overflow-hidden group">
         <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/10 to-transparent" />
         
         <div className="flex items-center justify-between border-b border-white/5 pb-3">
@@ -1303,6 +1417,146 @@ export default function DashboardClient({
           </div>
         </details>
       </div>
+    );
+  }
+
+  // Render User Settings & Onboarding Preferences Modal
+  function renderSettingsModal() {
+    if (!isSettingsOpen) return null;
+    return (
+      <AnimatePresence>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSettingsOpen(false)}
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm cursor-pointer"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 15 }}
+            transition={{ type: "spring", stiffness: 220, damping: 22 }}
+            className="relative max-w-md w-full bg-zinc-950 border border-zinc-850 rounded-3xl p-6 shadow-[0_20px_50px_rgba(0,0,0,0.9),0_0_30px_rgba(163,230,53,0.02)] z-50 text-left space-y-6 overflow-hidden"
+          >
+            <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/30 to-transparent" />
+            
+            <div className="flex justify-between items-center border-b border-white/5 pb-4">
+              <h3 className="text-sm font-black uppercase text-white tracking-wider flex items-center gap-2 italic">
+                <Flame className="h-4.5 w-4.5 text-lime-400 animate-pulse" />
+                Athlete Settings
+              </h3>
+              <button
+                onClick={() => setIsSettingsOpen(false)}
+                className="text-zinc-500 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Profile Info */}
+            <div className="flex items-center gap-4 bg-zinc-900/30 border border-white/5 p-4 rounded-2xl">
+              {profile.avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={profile.avatar} alt={profile.name} className="h-12 w-12 rounded-full object-cover ring-2 ring-lime-400/20" />
+              ) : (
+                <div className="h-12 w-12 rounded-full bg-zinc-850 text-sm font-black flex items-center justify-center text-lime-400">{getInitials(profile.name)}</div>
+              )}
+              <div>
+                <h4 className="font-extrabold text-white text-xs uppercase tracking-wide">{profile.name}</h4>
+                <p className="text-[10px] text-zinc-500 font-mono mt-0.5">{profile.email}</p>
+                <span className="inline-block text-[8px] font-bold text-lime-400 bg-lime-400/10 px-2 py-0.5 rounded-full mt-1.5 uppercase font-mono tracking-wider">Rank #9 Athlete</span>
+              </div>
+            </div>
+
+            {/* Settings Sections */}
+            <div className="space-y-5">
+              <div>
+                <h5 className="text-[9px] font-black uppercase tracking-widest text-zinc-550 mb-2 font-bold">Preferences</h5>
+                <div className="bg-zinc-900/20 border border-white/5 rounded-2xl p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <h6 className="text-[10px] font-extrabold text-white uppercase tracking-wider">Interactive Tour</h6>
+                      <p className="text-[9px] text-zinc-500 mt-0.5 leading-relaxed">Restart the interactive walkthrough of the KYL Arena dashboard.</p>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        setIsSettingsOpen(false);
+                        setIsTourOpen(true);
+                      }}
+                      className="h-8 px-3.5 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl text-[9px] uppercase tracking-wider transition-all shrink-0 cursor-pointer shadow-md shadow-lime-400/10 hover:scale-[1.01] active:scale-[0.99]"
+                    >
+                      Restart Tour
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h5 className="text-[9px] font-black uppercase tracking-widest text-zinc-550 mb-2 font-bold">Tracker Integrations</h5>
+                <div className="bg-zinc-900/20 border border-white/5 rounded-2xl p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <h6 className="text-[10px] font-extrabold text-white uppercase tracking-wider">Strava Account</h6>
+                      <p className="text-[9px] text-zinc-500 mt-0.5 leading-relaxed">
+                        {profile.strava_connected 
+                          ? `Linked to Strava (Athlete ID: ${profile.strava_athlete_id || "Connected"}).` 
+                          : "Connect your Strava profile to synchronize fitness logs."}
+                      </p>
+                    </div>
+                    {profile.strava_connected ? (
+                      <Button
+                        onClick={() => {
+                          setIsSettingsOpen(false);
+                          handleDisconnectStrava();
+                        }}
+                        disabled={loadingDisconnect}
+                        className="h-8 px-3 border border-red-500/15 hover:border-red-500/35 bg-red-950/10 hover:bg-red-950/20 text-red-400 hover:text-red-300 text-[9px] uppercase tracking-wider rounded-xl transition-all shrink-0 cursor-pointer font-bold"
+                      >
+                        Disconnect
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={() => {
+                          setIsSettingsOpen(false);
+                          handleConnectStrava();
+                        }}
+                        disabled={loadingConnect}
+                        className="h-8 px-3 bg-[#FC6100] hover:bg-[#E55500] text-white text-[9px] uppercase tracking-wider rounded-xl transition-all shrink-0 cursor-pointer font-extrabold shadow-md shadow-[#FC6100]/10 hover:scale-[1.01]"
+                      >
+                        Connect
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Options */}
+            <div className="flex gap-2.5 pt-2">
+              <Button
+                onClick={() => setIsSettingsOpen(false)}
+                variant="outline"
+                className="flex-1 h-9.5 border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-white rounded-xl text-[9.5px] uppercase tracking-wider transition-all cursor-pointer"
+              >
+                Close Settings
+              </Button>
+              <Button
+                onClick={() => {
+                  setIsSettingsOpen(false);
+                  handleLogout();
+                }}
+                disabled={loadingLogout}
+                className="flex-1 h-9.5 bg-zinc-900 border border-zinc-850 hover:bg-zinc-850 text-zinc-350 hover:text-white rounded-xl text-[9.5px] uppercase tracking-wider transition-all cursor-pointer font-bold flex items-center justify-center gap-1.5"
+              >
+                {loadingLogout ? <Loader2 className="h-3 w-3 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
+                Sign Out
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      </AnimatePresence>
     );
   }
 }

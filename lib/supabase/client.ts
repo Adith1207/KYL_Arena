@@ -183,6 +183,9 @@ class MockQueryBuilder {
     if (values.last_synced_at) {
       this.setCookieOrLocalStorage("kyl-mock-last-synced-at", values.last_synced_at);
     }
+    if (values.tour_completed !== undefined) {
+      this.setCookieOrLocalStorage("kyl-mock-tour-completed", values.tour_completed ? "true" : "false");
+    }
     return this;
   }
 
@@ -277,6 +280,7 @@ class MockQueryBuilder {
           strava_connected: isStrava,
           strava_athlete_id: isStrava ? "strava-athlete-999" : null,
           last_synced_at: lastSyncedAt || null,
+          tour_completed: this.getCookieOrLocalStorage("kyl-mock-tour-completed") === "true",
         },
         error: null,
         count: null
