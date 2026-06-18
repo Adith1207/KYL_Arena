@@ -199,25 +199,191 @@ export default async function ChallengeInsightsPage({ params }: PageProps) {
     );
   }
 
-  // Find the challenge matching the route parameter, or default to a mock challenge if not found
-  const challenge = mockChallenges.find(c => c.id === challengeId) || {
-    id: challengeId,
-    title: "KYL Arena Event",
-    description: "A custom community event. Pedaling, running, and conquering limits together.",
-    sportType: "Multisport",
-    goalType: "Distance",
-    goalTarget: 100,
-    startDate: "2026-06-01",
-    endDate: "2026-06-30",
-    bannerUrl: "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?auto=format&fit=crop&w=400&q=80",
-    status: "active" as const
-  };
+  // Find the challenge from the database
+  let challenge = null;
+  try {
+    const { data, error: challengeError } = await supabaseAdmin
+      .from("challenges")
+      .select("*")
+      .eq("id", challengeId)
+      .single();
+
+    if (!challengeError && data) {
+      challenge = {
+        id: data.id,
+        title: data.title,
+        description: data.description || "",
+        sportType: data.sport_type,
+        goalType: data.goal_metric,
+        goalTarget: Number(data.goal_target),
+        startDate: data.start_date,
+        endDate: data.end_date,
+        bannerUrl: data.banner_url || "",
+        status: data.status
+      };
+    }
+  } catch (e) {
+    console.error("Failed to fetch challenge details on server:", e);
+  }
+
+  if (!challenge) {
+    redirect("/arena-admin");
+  }
+
+  // Fetch participants and their activities
+  let participantsList: any[] = [];
+  let recentFeed: any[] = [];
+  try {
+    const { data: participations, error: partError } = await supabaseAdmin
+      .from("challenge_participants")
+      .select("*")
+      .eq("challenge_id", challengeId);
+
+    if (!partError && participations && participations.length > 0) {
+      const participantUserIds = participations.map((p: any) => p.user_id);
+
+      // Fetch profiles to get name, avatar, email, strava_athlete_id
+      const { data: profiles } = await supabaseAdmin
+        .from("profiles")
+        .select("id, name, email, avatar, strava_athlete_id")
+        .in("id", participantUserIds);
+
+      // Fetch all activities of these participants in the challenge range
+      const challengeStart = `${challenge.startDate}T00:00:00Z`;
+      const challengeEnd = `${challenge.endDate}T23:59:59Z`;
+
+      const { data: activitiesData } = await supabaseAdmin
+        .from("activities")
+        .select("user_id, strava_activity_id, name, sport_type, distance, total_elevation_gain, moving_time, start_date")
+        .in("user_id", participantUserIds)
+        .gte("start_date", challengeStart)
+        .lte("start_date", challengeEnd)
+        .order("start_date", { ascending: false });
+
+      const acts = activitiesData || [];
+      const profs = profiles || [];
+
+      participantsList = participations.map((p: any) => {
+        const userProf = profs.find((pr: any) => pr.id === p.user_id);
+        const userActs = acts.filter((act: any) => {
+          if (act.user_id !== p.user_id) return false;
+          const matchesSport = 
+            challenge.sportType === "Multisport" ||
+            act.sport_type?.toLowerCase() === challenge.sportType?.toLowerCase();
+          return matchesSport;
+        });
+
+        // Compute metrics
+        let completedVal = 0;
+        let totalTimeSec = 0;
+        let totalElevM = 0;
+        let lastActDate = "Never";
+
+        if (userActs.length > 0) {
+          const latestAct = userActs[0];
+          if (latestAct.start_date) {
+            lastActDate = new Date(latestAct.start_date).toISOString().split("T")[0];
+          }
+        }
+
+        userActs.forEach((act: any) => {
+          totalTimeSec += Number(act.moving_time || 0);
+          totalElevM += Number(act.total_elevation_gain || 0);
+          
+          if (challenge.goalType === "Distance") {
+            completedVal += Number(act.distance || 0) / 1000;
+          } else if (challenge.goalType === "Elevation") {
+            completedVal += Number(act.total_elevation_gain || 0);
+          } else if (challenge.goalType === "Time" || challenge.goalType === "Duration") {
+            completedVal += Number(act.moving_time || 0) / 3600;
+          }
+        });
+
+        const recentActsFormatted = userActs.slice(0, 5).map((act: any) => ({
+          id: String(act.strava_activity_id || Math.random().toString()),
+          name: act.name || `${challenge.sportType} Workout`,
+          sportType: act.sport_type || challenge.sportType,
+          distance: Number(((act.distance || 0) / 1000).toFixed(1)),
+          movingTime: Number(act.moving_time || 0),
+          elevationGain: Number(act.total_elevation_gain || 0),
+          startDate: act.start_date ? new Date(act.start_date).toISOString().split("T")[0] : ""
+        }));
+
+        return {
+          id: p.user_id,
+          name: userProf?.name || "Athlete",
+          email: userProf?.email || "",
+          avatar: userProf?.avatar || "",
+          athleteId: userProf?.strava_athlete_id || "N/A",
+          distanceCompleted: Number(completedVal.toFixed(1)),
+          activitiesCount: userActs.length,
+          lastActivityDate: lastActDate,
+          movingTime: totalTimeSec,
+          elevationGain: totalElevM,
+          recentActivities: recentActsFormatted
+        };
+      });
+
+      // Sort by completed value descending
+      participantsList.sort((a, b) => b.distanceCompleted - a.distanceCompleted);
+
+      // Build live sync ticker items
+      recentFeed = acts.slice(0, 10).map((act: any) => {
+        const userProf = profs.find((pr: any) => pr.id === act.user_id);
+        const name = userProf?.name || "Athlete";
+        const actName = act.name || `${act.sport_type} Workout`;
+        const actionStr = `synced ${actName}`;
+        
+        let timeDisplay = "Recently";
+        if (act.start_date) {
+          const actDate = new Date(act.start_date);
+          const diffMs = new Date().getTime() - actDate.getTime();
+          const diffMins = Math.floor(diffMs / (1000 * 60));
+          const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+          
+          if (diffMins < 60) {
+            timeDisplay = `${Math.max(1, diffMins)} mins ago`;
+          } else if (diffHours < 24) {
+            timeDisplay = `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+          } else if (diffDays < 7) {
+            timeDisplay = `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+          } else {
+            timeDisplay = actDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+          }
+        }
+
+        let displayVal = "";
+        if (challenge.goalType === "Distance") {
+          displayVal = `+${(Number(act.distance || 0) / 1000).toFixed(1)} km`;
+        } else if (challenge.goalType === "Elevation") {
+          displayVal = `+${Number(act.total_elevation_gain || 0)} m`;
+        } else if (challenge.goalType === "Time" || challenge.goalType === "Duration") {
+          displayVal = `+${(Number(act.moving_time || 0) / 3600).toFixed(1)} hrs`;
+        }
+
+        return {
+          id: String(act.strava_activity_id || Math.random().toString()),
+          name,
+          action: actionStr,
+          sportType: act.sport_type,
+          displayValue: displayVal,
+          time: timeDisplay,
+          participantId: act.user_id
+        };
+      });
+    }
+  } catch (e) {
+    console.error("Failed to query participant standings on server page:", e);
+  }
 
   return (
     <ChallengeInsightsClient
       profile={profile}
       userRole={userRole}
       challenge={challenge}
+      initialParticipants={participantsList}
+      recentFeed={recentFeed}
     />
   );
 }

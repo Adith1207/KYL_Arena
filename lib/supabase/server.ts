@@ -158,6 +158,11 @@ class MockQueryBuilder {
   private isBrowser: boolean;
   private mutationValues: any = null;
   private limitCount: number = -1;
+  private eqFilters: { column: string; value: any }[] = [];
+  private inFilters: { column: string; values: any[] }[] = [];
+  private isDelete: boolean = false;
+  private orderColumn: string | null = null;
+  private orderAscending: boolean = false;
 
   constructor(table: string, cookieStore?: any) {
     this.table = table;
@@ -170,15 +175,28 @@ class MockQueryBuilder {
   }
 
   eq(column: string, value: any) {
+    this.eqFilters.push({ column, value });
+    return this;
+  }
+
+  in(column: string, values: any[]) {
+    this.inFilters.push({ column, values });
     return this;
   }
 
   order(column: string, options?: any) {
+    this.orderColumn = column;
+    this.orderAscending = options?.ascending ?? false;
     return this;
   }
 
   limit(count: number) {
     this.limitCount = count;
+    return this;
+  }
+
+  insert(values: any) {
+    this.mutationValues = values;
     return this;
   }
 
@@ -219,8 +237,9 @@ class MockQueryBuilder {
   }
 
   delete() {
-    this.mutationValues = { deleted: true };
+    this.isDelete = true;
     if (this.table === "strava_connections") {
+      this.mutationValues = { deleted: true };
       this.setCookieOrLocalStorage("kyl-mock-strava-linked", "false");
       this.setCookieOrLocalStorage("kyl-mock-activities-synced", "false");
       this.setCookieOrLocalStorage("kyl-mock-last-synced-at", "");
@@ -273,10 +292,71 @@ class MockQueryBuilder {
   }
 
   private async execute() {
-    if (this.mutationValues !== null) {
+    // 1. Handle mutation (insert/update/delete)
+    if (this.mutationValues !== null || this.isDelete) {
+      if (this.table === "challenges") {
+        let list = [];
+        const stored = this.getCookieOrLocalStorage("kyl-mock-challenges");
+        if (stored) {
+          try { list = JSON.parse(stored); } catch(e) {}
+        } else {
+          list = getSeedChallenges();
+        }
+        
+        if (this.mutationValues) {
+          const newChal = {
+            id: this.mutationValues.id || Math.random().toString(36).substring(2, 9),
+            title: this.mutationValues.title,
+            description: this.mutationValues.description,
+            sport_type: this.mutationValues.sport_type,
+            goal_metric: this.mutationValues.goal_metric,
+            goal_target: Number(this.mutationValues.goal_target),
+            start_date: this.mutationValues.start_date,
+            end_date: this.mutationValues.end_date,
+            banner_url: this.mutationValues.banner_url || "https://images.unsplash.com/photo-1541614101331-1a5a3a194e92?auto=format&fit=crop&w=400&q=80",
+            status: this.mutationValues.status || "active",
+            created_by: this.mutationValues.created_by || "mock-uuid-12345678",
+            created_at: new Date().toISOString()
+          };
+          list.unshift(newChal);
+          this.setCookieOrLocalStorage("kyl-mock-challenges", JSON.stringify(list));
+          return { data: [newChal], error: null, count: 1 };
+        }
+      }
+
+      if (this.table === "challenge_participants") {
+        let list = [];
+        const stored = this.getCookieOrLocalStorage("kyl-mock-participants");
+        if (stored) {
+          try { list = JSON.parse(stored); } catch(e) {}
+        } else {
+          list = getSeedParticipants();
+        }
+
+        if (this.isDelete) {
+          const chalIdFilter = this.eqFilters.find(f => f.column === "challenge_id")?.value;
+          const userIdFilter = this.eqFilters.find(f => f.column === "user_id")?.value;
+          list = list.filter((p: any) => !(p.challenge_id === chalIdFilter && p.user_id === userIdFilter));
+          this.setCookieOrLocalStorage("kyl-mock-participants", JSON.stringify(list));
+          return { data: null, error: null, count: 0 };
+        } else if (this.mutationValues) {
+          const newPart = {
+            challenge_id: this.mutationValues.challenge_id,
+            user_id: this.mutationValues.user_id,
+            joined_at: new Date().toISOString()
+          };
+          // Avoid duplicate
+          list = list.filter((p: any) => !(p.challenge_id === newPart.challenge_id && p.user_id === newPart.user_id));
+          list.push(newPart);
+          this.setCookieOrLocalStorage("kyl-mock-participants", JSON.stringify(list));
+          return { data: [newPart], error: null, count: 1 };
+        }
+      }
+
       return { data: null, error: null, count: null };
     }
 
+    // 2. Handle selects (queries)
     let provider = "google";
     let isStravaLinked = false;
     let lastSyncedAt = null;
@@ -303,24 +383,74 @@ class MockQueryBuilder {
     const isStrava = provider === "strava" || isStravaLinked;
 
     if (this.table === "profiles") {
+      const profilesList = getMockProfiles(isStrava, provider, lastSyncedAt, tourCompleted, mockRole);
+      let filtered = profilesList;
+
+      // Apply eq filters
+      for (const filter of this.eqFilters) {
+        filtered = filtered.filter((p: any) => p[filter.column] === filter.value);
+      }
+      // Apply in filters
+      for (const filter of this.inFilters) {
+        filtered = filtered.filter((p: any) => filter.values.includes(p[filter.column]));
+      }
+
       return {
-        data: {
-          id: "mock-uuid-12345678",
-          email: isStrava ? "athlete@strava.com" : "athlete@gmail.com",
-          name: isStrava ? "Adith Strava" : "Adith Google",
-          avatar: isStrava 
-            ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" 
-            : "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80",
-          auth_provider: provider,
-          strava_connected: isStrava,
-          strava_athlete_id: isStrava ? "strava-athlete-999" : null,
-          last_synced_at: lastSyncedAt || null,
-          tour_completed: tourCompleted,
-          role: mockRole,
-        },
+        data: filtered,
         error: null,
-        count: null
+        count: filtered.length
       };
+    }
+
+    if (this.table === "challenges") {
+      let list = [];
+      const stored = this.getCookieOrLocalStorage("kyl-mock-challenges");
+      if (stored) {
+        try { list = JSON.parse(stored); } catch(e) {}
+      } else {
+        list = getSeedChallenges();
+      }
+
+      let filtered = list;
+      // Apply eq filters
+      for (const filter of this.eqFilters) {
+        filtered = filtered.filter((c: any) => c[filter.column] === filter.value);
+      }
+      // Apply sorting
+      if (this.orderColumn === "created_at" || this.orderColumn === "start_date") {
+        filtered = [...filtered].sort((a: any, b: any) => {
+          const valA = a[this.orderColumn!] || "";
+          const valB = b[this.orderColumn!] || "";
+          return this.orderAscending ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        });
+      }
+      if (this.limitCount > 0) {
+        filtered = filtered.slice(0, this.limitCount);
+      }
+
+      return { data: filtered, error: null, count: filtered.length };
+    }
+
+    if (this.table === "challenge_participants") {
+      let list = [];
+      const stored = this.getCookieOrLocalStorage("kyl-mock-participants");
+      if (stored) {
+        try { list = JSON.parse(stored); } catch(e) {}
+      } else {
+        list = getSeedParticipants();
+      }
+
+      let filtered = list;
+      // Apply eq filters
+      for (const filter of this.eqFilters) {
+        filtered = filtered.filter((p: any) => p[filter.column] === filter.value);
+      }
+      // Apply in filters
+      for (const filter of this.inFilters) {
+        filtered = filtered.filter((p: any) => filter.values.includes(p[filter.column]));
+      }
+
+      return { data: filtered, error: null, count: filtered.length };
     }
 
     if (this.table === "strava_connections") {
@@ -343,25 +473,183 @@ class MockQueryBuilder {
     }
 
     if (this.table === "activities") {
-      if (!isStrava) {
-        return { data: [], error: null, count: 0 };
-      }
+      let allActs: any[] = [];
       const hasSynced = this.getCookieOrLocalStorage("kyl-mock-activities-synced") === "true";
-      if (hasSynced) {
-        const mockActs = generateMockQueryActivities();
-        const sliced = this.limitCount > 0 ? mockActs.slice(0, this.limitCount) : mockActs;
-        return {
-          data: sliced,
-          error: null,
-          count: 30
-        };
-      } else {
-        return { data: [], error: null, count: 0 };
+      
+      if (hasSynced || isStrava) {
+        // Generate activities for all 15 mock athletes
+        const profilesList = getMockProfiles(isStrava, provider, lastSyncedAt, tourCompleted, mockRole);
+        profilesList.forEach((prof) => {
+          allActs = allActs.concat(generateMockQueryActivitiesForUser(prof.id));
+        });
       }
+
+      let filtered = allActs;
+      // Apply eq filters (e.g. user_id)
+      for (const filter of this.eqFilters) {
+        filtered = filtered.filter((a: any) => a[filter.column] === filter.value);
+      }
+      // Apply in filters
+      for (const filter of this.inFilters) {
+        filtered = filtered.filter((a: any) => filter.values.includes(a[filter.column]));
+      }
+      // Sort
+      filtered.sort((a, b) => b.start_date.localeCompare(a.start_date));
+
+      if (this.limitCount > 0) {
+        filtered = filtered.slice(0, this.limitCount);
+      }
+
+      return {
+        data: filtered,
+        error: null,
+        count: filtered.length
+      };
     }
 
     return { data: null, error: null, count: null };
   }
+}
+
+function getSeedChallenges() {
+  return [
+    {
+      id: "11111111-1111-1111-1111-111111111111",
+      title: "KYL Summer Century",
+      description: "Pedal your way to 100 kilometers over the month of June. Ride together, check your limits.",
+      sport_type: "Ride",
+      goal_metric: "Distance",
+      goal_target: 100,
+      start_date: "2026-06-01",
+      end_date: "2026-06-30",
+      banner_url: "https://images.unsplash.com/photo-1541614101331-1a5a3a194e92?auto=format&fit=crop&w=400&q=80",
+      status: "active",
+      created_by: "mock-uuid-12345678",
+      created_at: "2026-06-01T12:00:00.000Z"
+    },
+    {
+      id: "22222222-2222-2222-2222-222222222222",
+      title: "June Run Challenge",
+      description: "Lace up and complete 50 kilometers of running. Stay consistent throughout June.",
+      sport_type: "Run",
+      goal_metric: "Distance",
+      goal_target: 50,
+      start_date: "2026-06-01",
+      end_date: "2026-06-30",
+      banner_url: "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?auto=format&fit=crop&w=400&q=80",
+      status: "active",
+      created_by: "mock-uuid-12345678",
+      created_at: "2026-06-01T12:00:00.000Z"
+    },
+    {
+      id: "33333333-3333-3333-3333-333333333333",
+      title: "July Elevation Climb",
+      description: "Climb 2,000 meters of total elevation gain. Any run, walk, or cycle counts.",
+      sport_type: "Multisport",
+      goal_metric: "Elevation",
+      goal_target: 2000,
+      start_date: "2026-07-01",
+      end_date: "2026-07-31",
+      banner_url: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=400&q=80",
+      status: "upcoming",
+      created_by: "mock-uuid-12345678",
+      created_at: "2026-06-01T12:00:00.000Z"
+    },
+    {
+      id: "44444444-4444-4444-4444-444444444444",
+      title: "May Walkathon",
+      description: "Cover 30 kilometers of walking to kickstart your summer fitness habit.",
+      sport_type: "Walk",
+      goal_metric: "Distance",
+      goal_target: 30,
+      start_date: "2026-05-01",
+      end_date: "2026-05-31",
+      banner_url: "https://images.unsplash.com/photo-1502224562085-639556652f33?auto=format&fit=crop&w=400&q=80",
+      status: "archived",
+      created_by: "mock-uuid-12345678",
+      created_at: "2026-05-01T12:00:00.000Z"
+    }
+  ];
+}
+
+function getSeedParticipants() {
+  const seeds = [];
+  // Enroll p1 to p12 in Century
+  for (let i = 1; i <= 12; i++) {
+    seeds.push({
+      challenge_id: "11111111-1111-1111-1111-111111111111",
+      user_id: i === 1 ? "mock-uuid-12345678" : `mock-uuid-p${i}`,
+      joined_at: "2026-06-02T08:00:00Z"
+    });
+  }
+  // Enroll p1 to p8 in Run
+  for (let i = 1; i <= 8; i++) {
+    seeds.push({
+      challenge_id: "22222222-2222-2222-2222-222222222222",
+      user_id: i === 1 ? "mock-uuid-12345678" : `mock-uuid-p${i}`,
+      joined_at: "2026-06-03T10:00:00Z"
+    });
+  }
+  return seeds;
+}
+
+function getMockProfiles(isStrava: boolean, provider: string, lastSyncedAt: any, tourCompleted: boolean, mockRole: string) {
+  return [
+    { id: "mock-uuid-12345678", email: isStrava ? "athlete@strava.com" : "athlete@gmail.com", name: isStrava ? "Adith Strava" : "Adith Google", avatar: isStrava ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" : "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80", auth_provider: provider, strava_connected: isStrava, strava_athlete_id: isStrava ? "strava-athlete-999" : null, last_synced_at: lastSyncedAt || null, tour_completed: tourCompleted, role: mockRole },
+    { id: "mock-uuid-p2", email: "sarah.j@outlook.com", name: "Sarah Jenkins", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80", auth_provider: "strava", strava_connected: true, strava_athlete_id: "strava-athlete-101", last_synced_at: "2026-06-17T12:00:00Z", tour_completed: true, role: "athlete" },
+    { id: "mock-uuid-p3", email: "mchen@gmail.com", name: "Michael Chen", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80", auth_provider: "strava", strava_connected: true, strava_athlete_id: "strava-athlete-102", last_synced_at: "2026-06-17T12:00:00Z", tour_completed: true, role: "athlete" },
+    { id: "mock-uuid-p4", email: "emma.r@yahoo.com", name: "Emma Rodriguez", avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=100&q=80", auth_provider: "strava", strava_connected: true, strava_athlete_id: "strava-athlete-103", last_synced_at: "2026-06-17T12:00:00Z", tour_completed: true, role: "athlete" },
+    { id: "mock-uuid-p5", email: "dkim@naver.com", name: "David Kim", avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=100&q=80", auth_provider: "strava", strava_connected: true, strava_athlete_id: "strava-athlete-104", last_synced_at: "2026-06-17T12:00:00Z", tour_completed: true, role: "athlete" },
+    { id: "mock-uuid-p6", email: "jtaylor@gmail.com", name: "Jessica Taylor", avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=100&q=80", auth_provider: "strava", strava_connected: true, strava_athlete_id: "strava-athlete-105", last_synced_at: "2026-06-17T12:00:00Z", tour_completed: true, role: "athlete" },
+    { id: "mock-uuid-p7", email: "jwilson@live.com", name: "James Wilson", avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=100&q=80", auth_provider: "strava", strava_connected: true, strava_athlete_id: "strava-athlete-106", last_synced_at: "2026-06-17T12:00:00Z", tour_completed: true, role: "athlete" },
+    { id: "mock-uuid-p8", email: "amanda.m@gmail.com", name: "Amanda Martinez", avatar: "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=100&q=80", auth_provider: "strava", strava_connected: true, strava_athlete_id: "strava-athlete-107", last_synced_at: "2026-06-17T12:00:00Z", tour_completed: true, role: "athlete" },
+    { id: "mock-uuid-p9", email: "rthompson@gmail.com", name: "Robert Thompson", avatar: "https://images.unsplash.com/photo-1531427186611-ecfd6d936c79?auto=format&fit=crop&w=100&q=80", auth_provider: "strava", strava_connected: true, strava_athlete_id: "strava-athlete-108", last_synced_at: "2026-06-17T12:00:00Z", tour_completed: true, role: "athlete" },
+    { id: "mock-uuid-p10", email: "lisa.a@icloud.com", name: "Lisa Anderson", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80", auth_provider: "strava", strava_connected: true, strava_athlete_id: "strava-athlete-109", last_synced_at: "2026-06-17T12:00:00Z", tour_completed: true, role: "athlete" },
+    { id: "mock-uuid-p11", email: "wthomas@gmail.com", name: "William Thomas", avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=100&q=80", auth_provider: "strava", strava_connected: true, strava_athlete_id: "strava-athlete-110", last_synced_at: "2026-06-17T12:00:00Z", tour_completed: true, role: "athlete" },
+    { id: "mock-uuid-p12", email: "ajackson@gmail.com", name: "Ashley Jackson", avatar: "https://images.unsplash.com/photo-1554151228-14d9def656e4?auto=format&fit=crop&w=100&q=80", auth_provider: "strava", strava_connected: true, strava_athlete_id: "strava-athlete-111", last_synced_at: "2026-06-17T12:00:00Z", tour_completed: true, role: "athlete" },
+    { id: "mock-uuid-p13", email: "bwhite@gmail.com", name: "Brian White", avatar: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=100&q=80", auth_provider: "strava", strava_connected: true, strava_athlete_id: "strava-athlete-112", last_synced_at: "2026-06-17T12:00:00Z", tour_completed: true, role: "athlete" },
+    { id: "mock-uuid-p14", email: "mharris@gmail.com", name: "Megan Harris", avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=100&q=80", auth_provider: "strava", strava_connected: true, strava_athlete_id: "strava-athlete-113", last_synced_at: "2026-06-17T12:00:00Z", tour_completed: true, role: "athlete" },
+    { id: "mock-uuid-p15", email: "kmartin@gmail.com", name: "Kevin Martin", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80", auth_provider: "strava", strava_connected: true, strava_athlete_id: "strava-athlete-114", last_synced_at: "2026-06-17T12:00:00Z", tour_completed: true, role: "athlete" }
+  ];
+}
+
+function generateMockQueryActivitiesForUser(userId: string): any[] {
+  const activities: any[] = [];
+  const idx = userId === "mock-uuid-12345678" ? 1 : Number(userId.replace("mock-uuid-p", "")) || 15;
+  
+  if (idx > 12) return []; // p13, p14, p15 have no activities
+
+  // Distances completed matching the insights page exactly
+  const targetDistances = [0, 105.4, 92.5, 81.2, 74.0, 68.3, 58.1, 51.5, 45.0, 36.2, 28.4, 12.0, 5.4];
+  const targetDist = targetDistances[idx] || 0;
+
+  // Let's divide the target distance into a few activities
+  const numActivities = idx === 11 || idx === 12 ? 1 : (idx === 10 ? 2 : (idx === 8 || idx === 9 ? 3 : 4));
+  const now = new Date("2026-06-18T12:00:00Z");
+
+  for (let i = 0; i < numActivities; i++) {
+    const actDist = Math.round((targetDist / numActivities) * 1000); // meters
+    const sportType = idx === 4 ? "Run" : (idx % 2 === 0 ? "Ride" : "Run");
+    const movingTime = Math.round(actDist / (sportType === "Ride" ? 7 : 3.5));
+    const elevation = idx * 25 + i * 10;
+    const startDate = new Date(now.getTime() - (i * 2 * 24 * 60 * 60 * 1000));
+
+    activities.push({
+      user_id: userId,
+      strava_activity_id: 2000000000 + idx * 100 + i,
+      name: `${sportType === "Ride" ? "Morning Ride 🚴" : "Tempo Run ⚡"}`,
+      distance: actDist,
+      moving_time: movingTime,
+      elapsed_time: movingTime + 120,
+      sport_type: sportType,
+      start_date: startDate.toISOString(),
+      start_date_local: startDate.toISOString(),
+      average_speed: Number((actDist / movingTime).toFixed(2)),
+      total_elevation_gain: elevation,
+    });
+  }
+
+  return activities;
 }
 
 function generateMockQueryActivities(): any[] {

@@ -61,13 +61,25 @@ interface ParticipantWithProgress extends Participant {
   status: "completed" | "in-progress" | "inactive";
 }
 
+interface FeedItem {
+  id: string;
+  name: string;
+  action: string;
+  sportType: string;
+  displayValue: string;
+  time: string;
+  participantId: string;
+}
+
 interface ChallengeInsightsClientProps {
   profile: ProfileData;
   userRole: string;
   challenge: Challenge;
+  initialParticipants: Participant[];
+  recentFeed: FeedItem[];
 }
 
-export default function ChallengeInsightsClient({ profile, userRole, challenge }: ChallengeInsightsClientProps) {
+export default function ChallengeInsightsClient({ profile, userRole, challenge, initialParticipants, recentFeed }: ChallengeInsightsClientProps) {
   const [loadingLogout, setLoadingLogout] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedParticipant, setSelectedParticipant] = useState<ParticipantWithProgress | null>(null);
@@ -80,246 +92,8 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge }
     return `${hours}h ${minutes}m`;
   };
 
-  // Mock Participant Data
-  const baseParticipants: Participant[] = useMemo(() => [
-    {
-      id: "p1",
-      name: "Adith Google",
-      email: "athlete@gmail.com",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80",
-      athleteId: "strava-athlete-999",
-      distanceCompleted: 105.4,
-      activitiesCount: 12,
-      lastActivityDate: "2026-06-17",
-      movingTime: 34200,
-      elevationGain: 1200,
-      recentActivities: [
-        { id: "act1", name: "Gravel Grind Ride 🚴", sportType: "Ride", distance: 48.5, movingTime: 7200, elevationGain: 450, startDate: "2026-06-17" },
-        { id: "act2", name: "Tempo Run Along Park ⚡", sportType: "Run", distance: 10.5, movingTime: 2900, elevationGain: 60, startDate: "2026-06-15" },
-        { id: "act3", name: "Interval Speed Session 🏃", sportType: "Run", distance: 8.2, movingTime: 2400, elevationGain: 40, startDate: "2026-06-12" },
-        { id: "act4", name: "Weekend Century Cycle 🚴‍♂️🔥", sportType: "Ride", distance: 38.2, movingTime: 21700, elevationGain: 650, startDate: "2026-06-07" }
-      ]
-    },
-    {
-      id: "p2",
-      name: "Sarah Jenkins",
-      email: "sarah.j@outlook.com",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80",
-      athleteId: "strava-athlete-101",
-      distanceCompleted: 92.5,
-      activitiesCount: 10,
-      lastActivityDate: "2026-06-16",
-      movingTime: 28800,
-      elevationGain: 850,
-      recentActivities: [
-        { id: "act5", name: "Morning Cycle Ride 🌅", sportType: "Ride", distance: 32.4, movingTime: 5100, elevationGain: 310, startDate: "2026-06-16" },
-        { id: "act6", name: "Evening Recovery Jog 🍃", sportType: "Run", distance: 6.2, movingTime: 2100, elevationGain: 30, startDate: "2026-06-14" },
-        { id: "act7", name: "Midweek Hill Climbs ⛰️🚴‍♂️", sportType: "Ride", distance: 53.9, movingTime: 21600, elevationGain: 510, startDate: "2026-06-10" }
-      ]
-    },
-    {
-      id: "p3",
-      name: "Michael Chen",
-      email: "mchen@gmail.com",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80",
-      athleteId: "strava-athlete-102",
-      distanceCompleted: 81.2,
-      activitiesCount: 9,
-      lastActivityDate: "2026-06-15",
-      movingTime: 25200,
-      elevationGain: 720,
-      recentActivities: [
-        { id: "act8", name: "Sunset Commute 🚴", sportType: "Ride", distance: 20.1, movingTime: 2700, elevationGain: 120, startDate: "2026-06-15" },
-        { id: "act9", name: "Lunch Break Walk 🚶", sportType: "Walk", distance: 4.2, movingTime: 1800, elevationGain: 10, startDate: "2026-06-13" },
-        { id: "act10", name: "Intense Interval Session 🔥", sportType: "Ride", distance: 56.9, movingTime: 20700, elevationGain: 590, startDate: "2026-06-09" }
-      ]
-    },
-    {
-      id: "p4",
-      name: "Emma Rodriguez",
-      email: "emma.r@yahoo.com",
-      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=100&q=80",
-      athleteId: "strava-athlete-103",
-      distanceCompleted: 74.0,
-      activitiesCount: 8,
-      lastActivityDate: "2026-06-17",
-      movingTime: 21600,
-      elevationGain: 640,
-      recentActivities: [
-        { id: "act11", name: "Morning Miles Jog 🏃‍♀️", sportType: "Run", distance: 8.5, movingTime: 2900, elevationGain: 60, startDate: "2026-06-17" },
-        { id: "act12", name: "Aerobic Capacity Run 🏃‍♀️", sportType: "Run", distance: 15.5, movingTime: 5200, elevationGain: 110, startDate: "2026-06-14" },
-        { id: "act13", name: "Gravel Century Trial 🚴‍♀️", sportType: "Ride", distance: 50.0, movingTime: 13500, elevationGain: 470, startDate: "2026-06-08" }
-      ]
-    },
-    {
-      id: "p5",
-      name: "David Kim",
-      email: "dkim@naver.com",
-      avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=100&q=80",
-      athleteId: "strava-athlete-104",
-      distanceCompleted: 68.3,
-      activitiesCount: 7,
-      lastActivityDate: "2026-06-14",
-      movingTime: 19800,
-      elevationGain: 510,
-      recentActivities: [
-        { id: "act14", name: "Weekend Long Run 🌲🏃", sportType: "Run", distance: 21.1, movingTime: 7300, elevationGain: 180, startDate: "2026-06-14" },
-        { id: "act15", name: "Recovery Stroll 🍃", sportType: "Walk", distance: 5.2, movingTime: 2400, elevationGain: 20, startDate: "2026-06-11" },
-        { id: "act16", name: "Outdoor Sprint Intervals ⚡", sportType: "Run", distance: 42.0, movingTime: 10100, elevationGain: 310, startDate: "2026-06-06" }
-      ]
-    },
-    {
-      id: "p6",
-      name: "Jessica Taylor",
-      email: "jtaylor@gmail.com",
-      avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=100&q=80",
-      athleteId: "strava-athlete-105",
-      distanceCompleted: 58.1,
-      activitiesCount: 6,
-      lastActivityDate: "2026-06-15",
-      movingTime: 16200,
-      elevationGain: 490,
-      recentActivities: [
-        { id: "act17", name: "Park Wander Walk 🚶‍♀️", sportType: "Walk", distance: 6.2, movingTime: 3200, elevationGain: 30, startDate: "2026-06-15" },
-        { id: "act18", name: "Morning Jog 🏃‍♀️", sportType: "Run", distance: 8.5, movingTime: 2900, elevationGain: 70, startDate: "2026-06-12" },
-        { id: "act19", name: "Interval Ride 🚴‍♀️", sportType: "Ride", distance: 43.4, movingTime: 10100, elevationGain: 390, startDate: "2026-06-08" }
-      ]
-    },
-    {
-      id: "p7",
-      name: "James Wilson",
-      email: "jwilson@live.com",
-      avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=100&q=80",
-      athleteId: "strava-athlete-106",
-      distanceCompleted: 51.5,
-      activitiesCount: 5,
-      lastActivityDate: "2026-06-13",
-      movingTime: 14400,
-      elevationGain: 380,
-      recentActivities: [
-        { id: "act20", name: "Evening Stroll 🌆", sportType: "Walk", distance: 4.8, movingTime: 2100, elevationGain: 10, startDate: "2026-06-13" },
-        { id: "act21", name: "Tempo Run ⚡", sportType: "Run", distance: 10.2, movingTime: 3100, elevationGain: 90, startDate: "2026-06-11" },
-        { id: "act22", name: "Easy Commute Ride 🚴‍♂️", sportType: "Ride", distance: 36.5, movingTime: 9200, elevationGain: 280, startDate: "2026-06-06" }
-      ]
-    },
-    {
-      id: "p8",
-      name: "Amanda Martinez",
-      email: "amanda.m@gmail.com",
-      avatar: "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=100&q=80",
-      athleteId: "strava-athlete-107",
-      distanceCompleted: 45.0,
-      activitiesCount: 5,
-      lastActivityDate: "2026-06-16",
-      movingTime: 12600,
-      elevationGain: 310,
-      recentActivities: [
-        { id: "act23", name: "Quick Lunch Walk 🐾", sportType: "Walk", distance: 3.5, movingTime: 1500, elevationGain: 10, startDate: "2026-06-16" },
-        { id: "act24", name: "Gravel Grind Ride 🚴‍♀️", sportType: "Ride", distance: 41.5, movingTime: 11100, elevationGain: 300, startDate: "2026-06-10" }
-      ]
-    },
-    {
-      id: "p9",
-      name: "Robert Thompson",
-      email: "rthompson@gmail.com",
-      avatar: "https://images.unsplash.com/photo-1531427186611-ecfd6d936c79?auto=format&fit=crop&w=100&q=80",
-      athleteId: "strava-athlete-108",
-      distanceCompleted: 36.2,
-      activitiesCount: 4,
-      lastActivityDate: "2026-06-12",
-      movingTime: 10800,
-      elevationGain: 250,
-      recentActivities: [
-        { id: "act25", name: "Evening Dog Walk 🐾", sportType: "Walk", distance: 4.2, movingTime: 2200, elevationGain: 20, startDate: "2026-06-12" },
-        { id: "act26", name: "Recovery Ride 🚴‍♂️", sportType: "Ride", distance: 32.0, movingTime: 8600, elevationGain: 230, startDate: "2026-06-08" }
-      ]
-    },
-    {
-      id: "p10",
-      name: "Lisa Anderson",
-      email: "lisa.a@icloud.com",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80",
-      athleteId: "strava-athlete-109",
-      distanceCompleted: 28.4,
-      activitiesCount: 3,
-      lastActivityDate: "2026-06-14",
-      movingTime: 7200,
-      elevationGain: 180,
-      recentActivities: [
-        { id: "act27", name: "Interval Sprints 🏃‍♀️", sportType: "Run", distance: 8.4, movingTime: 2800, elevationGain: 60, startDate: "2026-06-14" },
-        { id: "act28", name: "Coffee Run Walk ☕🚶‍♀️", sportType: "Walk", distance: 20.0, movingTime: 4400, elevationGain: 120, startDate: "2026-06-09" }
-      ]
-    },
-    {
-      id: "p11",
-      name: "William Thomas",
-      email: "wthomas@gmail.com",
-      avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=100&q=80",
-      athleteId: "strava-athlete-110",
-      distanceCompleted: 12.0,
-      activitiesCount: 2,
-      lastActivityDate: "2026-06-08",
-      movingTime: 3600,
-      elevationGain: 90,
-      recentActivities: [
-        { id: "act29", name: "Morning Miles Jog 🏃‍♂️", sportType: "Run", distance: 12.0, movingTime: 3600, elevationGain: 90, startDate: "2026-06-08" }
-      ]
-    },
-    {
-      id: "p12",
-      name: "Ashley Jackson",
-      email: "ajackson@gmail.com",
-      avatar: "https://images.unsplash.com/photo-1554151228-14d9def656e4?auto=format&fit=crop&w=100&q=80",
-      athleteId: "strava-athlete-111",
-      distanceCompleted: 5.4,
-      activitiesCount: 1,
-      lastActivityDate: "2026-06-03",
-      movingTime: 1800,
-      elevationGain: 40,
-      recentActivities: [
-        { id: "act30", name: "Quick Trail Walk 🌲🚶‍♀️", sportType: "Walk", distance: 5.4, movingTime: 1800, elevationGain: 40, startDate: "2026-06-03" }
-      ]
-    },
-    {
-      id: "p13",
-      name: "Brian White",
-      email: "bwhite@gmail.com",
-      avatar: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=100&q=80",
-      athleteId: "strava-athlete-112",
-      distanceCompleted: 0.0,
-      activitiesCount: 0,
-      lastActivityDate: "Never",
-      movingTime: 0,
-      elevationGain: 0,
-      recentActivities: []
-    },
-    {
-      id: "p14",
-      name: "Megan Harris",
-      email: "mharris@gmail.com",
-      avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=100&q=80",
-      athleteId: "strava-athlete-113",
-      distanceCompleted: 0.0,
-      activitiesCount: 0,
-      lastActivityDate: "Never",
-      movingTime: 0,
-      elevationGain: 0,
-      recentActivities: []
-    },
-    {
-      id: "p15",
-      name: "Kevin Martin",
-      email: "kmartin@gmail.com",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80",
-      athleteId: "strava-athlete-114",
-      distanceCompleted: 0.0,
-      activitiesCount: 0,
-      lastActivityDate: "Never",
-      movingTime: 0,
-      elevationGain: 0,
-      recentActivities: []
-    }
-  ], []);
+  const baseParticipants = initialParticipants;
+  const unit = challenge.goalType === "Distance" ? "km" : challenge.goalType === "Elevation" ? "m" : "hrs";
 
   // Calculate dynamic progress & active standing lists based on the challenge goal target
   const participants = useMemo(() => {
@@ -475,7 +249,7 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge }
             <div>
               <span className="text-[8px] text-zinc-650 uppercase block font-bold">Goal Target</span>
               <span className="text-base font-black text-white">
-                {challenge.goalTarget} {challenge.goalType === "Distance" ? "km" : challenge.goalType === "Elevation" ? "m" : "hrs"}
+                {challenge.goalTarget} {unit}
               </span>
             </div>
             <div className="sm:border-l sm:border-white/5 sm:pl-6">
@@ -586,7 +360,7 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge }
                   <tr className="border-b border-white/5 text-[9px] uppercase font-black text-zinc-550 tracking-wider font-mono">
                     <th className="py-3 px-3">Rank</th>
                     <th className="py-3 px-3">Athlete</th>
-                    <th className="py-3 px-3">Distance</th>
+                    <th className="py-3 px-3">Completed</th>
                     <th className="py-3 px-3">Progress</th>
                     <th className="py-3 px-3 text-center">Activities</th>
                     <th className="py-3 px-3 text-right">Last Logged</th>
@@ -617,7 +391,7 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge }
                             </div>
                           </td>
                           <td className="py-3 px-3 font-mono font-bold text-white">
-                            {p.distanceCompleted.toFixed(1)} km
+                            {p.distanceCompleted.toFixed(1)} {unit}
                           </td>
                           <td className="py-3 px-3">
                             <div className="w-24 space-y-1">
@@ -678,7 +452,7 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge }
                     />
                     <div className="p-2 text-center w-full min-w-0">
                       <p className="font-black text-[10px] text-zinc-300 truncate">{participants[1].name.split(" ")[0]}</p>
-                      <p className="font-mono text-[9px] text-zinc-550 font-black mt-0.5">{participants[1].distanceCompleted.toFixed(0)}km</p>
+                      <p className="font-mono text-[9px] text-zinc-550 font-black mt-0.5">{participants[1].distanceCompleted.toFixed(0)} {unit}</p>
                     </div>
                   </div>
                 )}
@@ -698,7 +472,7 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge }
                     />
                     <div className="p-3.5 text-center w-full min-w-0">
                       <p className="font-black text-[11px] text-white truncate">{participants[0].name.split(" ")[0]}</p>
-                      <p className="font-mono text-[9.5px] text-amber-450 font-black mt-0.5">{participants[0].distanceCompleted.toFixed(0)}km</p>
+                      <p className="font-mono text-[9.5px] text-amber-450 font-black mt-0.5">{participants[0].distanceCompleted.toFixed(0)} {unit}</p>
                     </div>
                   </div>
                 )}
@@ -718,7 +492,7 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge }
                     />
                     <div className="p-2 text-center w-full min-w-0">
                       <p className="font-black text-[9.5px] text-zinc-400 truncate">{participants[2].name.split(" ")[0]}</p>
-                      <p className="font-mono text-[8.5px] text-zinc-550 font-black mt-0.5">{participants[2].distanceCompleted.toFixed(0)}km</p>
+                      <p className="font-mono text-[8.5px] text-zinc-550 font-black mt-0.5">{participants[2].distanceCompleted.toFixed(0)} {unit}</p>
                     </div>
                   </div>
                 )}
@@ -728,53 +502,50 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge }
 
             {/* Live Sync Feed */}
             <div className="bg-zinc-900/30 border border-white/5 rounded-3xl p-5 sm:p-6 space-y-4 backdrop-blur-md">
-              <h3 className="font-extrabold uppercase tracking-wider text-xs text-white border-b border-white/5 pb-4 flex items-center gap-2">
-                <Flame className="h-4.5 w-4.5 text-lime-400 animate-pulse" /> Live Activity Feed
-              </h3>
-
+              <h3 className="font-extrabold uppercase tracking-wider text-xs text-white border-b border-white/5 pb-4">Live Sync Ticker</h3>
               <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-                {[
-                  { id: "feed1", name: "Adith Google", action: "synced Gravel Ride", sportType: "Ride", distance: 48.5, time: "5 mins ago", participantId: "p1" },
-                  { id: "feed2", name: "Emma Rodriguez", action: "logged Tempo Run", sportType: "Run", distance: 8.5, time: "1 hour ago", participantId: "p4" },
-                  { id: "feed3", name: "Sarah Jenkins", action: "synced Hill Climbs", sportType: "Ride", distance: 32.4, time: "3 hours ago", participantId: "p2" },
-                  { id: "feed4", name: "Jessica Taylor", action: "logged stroll", sportType: "Walk", distance: 6.2, time: "5 hours ago", participantId: "p6" },
-                  { id: "feed5", name: "Michael Chen", action: "synced Commute", sportType: "Ride", distance: 20.1, time: "8 hours ago", participantId: "p3" }
-                ].map((item) => {
-                  const targetParticipant = participants.find(p => p.id === item.participantId);
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={() => targetParticipant && setSelectedParticipant(targetParticipant)}
-                      className="bg-zinc-950 border border-white/3 hover:border-lime-400/20 p-3 rounded-2xl flex items-center justify-between text-xs cursor-pointer group/feed transition-all"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className="relative shrink-0">
-                          {targetParticipant ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={targetParticipant.avatar} alt={item.name} className="h-6 w-6 rounded-full object-cover" />
-                          ) : (
-                            <div className="h-6 w-6 rounded-full bg-zinc-800" />
-                          )}
-                          <span className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-lime-400 ring-1 ring-zinc-950 animate-ping" />
+                {recentFeed.length > 0 ? (
+                  recentFeed.map((item) => {
+                    const targetParticipant = participants.find(p => p.id === item.participantId);
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => targetParticipant && setSelectedParticipant(targetParticipant)}
+                        className="bg-zinc-950 border border-white/3 hover:border-lime-400/20 p-3 rounded-2xl flex items-center justify-between text-xs cursor-pointer group/feed transition-all"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="relative shrink-0">
+                            {targetParticipant ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={targetParticipant.avatar} alt={item.name} className="h-6 w-6 rounded-full object-cover" />
+                            ) : (
+                              <div className="h-6 w-6 rounded-full bg-zinc-800" />
+                            )}
+                            <span className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-lime-400 ring-1 ring-zinc-950 animate-ping" />
+                          </div>
+
+                          <div className="text-left min-w-0 max-w-[150px]">
+                            <p className="font-extrabold text-[11px] text-white truncate group-hover/feed:text-lime-400 transition-colors">
+                              {item.name}
+                            </p>
+                            <p className="text-[9px] text-zinc-555 truncate m-0">
+                              {item.action}
+                            </p>
+                          </div>
                         </div>
 
-                        <div className="text-left min-w-0 max-w-[150px]">
-                          <p className="font-extrabold text-[11px] text-white truncate group-hover/feed:text-lime-400 transition-colors">
-                            {item.name}
-                          </p>
-                          <p className="text-[9px] text-zinc-550 truncate">
-                            {item.action}
-                          </p>
+                        <div className="text-right">
+                          <span className="font-mono font-black text-[10px] text-zinc-300 block">{item.displayValue}</span>
+                          <span className="text-[8.5px] text-zinc-500 block">{item.time}</span>
                         </div>
                       </div>
-
-                      <div className="text-right">
-                        <span className="font-mono font-black text-[10px] text-zinc-300 block">+{item.distance} km</span>
-                        <span className="text-[8.5px] text-zinc-500 block">{item.time}</span>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                ) : (
+                  <div className="py-6 text-center text-zinc-650 font-mono text-[10px] border border-dashed border-white/5 rounded-xl">
+                    No recent activities logged in this challenge.
+                  </div>
+                )}
               </div>
             </div>
 
@@ -855,7 +626,7 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge }
                     <div className="flex justify-between items-center font-mono">
                       <div>
                         <span className="text-[8px] text-zinc-650 uppercase block font-bold">Goal Target</span>
-                        <span className="text-sm font-black text-white">{challenge.goalTarget} km</span>
+                        <span className="text-sm font-black text-white">{challenge.goalTarget} {unit}</span>
                       </div>
                       <div className="text-right">
                         <span className="text-[8px] text-zinc-650 uppercase block font-bold">Progress</span>
@@ -885,9 +656,9 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge }
                     </div>
 
                     <div className="bg-zinc-900/25 border border-white/5 p-4 rounded-xl space-y-1">
-                      <span className="text-[8px] text-zinc-650 uppercase block font-bold font-mono">Synced distance</span>
+                      <span className="text-[8px] text-zinc-650 uppercase block font-bold font-mono">Synced completed</span>
                       <span className="text-sm sm:text-base font-black text-white font-mono">
-                        {selectedParticipant.distanceCompleted.toFixed(1)} km
+                        {selectedParticipant.distanceCompleted.toFixed(1)} {unit}
                       </span>
                     </div>
 
