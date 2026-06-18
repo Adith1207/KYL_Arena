@@ -190,6 +190,9 @@ class MockQueryBuilder {
       this.setCookieOrLocalStorage("kyl-mock-activities-synced", "true");
       this.setCookieOrLocalStorage("kyl-mock-last-synced-at", new Date().toISOString());
     }
+    if (values && values.role) {
+      this.setCookieOrLocalStorage("kyl-mock-role", values.role);
+    }
     return this;
   }
 
@@ -205,6 +208,12 @@ class MockQueryBuilder {
     
     if (values.last_synced_at) {
       this.setCookieOrLocalStorage("kyl-mock-last-synced-at", values.last_synced_at);
+    }
+    if (values.tour_completed !== undefined) {
+      this.setCookieOrLocalStorage("kyl-mock-tour-completed", values.tour_completed ? "true" : "false");
+    }
+    if (values.role !== undefined) {
+      this.setCookieOrLocalStorage("kyl-mock-role", values.role);
     }
     return this;
   }
@@ -271,6 +280,8 @@ class MockQueryBuilder {
     let provider = "google";
     let isStravaLinked = false;
     let lastSyncedAt = null;
+    let tourCompleted = false;
+    let mockRole = "super_admin";
 
     if (this.isBrowser) {
       const mockUser = localStorage.getItem("kyl_mock_user");
@@ -279,10 +290,14 @@ class MockQueryBuilder {
       }
       isStravaLinked = localStorage.getItem("kyl_mock_strava_linked") === "true";
       lastSyncedAt = localStorage.getItem("kyl_mock_last_synced_at");
+      tourCompleted = localStorage.getItem("kyl_mock_tour_completed") === "true";
+      mockRole = localStorage.getItem("kyl_mock_role") || "super_admin";
     } else if (this.cookieStore) {
       provider = this.cookieStore.get("kyl-mock-provider")?.value || "google";
       isStravaLinked = this.cookieStore.get("kyl-mock-strava-linked")?.value === "true";
       lastSyncedAt = this.cookieStore.get("kyl-mock-last-synced-at")?.value || null;
+      tourCompleted = this.cookieStore.get("kyl-mock-tour-completed")?.value === "true";
+      mockRole = this.cookieStore.get("kyl-mock-role")?.value || "super_admin";
     }
 
     const isStrava = provider === "strava" || isStravaLinked;
@@ -300,6 +315,8 @@ class MockQueryBuilder {
           strava_connected: isStrava,
           strava_athlete_id: isStrava ? "strava-athlete-999" : null,
           last_synced_at: lastSyncedAt || null,
+          tour_completed: tourCompleted,
+          role: mockRole,
         },
         error: null,
         count: null

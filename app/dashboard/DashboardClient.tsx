@@ -6,7 +6,7 @@ import {
   Loader2, LogOut, Activity, AlertTriangle, CheckCircle, 
   Award, Bike, Footprints, Flame, Trophy, 
   ChevronRight, TrendingUp, Sparkles, Clock, Target, 
-  Dumbbell, Home, Users, HelpCircle, X
+  Dumbbell, Home, Users, HelpCircle, X, Shield
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence, Variants } from "framer-motion";
@@ -32,6 +32,7 @@ interface ProfileData {
   activities?: ActivityData[];
   activities_count?: number;
   tour_completed?: boolean;
+  role?: string;
   strava_connection?: {
     athlete_name: string | null;
     athlete_username: string | null;
@@ -377,6 +378,19 @@ export default function DashboardClient({
                 )}
               </div>
 
+              {/* Dashboard Switcher Button */}
+              {(profile.role === "super_admin" || profile.role === "challenge_admin") && (
+                <Button
+                  asChild
+                  className="hidden sm:flex h-9 px-3.5 border border-lime-400/25 hover:border-lime-400 bg-lime-400/5 hover:bg-lime-400/10 text-lime-400 font-extrabold rounded-xl transition-all items-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer"
+                >
+                  <Link href="/arena-admin">
+                    <Shield className="h-3.5 w-3.5" />
+                    Admin
+                  </Link>
+                </Button>
+              )}
+
               {/* Permanent Dashboard Header Tour Button */}
               <Button
                 onClick={() => setIsTourOpen(true)}
@@ -620,6 +634,33 @@ export default function DashboardClient({
               }`}
             >
               {st}
+            </button>
+          ))}
+        </div>
+
+        {/* Mock Role Selector */}
+        <span className="text-[9px] font-black uppercase text-zinc-500 tracking-wider mt-2 pt-2 border-t border-white/5 w-full text-center">Mock Role</span>
+        <div className="grid grid-cols-2 gap-1 w-full">
+          {(["athlete", "challenge_admin", "organization_admin", "super_admin"] as const).map((r) => (
+            <button
+              key={r}
+              onClick={() => {
+                localStorage.setItem("kyl_mock_role", r);
+                document.cookie = `kyl-mock-role=${r}; path=/; max-age=3600; SameSite=Lax`;
+                if (r === "organization_admin") {
+                  window.location.href = "/arena-admin";
+                } else {
+                  window.location.reload();
+                }
+              }}
+              className={`h-6 px-1 text-[8.5px] font-bold rounded flex items-center justify-center transition-all cursor-pointer truncate ${
+                profile.role === r
+                  ? "bg-lime-400 text-black font-black"
+                  : "bg-zinc-800 text-zinc-400 hover:text-white"
+              }`}
+              title={r}
+            >
+              {r.replace("_admin", "")}
             </button>
           ))}
         </div>
