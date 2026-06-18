@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
   Users, Activity, Trophy, Flame, Plus, ArrowLeft,
   CheckCircle, Target, LogOut, Loader2,
@@ -9,6 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
+import { createClient } from "@/lib/supabase/client";
 
 interface ProfileData {
   id: string;
@@ -18,11 +20,6 @@ interface ProfileData {
   auth_provider: string;
   role: string;
   tour_completed?: boolean;
-}
-
-interface AdminDashboardClientProps {
-  profile: ProfileData;
-  userRole: string;
 }
 
 interface Challenge {
@@ -36,10 +33,32 @@ interface Challenge {
   endDate: string;
   bannerUrl: string;
   status: "active" | "upcoming" | "archived";
+  participantsCount?: number;
 }
 
-export default function AdminDashboardClient({ profile, userRole }: AdminDashboardClientProps) {
+interface MetricData {
+  totalMembers: number;
+  activeAthletes: number;
+  activeChallenges: number;
+  syncedActivities: number;
+}
+
+interface AdminDashboardClientProps {
+  profile: ProfileData;
+  userRole: string;
+  initialChallenges: Challenge[];
+  initialMetrics: MetricData;
+}
+
+export default function AdminDashboardClient({ 
+  profile, 
+  userRole, 
+  initialChallenges, 
+  initialMetrics 
+}: AdminDashboardClientProps) {
+  const router = useRouter();
   const [loadingLogout, setLoadingLogout] = useState(false);
+  const [loadingCreate, setLoadingCreate] = useState(false);
   const [activeTab, setActiveTab] = useState<"active" | "upcoming" | "archived">("active");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -53,57 +72,11 @@ export default function AdminDashboardClient({ profile, userRole }: AdminDashboa
   const [endDate, setEndDate] = useState("");
   const [bannerUrl, setBannerUrl] = useState("");
 
-  // Mock Challenges List
-  const [challenges, setChallenges] = useState<Challenge[]>([
-    {
-      id: "1",
-      title: "KYL Summer Century",
-      description: "Pedal your way to 100 kilometers over the month of June. Ride together, check your limits.",
-      sportType: "Ride",
-      goalType: "Distance",
-      goalTarget: 100,
-      startDate: "2026-06-01",
-      endDate: "2026-06-30",
-      bannerUrl: "https://images.unsplash.com/photo-1541614101331-1a5a3a194e92?auto=format&fit=crop&w=400&q=80",
-      status: "active"
-    },
-    {
-      id: "2",
-      title: "June Run Challenge",
-      description: "Lace up and complete 50 kilometers of running. Stay consistent throughout June.",
-      sportType: "Run",
-      goalType: "Distance",
-      goalTarget: 50,
-      startDate: "2026-06-01",
-      endDate: "2026-06-30",
-      bannerUrl: "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?auto=format&fit=crop&w=400&q=80",
-      status: "active"
-    },
-    {
-      id: "3",
-      title: "July Elevation Climb",
-      description: "Climb 2,000 meters of total elevation gain. Any run, walk, or cycle counts.",
-      sportType: "Multisport",
-      goalType: "Elevation",
-      goalTarget: 2000,
-      startDate: "2026-07-01",
-      endDate: "2026-07-31",
-      bannerUrl: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=400&q=80",
-      status: "upcoming"
-    },
-    {
-      id: "4",
-      title: "May Walkathon",
-      description: "Cover 30 kilometers of walking to kickstart your summer fitness habit.",
-      sportType: "Walk",
-      goalType: "Distance",
-      goalTarget: 30,
-      startDate: "2026-05-01",
-      endDate: "2026-05-31",
-      bannerUrl: "https://images.unsplash.com/photo-1502224562085-639556652f33?auto=format&fit=crop&w=400&q=80",
-      status: "archived"
-    }
-  ]);
+  const [challenges, setChallenges] = useState<Challenge[]>(initialChallenges);
+
+  useEffect(() => {
+    setChallenges(initialChallenges);
+  }, [initialChallenges]);
 
   const handleLogout = async () => {
     setLoadingLogout(true);
@@ -121,12 +94,14 @@ export default function AdminDashboardClient({ profile, userRole }: AdminDashboa
     }
   };
 
-  const handleCreateChallenge = (e: React.FormEvent) => {
+  const handleCreateChallenge = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !description || !goalTarget || !startDate || !endDate) {
       alert("Please fill out all required fields.");
       return;
     }
+
+    setLoadingCreate(true);
 
     const todayStr = "2026-06-18"; // Current mock time context
     let determinedStatus: "active" | "upcoming" | "archived" = "active";
@@ -144,29 +119,48 @@ export default function AdminDashboardClient({ profile, userRole }: AdminDashboa
       "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=400&q=80"
     );
 
-    const newChallenge: Challenge = {
-      id: Math.random().toString(36).substring(2, 9),
-      title,
-      description,
-      sportType,
-      goalType,
-      goalTarget: Number(goalTarget),
-      startDate,
-      endDate,
-      bannerUrl: defaultBanner,
-      status: determinedStatus
-    };
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("challenges")
+        .insert({
+          title,
+          description,
+          sport_type: sportType,
+          goal_metric: goalType,
+          goal_target: Number(goalTarget),
+          start_date: startDate,
+          end_date: endDate,
+          banner_url: defaultBanner,
+          status: determinedStatus,
+          created_by: profile.id
+        })
+        .select()
+        .single();
 
-    setChallenges((prev) => [newChallenge, ...prev]);
-    setSuccessMessage(`"${title}" has been successfully added as a mock challenge!`);
-    
-    // Reset form
-    setTitle("");
-    setDescription("");
-    setGoalTarget("");
-    setStartDate("");
-    setEndDate("");
-    setBannerUrl("");
+      if (error) {
+        alert(`Failed to create challenge: ${error.message}`);
+        return;
+      }
+
+      setSuccessMessage(`"${title}" has been successfully added to the database!`);
+      
+      // Reset form
+      setTitle("");
+      setDescription("");
+      setGoalTarget("");
+      setStartDate("");
+      setEndDate("");
+      setBannerUrl("");
+
+      // Refresh serverside state
+      router.refresh();
+    } catch (e: any) {
+      console.error("Failed to create challenge:", e);
+      alert("Error occurred while creating challenge.");
+    } finally {
+      setLoadingCreate(false);
+    }
 
     setTimeout(() => {
       setSuccessMessage(null);
@@ -297,14 +291,14 @@ export default function AdminDashboardClient({ profile, userRole }: AdminDashboa
             <div className="flex justify-between items-start">
               <div className="space-y-1">
                 <p className="text-[9px] text-zinc-500 font-black uppercase tracking-wider">Total Members</p>
-                <p className="text-xl sm:text-2xl font-mono font-black text-white">235</p>
+                <p className="text-xl sm:text-2xl font-mono font-black text-white">{initialMetrics.totalMembers}</p>
               </div>
               <div className="p-2 rounded-lg bg-lime-400/5 text-lime-400 border border-lime-400/10">
                 <Users className="h-4.5 w-4.5" />
               </div>
             </div>
             <p className="text-[9px] text-lime-400 font-mono mt-3 flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" /> +12 registrations this week
+              <TrendingUp className="h-3 w-3" /> Live user registrations
             </p>
           </div>
 
@@ -313,14 +307,14 @@ export default function AdminDashboardClient({ profile, userRole }: AdminDashboa
             <div className="flex justify-between items-start">
               <div className="space-y-1">
                 <p className="text-[9px] text-zinc-500 font-black uppercase tracking-wider">Active Athletes</p>
-                <p className="text-xl sm:text-2xl font-mono font-black text-white">189</p>
+                <p className="text-xl sm:text-2xl font-mono font-black text-white">{initialMetrics.activeAthletes}</p>
               </div>
               <div className="p-2 rounded-lg bg-lime-400/5 text-lime-400 border border-lime-400/10">
                 <Activity className="h-4.5 w-4.5" />
               </div>
             </div>
             <p className="text-[9px] text-zinc-400 font-mono mt-3">
-              80.4% community engagement rate
+              {initialMetrics.totalMembers > 0 ? ((initialMetrics.activeAthletes / initialMetrics.totalMembers) * 100).toFixed(1) : 0}% community connection rate
             </p>
           </div>
 
@@ -329,14 +323,14 @@ export default function AdminDashboardClient({ profile, userRole }: AdminDashboa
             <div className="flex justify-between items-start">
               <div className="space-y-1">
                 <p className="text-[9px] text-zinc-500 font-black uppercase tracking-wider">Active Challenges</p>
-                <p className="text-xl sm:text-2xl font-mono font-black text-white">3</p>
+                <p className="text-xl sm:text-2xl font-mono font-black text-white">{initialMetrics.activeChallenges}</p>
               </div>
               <div className="p-2 rounded-lg bg-lime-400/5 text-lime-400 border border-lime-400/10">
                 <Trophy className="h-4.5 w-4.5" />
               </div>
             </div>
             <p className="text-[9px] text-zinc-400 font-mono mt-3">
-              2 cycling events, 1 running
+              Events active right now
             </p>
           </div>
 
@@ -345,14 +339,14 @@ export default function AdminDashboardClient({ profile, userRole }: AdminDashboa
             <div className="flex justify-between items-start">
               <div className="space-y-1">
                 <p className="text-[9px] text-zinc-500 font-black uppercase tracking-wider">Synced Activities</p>
-                <p className="text-xl sm:text-2xl font-mono font-black text-white">47</p>
+                <p className="text-xl sm:text-2xl font-mono font-black text-white">{initialMetrics.syncedActivities}</p>
               </div>
               <div className="p-2 rounded-lg bg-lime-400/5 text-lime-400 border border-lime-400/10">
                 <Flame className="h-4.5 w-4.5 animate-pulse" />
               </div>
             </div>
             <p className="text-[9px] text-lime-400 font-mono mt-3">
-              100% processing uptime
+              Total logs processed
             </p>
           </div>
 
@@ -423,17 +417,23 @@ export default function AdminDashboardClient({ profile, userRole }: AdminDashboa
                           </p>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5 font-mono text-[9px] text-zinc-400">
+                        <div className="grid grid-cols-3 gap-1 pt-2 border-t border-white/5 font-mono text-[9px] text-zinc-400">
                           <div>
-                            <span className="text-[8px] text-zinc-650 uppercase block font-bold">Goal Target</span>
-                            <span className="font-extrabold text-white">
+                            <span className="text-[8px] text-zinc-650 uppercase block font-bold">Target</span>
+                            <span className="font-extrabold text-white truncate block">
                               {challenge.goalTarget.toLocaleString()} {challenge.goalType === "Distance" ? "km" : challenge.goalType === "Elevation" ? "m" : "hrs"}
                             </span>
                           </div>
                           <div>
                             <span className="text-[8px] text-zinc-650 uppercase block font-bold">Duration</span>
-                            <span>
-                              {challenge.startDate.split("-")[1]}/{challenge.startDate.split("-")[2]} — {challenge.endDate.split("-")[1]}/{challenge.endDate.split("-")[2]}
+                            <span className="truncate block">
+                              {challenge.startDate.split("-")[1]}/{challenge.startDate.split("-")[2]}—{challenge.endDate.split("-")[1]}/{challenge.endDate.split("-")[2]}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[8px] text-zinc-650 uppercase block font-bold">Enrolled</span>
+                            <span className="font-extrabold text-white block">
+                              {challenge.participantsCount ?? 0} joined
                             </span>
                           </div>
                         </div>
@@ -599,9 +599,18 @@ export default function AdminDashboardClient({ profile, userRole }: AdminDashboa
 
               <Button
                 type="submit"
+                disabled={loadingCreate}
                 className="w-full h-12 bg-lime-400 hover:bg-lime-300 text-black font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider shadow-lg shadow-lime-400/10 cursor-pointer mt-2"
               >
-                <Plus className="h-4.5 w-4.5" /> Configure Event
+                {loadingCreate ? (
+                  <>
+                    <Loader2 className="h-4.5 w-4.5 animate-spin" /> Configuring...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4.5 w-4.5" /> Configure Event
+                  </>
+                )}
               </Button>
 
             </form>

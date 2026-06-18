@@ -97,6 +97,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     start_date: string;
   }[] = [];
   let activitiesCount = 0;
+  let allActivities: any[] = [];
 
   if (profile.strava_connected) {
     try {
@@ -126,6 +127,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         activities = actData;
       }
 
+      // Fetch all user activities for dynamic challenge progress calculations
+      const { data: allActData } = await supabase
+        .from("activities")
+        .select("name, sport_type, distance, total_elevation_gain, moving_time, start_date")
+        .eq("user_id", user.id)
+        .order("start_date", { ascending: false });
+
+      if (allActData) {
+        allActivities = allActData;
+      }
+
       // Fetch count of all activities
       const { count, error: countError } = await supabase
         .from("activities")
@@ -153,11 +165,105 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     console.error("Failed to fetch overall db connection count:", e);
   }
 
+  // Fetch active challenges and calculate leaderboard & standings dynamically on the server
+  const activeChallenges: any[] = [];
+  try {
+    const { data: dbChallenges, error: challengesError } = await supabaseAdmin
+      .from("challenges")
+      .select("*")
+      .eq("status", "active")
+      .order("created_at", { ascending: false });
+
+    if (!challengesError && dbChallenges) {
+      const { data: dbParticipations } = await supabaseAdmin
+        .from("challenge_participants")
+        .select("*");
+
+      for (const c of dbChallenges) {
+        const challengeParts = (dbParticipations || []).filter((p: any) => p.challenge_id === c.id);
+        const participantUserIds = challengeParts.map((p: any) => p.user_id);
+        
+        let userRank = null;
+        let leaderboard: any[] = [];
+
+        if (participantUserIds.length > 0) {
+          // Fetch activities of all challenge participants within challenge date range
+          const { data: actData } = await supabaseAdmin
+            .from("activities")
+            .select("user_id, distance, total_elevation_gain, moving_time, start_date, sport_type")
+            .in("user_id", participantUserIds)
+            .gte("start_date", `${c.start_date}T00:00:00Z`)
+            .lte("start_date", `${c.end_date}T23:59:59Z`);
+
+          // Group by user
+          const userTotals: Record<string, number> = {};
+          participantUserIds.forEach(uid => { userTotals[uid] = 0; });
+
+          actData?.forEach((act: any) => {
+            const matchesSport = 
+              c.sport_type === "Multisport" || 
+              act.sport_type?.toLowerCase() === c.sport_type?.toLowerCase();
+
+            if (matchesSport) {
+              if (c.goal_metric === "Distance") {
+                userTotals[act.user_id] += Number(act.distance) / 1000;
+              } else if (c.goal_metric === "Elevation") {
+                userTotals[act.user_id] += Number(act.total_elevation_gain || 0);
+              } else if (c.goal_metric === "Time" || c.goal_metric === "Duration") {
+                userTotals[act.user_id] += Number(act.moving_time || 0) / 3600;
+              }
+            }
+          });
+
+          // Fetch profiles to get names/avatars
+          const { data: profiles } = await supabaseAdmin
+            .from("profiles")
+            .select("id, name, avatar")
+            .in("id", participantUserIds);
+
+          leaderboard = challengeParts.map((p: any) => {
+            const prof = profiles?.find((pr: any) => pr.id === p.user_id);
+            return {
+              userId: p.user_id,
+              name: prof?.name || "Athlete",
+              avatar: prof?.avatar || "",
+              completed: userTotals[p.user_id] || 0
+            };
+          });
+
+          leaderboard.sort((a, b) => b.completed - a.completed);
+          const rankIndex = leaderboard.findIndex(item => item.userId === user.id);
+          userRank = rankIndex !== -1 ? rankIndex + 1 : null;
+        }
+
+        activeChallenges.push({
+          id: c.id,
+          title: c.title,
+          description: c.description || "",
+          sportType: c.sport_type,
+          goalType: c.goal_metric,
+          goalTarget: Number(c.goal_target),
+          startDate: c.start_date,
+          endDate: c.end_date,
+          bannerUrl: c.banner_url || "",
+          status: c.status,
+          userJoined: participantUserIds.includes(user.id),
+          participantsCount: participantUserIds.length,
+          userRank,
+          leaderboard: leaderboard.slice(0, 5) // Top 5
+        });
+      }
+    }
+  } catch (e) {
+    console.error("Failed to compile active challenges on server:", e);
+  }
+
   const combinedProfile = {
     ...profile,
     strava_connection: stravaConnection,
     activities,
     activities_count: activitiesCount,
+    all_activities: allActivities,
   };
 
   // Build diagnostics bundle
@@ -180,6 +286,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       errorParam={error}
       infoParam={info}
       diagnostics={diagnostics}
+      activeChallenges={activeChallenges}
     />
   );
 }

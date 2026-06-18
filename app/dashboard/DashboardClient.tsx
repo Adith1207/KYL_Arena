@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
   Loader2, LogOut, Activity, AlertTriangle, CheckCircle, 
   Award, Bike, Footprints, Flame, Trophy, 
@@ -26,19 +27,20 @@ interface ProfileData {
   name: string;
   avatar: string;
   auth_provider: string;
+  role: string;
   strava_connected: boolean;
   strava_athlete_id: string | null;
   last_synced_at?: string | null;
   activities?: ActivityData[];
   activities_count?: number;
   tour_completed?: boolean;
-  role?: string;
   strava_connection?: {
     athlete_name: string | null;
     athlete_username: string | null;
     athlete_avatar: string | null;
     created_at?: string | null;
   } | null;
+  all_activities?: any[];
 }
 
 interface DashboardClientProps {
@@ -57,6 +59,7 @@ interface DashboardClientProps {
     oauthCallbackResult: string;
     profileLookupResult: string;
   };
+  activeChallenges: any[];
 }
 
 // Helper function to format date consistently on server and client to prevent hydration mismatches
@@ -71,12 +74,15 @@ export default function DashboardClient({
   initialProfile, 
   errorParam, 
   infoParam, 
-  diagnostics 
+  diagnostics,
+  activeChallenges
 }: DashboardClientProps) {
+  const router = useRouter();
   const [profile, setProfile] = useState<ProfileData>(initialProfile);
   const [loadingConnect, setLoadingConnect] = useState(false);
   const [loadingDisconnect, setLoadingDisconnect] = useState(false);
   const [loadingLogout, setLoadingLogout] = useState(false);
+  const [loadingJoinId, setLoadingJoinId] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   
@@ -515,7 +521,7 @@ export default function DashboardClient({
 
           {activeTab === "challenges" && (
             <div className="space-y-6">
-              {renderChallengesSection(currentState, "-mobile")}
+              {renderChallengesSection("-mobile")}
             </div>
           )}
 
@@ -538,7 +544,7 @@ export default function DashboardClient({
 
           {/* RIGHT COLUMN: Community details, challenges */}
           <div className="md:col-span-5 lg:col-span-4 space-y-6 lg:space-y-8">
-            {renderChallengesSection(currentState, "-desktop")}
+            {renderChallengesSection("-desktop")}
             {renderLeaderboardSection("-desktop")}
           </div>
 
@@ -1082,136 +1088,192 @@ export default function DashboardClient({
   }
 
   // Render Sugested or enrolled challenges
-  function renderChallengesSection(stateLetter: "A" | "B" | "C" | "D" | "E", idSuffix = "") {
-    const isEnrolled = stateLetter === "D" || stateLetter === "E";
+  function renderChallengesSection(idSuffix = "") {
+    const enrolled = activeChallenges.filter(c => c.userJoined);
+    const suggested = activeChallenges.filter(c => !c.userJoined);
+
+    const getProgressVal = (c: any) => {
+      const userActivities = profile.all_activities || [];
+      let completed = 0;
+      
+      const challengeStart = new Date(c.startDate);
+      const challengeEnd = new Date(c.endDate);
+      challengeStart.setUTCHours(0, 0, 0, 0);
+      challengeEnd.setUTCHours(23, 59, 59, 999);
+
+      userActivities.forEach((act: any) => {
+        const actDate = new Date(act.start_date);
+        const inRange = actDate >= challengeStart && actDate <= challengeEnd;
+        
+        const matchesSport = 
+          c.sportType === "Multisport" ||
+          act.sport_type?.toLowerCase() === c.sportType?.toLowerCase();
+
+        if (inRange && matchesSport) {
+          if (c.goalType === "Distance") {
+            completed += (act.distance || 0) / 1000; // km
+          } else if (c.goalType === "Elevation") {
+            completed += (act.total_elevation_gain || 0); // meters
+          } else if (c.goalType === "Time" || c.goalType === "Duration") {
+            completed += (act.moving_time || 0) / 3600; // hours
+          }
+        }
+      });
+
+      return Number(completed.toFixed(1));
+    };
+
+    const handleJoin = async (challengeId: string) => {
+      if (!profile.strava_connected) {
+        alert("Please connect your Strava profile first to join challenges!");
+        return;
+      }
+      setLoadingJoinId(challengeId);
+      try {
+        const { createClient: createBrowserClient } = await import("@/lib/supabase/client");
+        const supabase = createBrowserClient();
+        const { error } = await supabase
+          .from("challenge_participants")
+          .insert({
+            challenge_id: challengeId,
+            user_id: profile.id
+          });
+        if (error) {
+          alert(`Failed to join challenge: ${error.message}`);
+          return;
+        }
+        
+        router.refresh();
+      } catch (e) {
+        console.error("Error joining challenge:", e);
+      } finally {
+        setLoadingJoinId(null);
+      }
+    };
 
     return (
       <div id={`tour-challenges-section${idSuffix}`} className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-5 text-left relative overflow-hidden group">
         <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/10 to-transparent" />
         
-        <div className="flex items-center justify-between border-b border-white/5 pb-3">
-          <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-            {isEnrolled ? "ENROLLED CHALLENGE" : "SUGGESTED CHALLENGES"}
-          </h3>
-          {!isEnrolled && (
-            <span className="text-[9px] text-zinc-500 font-mono">
-              3 Available
-            </span>
-          )}
-        </div>
-
-        {isEnrolled ? (
-          /* Enrolled Progress card preview */
+        {/* Enrolled Segment */}
+        {enrolled.length > 0 && (
           <div className="space-y-4">
-            <div className="p-4 rounded-2xl bg-zinc-950/40 border border-white/5 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white uppercase tracking-tight">June Century Club</span>
-                <span className="text-[10px] font-mono font-bold text-lime-400 bg-lime-400/10 px-2 py-0.5 rounded-full">
-                  {stateLetter === "E" ? "100% COMPLETE" : "65% COMPLETE"}
-                </span>
-              </div>
-
-              {/* Progress bar */}
-              <div className="space-y-1">
-                <div className="w-full bg-zinc-900 h-2.5 rounded-full overflow-hidden border border-white/5">
-                  <motion.div 
-                    className="bg-lime-400 h-full rounded-full" 
-                    initial={{ width: 0 }}
-                    animate={{ width: stateLetter === "E" ? "100%" : "65%" }}
-                    transition={{ duration: 1.2, ease: "easeOut" }}
-                  />
-                </div>
-                <div className="flex items-center justify-between text-[9px] text-zinc-500 font-mono">
-                  <span>{stateLetter === "E" ? "612 km" : "324.5 km"} completed</span>
-                  <span>500 km target</span>
-                </div>
-              </div>
-
-              {/* Standing overview */}
-              <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[10px]">
-                <div className="flex items-center gap-1 text-zinc-400">
-                  <Users className="h-3.5 w-3.5" />
-                  <span>Rank {stateLetter === "E" ? "#4" : "#8"} of 42</span>
-                </div>
-                <span className="text-zinc-500 font-mono">{stateLetter === "E" ? "Completed" : "15 days remaining"}</span>
-              </div>
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-lime-400">
+                ENROLLED CHALLENGES
+              </h3>
+              <span className="text-[9px] text-zinc-500 font-mono">
+                {enrolled.length} Joined
+              </span>
             </div>
-          </div>
-        ) : (
-          /* Suggested Challenges List */
-          <div className="space-y-3">
             
-            {/* Challenge 1 */}
-            <div className="p-4 rounded-2xl bg-zinc-950/40 border border-white/5 space-y-3 hover:border-white/10 transition-all duration-300 text-left">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-900 border border-white/5 text-[8px] font-bold text-zinc-400 uppercase tracking-wide">
-                    <Bike className="h-2.5 w-2.5 text-lime-400" /> Cycling
-                  </div>
-                  <h4 className="font-extrabold text-xs text-white uppercase tracking-tight mt-1">June Century Club</h4>
-                  <p className="text-[10px] text-zinc-500 mt-0.5">Ride 500 km before June 30. Compete on community leaderboards.</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="text-[9px] font-mono text-zinc-400 block font-bold">42 joined</span>
-                  <span className="text-[8px] text-lime-400/80 font-mono">Target: 500k</span>
-                </div>
-              </div>
-              <Button 
-                onClick={() => setJoinedChallenge(true)}
-                className="w-full h-8.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-[10px] uppercase tracking-wider font-extrabold rounded-lg transition-colors cursor-pointer"
-              >
-                Join Challenge
-              </Button>
-            </div>
+            <div className="space-y-3">
+              {enrolled.map((c) => {
+                const completedVal = getProgressVal(c);
+                const pct = Math.min(100, Math.round((completedVal / c.goalTarget) * 100));
+                const unit = c.goalType === "Distance" ? "km" : c.goalType === "Elevation" ? "m" : "hrs";
+                
+                return (
+                  <div key={c.id} className="p-4 rounded-2xl bg-zinc-950/40 border border-white/5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white uppercase tracking-tight">{c.title}</span>
+                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                        pct >= 100 ? "text-lime-400 bg-lime-400/10" : "text-emerald-400 bg-emerald-400/10"
+                      }`}>
+                        {pct}% COMPLETE
+                      </span>
+                    </div>
 
-            {/* Challenge 2 */}
-            <div className="p-4 rounded-2xl bg-zinc-950/40 border border-white/5 space-y-3 hover:border-white/10 transition-all duration-300 text-left">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-900 border border-white/5 text-[8px] font-bold text-zinc-400 uppercase tracking-wide">
-                    <Flame className="h-2.5 w-2.5 text-red-400" /> Running
-                  </div>
-                  <h4 className="font-extrabold text-xs text-white uppercase tracking-tight mt-1">June Run Streak</h4>
-                  <p className="text-[10px] text-zinc-500 mt-0.5">Run 100 km before June 30. Maintain active streak verification.</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="text-[9px] font-mono text-zinc-400 block font-bold">28 joined</span>
-                  <span className="text-[8px] text-red-400/80 font-mono">Target: 100k</span>
-                </div>
-              </div>
-              <Button 
-                onClick={() => setJoinedChallenge(true)}
-                className="w-full h-8.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-[10px] uppercase tracking-wider font-extrabold rounded-lg transition-colors cursor-pointer"
-              >
-                Join Challenge
-              </Button>
-            </div>
+                    {/* Progress bar */}
+                    <div className="space-y-1">
+                      <div className="w-full bg-zinc-900 h-2.5 rounded-full overflow-hidden border border-white/5">
+                        <motion.div 
+                          className="bg-lime-400 h-full rounded-full" 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${pct}%` }}
+                          transition={{ duration: 1.2, ease: "easeOut" }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[9px] text-zinc-500 font-mono">
+                        <span>{completedVal} {unit} completed</span>
+                        <span>{c.goalTarget} {unit} target</span>
+                      </div>
+                    </div>
 
-            {/* Challenge 3 */}
-            <div className="p-4 rounded-2xl bg-zinc-950/40 border border-white/5 space-y-3 hover:border-white/10 transition-all duration-300 text-left">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-900 border border-white/5 text-[8px] font-bold text-zinc-400 uppercase tracking-wide">
-                    <Footprints className="h-2.5 w-2.5 text-blue-400" /> Walking
+                    {/* Standing overview */}
+                    <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[10px]">
+                      <div className="flex items-center gap-1 text-zinc-400">
+                        <Users className="h-3.5 w-3.5" />
+                        <span>Rank {c.userRank ? `#${c.userRank}` : "-"} of {c.participantsCount}</span>
+                      </div>
+                      <span className="text-zinc-500 font-mono">
+                        {new Date(c.endDate) < new Date() ? "Ended" : "Active"}
+                      </span>
+                    </div>
                   </div>
-                  <h4 className="font-extrabold text-xs text-white uppercase tracking-tight mt-1">June Step Tracker</h4>
-                  <p className="text-[10px] text-zinc-500 mt-0.5">Walk 150,000 steps before June 30. Daily counts auto-synchronized.</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="text-[9px] font-mono text-zinc-400 block font-bold">19 joined</span>
-                  <span className="text-[8px] text-blue-400/80 font-mono">150k steps</span>
-                </div>
-              </div>
-              <Button 
-                onClick={() => setJoinedChallenge(true)}
-                className="w-full h-8.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-[10px] uppercase tracking-wider font-extrabold rounded-lg transition-colors cursor-pointer"
-              >
-                Join Challenge
-              </Button>
+                );
+              })}
             </div>
-
           </div>
         )}
+
+        {/* Suggested Segment */}
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center justify-between border-b border-white/5 pb-3">
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+              SUGGESTED CHALLENGES
+            </h3>
+            <span className="text-[9px] text-zinc-500 font-mono">
+              {suggested.length} Available
+            </span>
+          </div>
+
+          {suggested.length > 0 ? (
+            <div className="space-y-3">
+              {suggested.map((c) => {
+                const isRide = c.sportType === "Ride";
+                const isRun = c.sportType === "Run";
+                const unit = c.goalType === "Distance" ? "km" : c.goalType === "Elevation" ? "m" : "hrs";
+                
+                return (
+                  <div key={c.id} className="p-4 rounded-2xl bg-zinc-950/40 border border-white/5 space-y-3 hover:border-white/10 transition-all duration-300 text-left">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-900 border border-white/5 text-[8px] font-bold text-zinc-400 uppercase tracking-wide">
+                          {isRide ? <Bike className="h-2.5 w-2.5 text-lime-400" /> : 
+                           isRun ? <Flame className="h-2.5 w-2.5 text-red-400" /> :
+                           <Footprints className="h-2.5 w-2.5 text-blue-400" />} {c.sportType}
+                        </div>
+                        <h4 className="font-extrabold text-xs text-white uppercase tracking-tight mt-1">{c.title}</h4>
+                        <p className="text-[10px] text-zinc-500 mt-0.5">{c.description}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-[9px] font-mono text-zinc-400 block font-bold">{c.participantsCount} joined</span>
+                        <span className="text-[8px] text-lime-400/80 font-mono">Target: {c.goalTarget} {unit}</span>
+                      </div>
+                    </div>
+                    <Button 
+                      onClick={() => handleJoin(c.id)}
+                      disabled={loadingJoinId === c.id}
+                      className="w-full h-8.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-[10px] uppercase tracking-wider font-extrabold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      {loadingJoinId === c.id ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Enrolling...
+                        </>
+                      ) : (
+                        "Join Challenge"
+                      )}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-[10px] text-zinc-550 font-mono py-2 text-center">You have joined all available challenges!</p>
+          )}
+        </div>
       </div>
     );
   }
@@ -1337,16 +1399,22 @@ export default function DashboardClient({
 
   // Render Community Leaderboard Preview (Top 5)
   function renderLeaderboardSection(idSuffix = "") {
-    // Current user name
-    const userName = profile.name.split(" ")[0];
+    const selectedChallenge = 
+      activeChallenges.find(c => c.userJoined) || 
+      activeChallenges[0];
 
-    const mockCompetitors = [
-      { rank: 1, name: "Vikram Cycling", distance: "512.2 km", isMe: false },
-      { rank: 2, name: "Rahul Jogger", distance: "498.5 km", isMe: false },
-      { rank: 3, name: "Karthik Active", distance: "451.0 km", isMe: false },
-      { rank: 4, name: `${userName} (You)`, distance: `${totalDistanceKm} km`, isMe: true },
-      { rank: 5, name: "Divya Run", distance: "295.4 km", isMe: false },
-    ];
+    if (!selectedChallenge) {
+      return (
+        <div id={`tour-leaderboard-section${idSuffix}`} className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-4 text-left relative overflow-hidden group">
+          <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/10 to-transparent" />
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">COMMUNITY LEADERBOARD</h3>
+          <p className="text-xs text-zinc-500 font-mono py-4 text-center">No active challenges found.</p>
+        </div>
+      );
+    }
+
+    const unit = selectedChallenge.goalType === "Distance" ? "km" : selectedChallenge.goalType === "Elevation" ? "m" : "hrs";
+    const leaderboardData = selectedChallenge.leaderboard || [];
 
     return (
       <div id={`tour-leaderboard-section${idSuffix}`} className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-4 text-left relative overflow-hidden group">
@@ -1356,48 +1424,59 @@ export default function DashboardClient({
           <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
             COMMUNITY LEADERBOARD
           </h3>
-          <span className="text-[9px] text-lime-400 font-bold uppercase tracking-wider bg-lime-400/10 px-2 py-0.5 rounded-full select-none font-mono">
-            JUNE CENTURY
+          <span className="text-[9px] text-lime-400 font-bold uppercase tracking-wider bg-lime-400/10 px-2 py-0.5 rounded-full select-none font-mono truncate max-w-[120px]" title={selectedChallenge.title}>
+            {selectedChallenge.title}
           </span>
         </div>
 
         <div className="space-y-2 font-mono">
-          {mockCompetitors.map((competitor) => (
-            <motion.div 
-              key={competitor.rank}
-              whileHover={{ scale: 1.01 }}
-              className={`flex items-center justify-between p-3 rounded-2xl border text-xs transition-all ${
-                competitor.isMe 
-                  ? "bg-lime-950/20 border-lime-400/30 shadow-[0_0_12px_rgba(163,230,53,0.05)]" 
-                  : "bg-zinc-950/40 border-white/5 hover:border-white/10"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <span className={`h-5.5 w-5.5 rounded-full flex items-center justify-center font-bold text-[10px] border ${
-                  competitor.rank === 1 ? "bg-amber-400/15 border-amber-400/30 text-amber-400" :
-                  competitor.rank === 2 ? "bg-zinc-400/15 border-zinc-450/30 text-zinc-350" :
-                  competitor.rank === 3 ? "bg-amber-700/15 border-amber-700/30 text-amber-600" :
-                  "bg-zinc-900 border-white/5 text-zinc-500"
-                }`}>
-                  {competitor.rank}
-                </span>
-                <span className={`font-bold uppercase tracking-wide truncate max-w-[120px] ${competitor.isMe ? "text-lime-400" : "text-white"}`}>
-                  {competitor.name}
-                </span>
-              </div>
-              <span className={`font-extrabold text-[11px] ${competitor.isMe ? "text-lime-400" : "text-zinc-300"}`}>
-                {competitor.distance}
-              </span>
-            </motion.div>
-          ))}
+          {leaderboardData.length > 0 ? (
+            leaderboardData.map((competitor: any, index: number) => {
+              const rank = index + 1;
+              const isMe = competitor.userId === profile.id;
+              return (
+                <motion.div 
+                  key={competitor.userId}
+                  whileHover={{ scale: 1.01 }}
+                  className={`flex items-center justify-between p-3 rounded-2xl border text-xs transition-all ${
+                    isMe 
+                      ? "bg-lime-950/20 border-lime-400/30 shadow-[0_0_12px_rgba(163,230,53,0.05)]" 
+                      : "bg-zinc-950/40 border-white/5 hover:border-white/10"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`h-5.5 w-5.5 rounded-full flex items-center justify-center font-bold text-[10px] border ${
+                      rank === 1 ? "bg-amber-400/15 border-amber-400/30 text-amber-400" :
+                      rank === 2 ? "bg-zinc-400/15 border-zinc-450/30 text-zinc-350" :
+                      rank === 3 ? "bg-amber-700/15 border-amber-700/30 text-amber-600" :
+                      "bg-zinc-900 border-white/5 text-zinc-500"
+                    }`}>
+                      {rank}
+                    </span>
+                    <span className={`font-bold uppercase tracking-wide truncate max-w-[120px] ${isMe ? "text-lime-400" : "text-white"}`}>
+                      {competitor.name} {isMe && "(You)"}
+                    </span>
+                  </div>
+                  <span className={`font-extrabold text-[11px] ${isMe ? "text-lime-400" : "text-zinc-300"}`}>
+                    {competitor.completed.toFixed(1)} {unit}
+                  </span>
+                </motion.div>
+              );
+            })
+          ) : (
+            <p className="text-xs text-zinc-500 font-mono py-2 text-center">No participants joined yet.</p>
+          )}
         </div>
 
         <Button
           variant="ghost"
+          asChild
           className="w-full h-9 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-white rounded-xl transition-all flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider font-extrabold cursor-pointer"
         >
-          <span>View Full Leaderboard</span>
-          <ChevronRight className="h-3.5 w-3.5" />
+          <Link href={`/arena-admin/challenges/${selectedChallenge.id}`}>
+            <span>View Full Leaderboard</span>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
         </Button>
       </div>
     );

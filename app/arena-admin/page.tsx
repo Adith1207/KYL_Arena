@@ -146,11 +146,95 @@ export default async function AdminPage() {
     );
   }
 
+  // Fetch real challenges from public.challenges
+  let dbChallenges: any[] = [];
+  try {
+    const { data, error: fetchChallengesError } = await supabaseAdmin
+      .from("challenges")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (!fetchChallengesError && data) {
+      dbChallenges = data;
+    }
+  } catch (e) {
+    console.error("Failed to fetch challenges in admin route:", e);
+  }
+
+  // Fetch participant counts for challenges
+  const participantCounts: Record<string, number> = {};
+  try {
+    const { data: allParticipants, error: participantsError } = await supabaseAdmin
+      .from("challenge_participants")
+      .select("challenge_id");
+    if (!participantsError && allParticipants) {
+      allParticipants.forEach((p: any) => {
+        participantCounts[p.challenge_id] = (participantCounts[p.challenge_id] || 0) + 1;
+      });
+    }
+  } catch (e) {
+    console.error("Failed to fetch participant counts in admin route:", e);
+  }
+
+  // Fetch metrics dynamically
+  let totalMembers = 0;
+  let activeAthletes = 0;
+  let activeChallenges = 0;
+  let syncedActivities = 0;
+
+  try {
+    const { count: membersCount } = await supabaseAdmin
+      .from("profiles")
+      .select("*", { count: "exact", head: true });
+    totalMembers = membersCount || 0;
+
+    const { count: athletesCount } = await supabaseAdmin
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("strava_connected", true);
+    activeAthletes = athletesCount || 0;
+
+    const { count: activeCount } = await supabaseAdmin
+      .from("challenges")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "active");
+    activeChallenges = activeCount || 0;
+
+    const { count: activitiesCount } = await supabaseAdmin
+      .from("activities")
+      .select("*", { count: "exact", head: true });
+    syncedActivities = activitiesCount || 0;
+  } catch (e) {
+    console.error("Failed to fetch admin dashboard metrics:", e);
+  }
+
+  const challenges = dbChallenges.map((c) => ({
+    id: c.id,
+    title: c.title,
+    description: c.description || "",
+    sportType: c.sport_type,
+    goalType: c.goal_metric,
+    goalTarget: Number(c.goal_target),
+    startDate: c.start_date,
+    endDate: c.end_date,
+    bannerUrl: c.banner_url || "",
+    status: c.status as "active" | "upcoming" | "archived",
+    participantsCount: participantCounts[c.id] || 0,
+  }));
+
+  const metrics = {
+    totalMembers,
+    activeAthletes,
+    activeChallenges,
+    syncedActivities,
+  };
+
   // Otherwise, load and render the Admin Dashboard Client Component
   return (
     <AdminDashboardClient
       profile={profile}
       userRole={userRole}
+      initialChallenges={challenges}
+      initialMetrics={metrics}
     />
   );
 }
