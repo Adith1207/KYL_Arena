@@ -5,7 +5,7 @@ import Link from "next/link";
 import { 
   Users, Activity, Trophy, Flame, ArrowLeft, CheckCircle, 
   LogOut, Loader2, Search, Bike, Footprints, 
-  Award, Shield, X
+  Shield, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -652,64 +652,132 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge }
 
           </div>
 
-          {/* RIGHT: Standings Leaderboard View (Top 10 Highlighted) */}
-          <div className="lg:col-span-4 bg-zinc-900/30 border border-white/5 rounded-3xl p-5 sm:p-6 space-y-5 backdrop-blur-md">
-            <h3 className="font-extrabold uppercase tracking-wider text-xs text-white border-b border-white/5 pb-4 flex items-center gap-2">
-              <Award className="h-4.5 w-4.5 text-lime-400" /> Standings Leaderboard
-            </h3>
+          {/* RIGHT: Arena Standings & Live Feed (Innovative Podium + Live Ticker) */}
+          <div className="lg:col-span-4 space-y-6">
+            
+            {/* Top Performers Podium */}
+            <div className="bg-zinc-900/30 border border-white/5 rounded-3xl p-5 sm:p-6 space-y-6 backdrop-blur-md text-center">
+              <h3 className="font-extrabold uppercase tracking-wider text-xs text-white border-b border-white/5 pb-4 flex items-center gap-2 justify-center">
+                <Trophy className="h-4.5 w-4.5 text-lime-400" /> Arena Leaders
+              </h3>
 
-            <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
-              {participants.map((p, idx) => {
-                const rank = idx + 1;
-                const isTop10 = rank <= 10;
+              <div className="flex items-end justify-center gap-3 pt-12 pb-2 h-48 select-none">
                 
-                // Highlight classes for Top 10
-                const cardHighlightClass = 
-                  rank === 1 ? "border-amber-400/40 bg-amber-400/5 hover:border-amber-400/60 shadow-[0_0_15px_rgba(251,191,36,0.05)]" :
-                  rank === 2 ? "border-slate-350/40 bg-slate-350/5 hover:border-slate-350/60" :
-                  rank === 3 ? "border-amber-700/40 bg-amber-700/5 hover:border-amber-700/60" :
-                  isTop10 ? "border-lime-400/20 bg-lime-400/3 hover:border-lime-400/40" :
-                  "border-white/3 hover:border-white/10";
-
-                const rankTextClass = 
-                  rank === 1 ? "text-amber-400 text-sm font-black italic" :
-                  rank === 2 ? "text-slate-350 font-black italic" :
-                  rank === 3 ? "text-amber-700 font-black italic" :
-                  isTop10 ? "text-lime-400 font-bold" :
-                  "text-zinc-500 font-medium";
-
-                return (
+                {/* 2nd Place (Left) */}
+                {participants[1] && (
                   <div 
-                    key={p.id}
-                    onClick={() => setSelectedParticipant(p)}
-                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer group/leaderboard ${cardHighlightClass}`}
+                    onClick={() => setSelectedParticipant(participants[1])}
+                    className="flex flex-col items-center justify-end w-24 h-28 rounded-t-2xl border-t border-x border-slate-500/20 bg-slate-500/5 hover:bg-slate-500/10 hover:border-slate-400/40 transition-all cursor-pointer relative group"
                   >
-                    <div className="flex items-center gap-3">
-                      {/* Rank indicator badge */}
-                      <span className={`w-6 font-mono text-xs text-left shrink-0 ${rankTextClass}`}>
-                        {rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`}
-                      </span>
-
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={p.avatar} alt={p.name} className="h-7 w-7 rounded-full object-cover ring-1 ring-white/5 shrink-0" />
-                      
-                      <div className="text-left truncate max-w-[120px]">
-                        <p className="font-extrabold text-xs text-white group-hover/leaderboard:text-lime-400 transition-all truncate">
-                          {p.name}
-                        </p>
-                        <p className="text-[8.5px] font-mono text-zinc-500 truncate">
-                          {p.activitiesCount} syncs
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="text-right font-mono font-black text-xs text-zinc-200">
-                      {p.distanceCompleted.toFixed(1)} <span className="text-[9px] font-bold text-zinc-500">km</span>
+                    <span className="absolute -top-10 text-base">🥈</span>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img 
+                      src={participants[1].avatar} 
+                      alt={participants[1].name} 
+                      className="absolute -top-5 h-9 w-9 rounded-full object-cover ring-2 ring-slate-400/50 group-hover:scale-105 transition-transform" 
+                    />
+                    <div className="p-2 text-center w-full min-w-0">
+                      <p className="font-black text-[10px] text-zinc-300 truncate">{participants[1].name.split(" ")[0]}</p>
+                      <p className="font-mono text-[9px] text-zinc-550 font-black mt-0.5">{participants[1].distanceCompleted.toFixed(0)}km</p>
                     </div>
                   </div>
-                );
-              })}
+                )}
+
+                {/* 1st Place (Center) */}
+                {participants[0] && (
+                  <div 
+                    onClick={() => setSelectedParticipant(participants[0])}
+                    className="flex flex-col items-center justify-end w-28 h-36 rounded-t-2xl border-t border-x border-amber-400/30 bg-amber-400/5 hover:bg-amber-400/10 hover:border-amber-400/50 transition-all cursor-pointer relative group shadow-[0_4px_20px_rgba(251,191,36,0.04)]"
+                  >
+                    <span className="absolute -top-11 text-xl animate-pulse">👑</span>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img 
+                      src={participants[0].avatar} 
+                      alt={participants[0].name} 
+                      className="absolute -top-6 h-11 w-11 rounded-full object-cover ring-2 ring-amber-400 group-hover:scale-105 transition-transform" 
+                    />
+                    <div className="p-3.5 text-center w-full min-w-0">
+                      <p className="font-black text-[11px] text-white truncate">{participants[0].name.split(" ")[0]}</p>
+                      <p className="font-mono text-[9.5px] text-amber-450 font-black mt-0.5">{participants[0].distanceCompleted.toFixed(0)}km</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3rd Place (Right) */}
+                {participants[2] && (
+                  <div 
+                    onClick={() => setSelectedParticipant(participants[2])}
+                    className="flex flex-col items-center justify-end w-24 h-24 rounded-t-2xl border-t border-x border-amber-700/20 bg-amber-700/5 hover:bg-amber-700/10 hover:border-amber-700/40 transition-all cursor-pointer relative group"
+                  >
+                    <span className="absolute -top-9 text-base">🥉</span>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img 
+                      src={participants[2].avatar} 
+                      alt={participants[2].name} 
+                      className="absolute -top-4.5 h-8 w-8 rounded-full object-cover ring-2 ring-amber-700/60 group-hover:scale-105 transition-transform" 
+                    />
+                    <div className="p-2 text-center w-full min-w-0">
+                      <p className="font-black text-[9.5px] text-zinc-400 truncate">{participants[2].name.split(" ")[0]}</p>
+                      <p className="font-mono text-[8.5px] text-zinc-550 font-black mt-0.5">{participants[2].distanceCompleted.toFixed(0)}km</p>
+                    </div>
+                  </div>
+                )}
+
+              </div>
             </div>
+
+            {/* Live Sync Feed */}
+            <div className="bg-zinc-900/30 border border-white/5 rounded-3xl p-5 sm:p-6 space-y-4 backdrop-blur-md">
+              <h3 className="font-extrabold uppercase tracking-wider text-xs text-white border-b border-white/5 pb-4 flex items-center gap-2">
+                <Flame className="h-4.5 w-4.5 text-lime-400 animate-pulse" /> Live Activity Feed
+              </h3>
+
+              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                {[
+                  { id: "feed1", name: "Adith Google", action: "synced Gravel Ride", sportType: "Ride", distance: 48.5, time: "5 mins ago", participantId: "p1" },
+                  { id: "feed2", name: "Emma Rodriguez", action: "logged Tempo Run", sportType: "Run", distance: 8.5, time: "1 hour ago", participantId: "p4" },
+                  { id: "feed3", name: "Sarah Jenkins", action: "synced Hill Climbs", sportType: "Ride", distance: 32.4, time: "3 hours ago", participantId: "p2" },
+                  { id: "feed4", name: "Jessica Taylor", action: "logged stroll", sportType: "Walk", distance: 6.2, time: "5 hours ago", participantId: "p6" },
+                  { id: "feed5", name: "Michael Chen", action: "synced Commute", sportType: "Ride", distance: 20.1, time: "8 hours ago", participantId: "p3" }
+                ].map((item) => {
+                  const targetParticipant = participants.find(p => p.id === item.participantId);
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => targetParticipant && setSelectedParticipant(targetParticipant)}
+                      className="bg-zinc-950 border border-white/3 hover:border-lime-400/20 p-3 rounded-2xl flex items-center justify-between text-xs cursor-pointer group/feed transition-all"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="relative shrink-0">
+                          {targetParticipant ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={targetParticipant.avatar} alt={item.name} className="h-6 w-6 rounded-full object-cover" />
+                          ) : (
+                            <div className="h-6 w-6 rounded-full bg-zinc-800" />
+                          )}
+                          <span className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-lime-400 ring-1 ring-zinc-950 animate-ping" />
+                        </div>
+
+                        <div className="text-left min-w-0 max-w-[150px]">
+                          <p className="font-extrabold text-[11px] text-white truncate group-hover/feed:text-lime-400 transition-colors">
+                            {item.name}
+                          </p>
+                          <p className="text-[9px] text-zinc-550 truncate">
+                            {item.action}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="font-mono font-black text-[10px] text-zinc-300 block">+{item.distance} km</span>
+                        <span className="text-[8.5px] text-zinc-500 block">{item.time}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
           </div>
 
         </div>
