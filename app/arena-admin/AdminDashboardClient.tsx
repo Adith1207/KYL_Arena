@@ -393,9 +393,10 @@ export default function AdminDashboardClient({ profile, userRole }: AdminDashboa
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {filteredChallenges.length > 0 ? (
                   filteredChallenges.map((challenge) => (
-                    <div 
+                    <Link 
                       key={challenge.id}
-                      className="bg-zinc-950 border border-white/5 rounded-2xl overflow-hidden flex flex-col justify-between group hover:border-lime-400/20 transition-all"
+                      href={`/arena-admin/challenges/${challenge.id}`}
+                      className="bg-zinc-950 border border-white/5 rounded-2xl overflow-hidden flex flex-col justify-between group hover:border-lime-400/20 transition-all cursor-pointer block"
                     >
                       {/* Banner Image with Overlay */}
                       <div className="h-28 w-full relative overflow-hidden">
@@ -437,7 +438,7 @@ export default function AdminDashboardClient({ profile, userRole }: AdminDashboa
                           </div>
                         </div>
                       </div>
-                    </div>
+                    </Link>
                   ))
                 ) : (
                   <div className="sm:col-span-2 py-8 text-center text-zinc-555 text-xs font-mono border border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center gap-2">
