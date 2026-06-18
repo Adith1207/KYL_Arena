@@ -1174,7 +1174,8 @@ export default function DashboardClient({
                 const unit = c.goalType === "Distance" ? "km" : c.goalType === "Elevation" ? "m" : "hrs";
                 
                 return (
-                  <div key={c.id} className="p-4 rounded-2xl bg-zinc-950/40 border border-white/5 space-y-3">
+                  <div key={c.id} className="p-4 rounded-2xl bg-zinc-900/20 backdrop-blur-md border border-white/5 space-y-3 relative overflow-hidden group hover:border-lime-400/20 transition-all duration-300">
+                    <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-white uppercase tracking-tight">{c.title}</span>
                       <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
@@ -1236,26 +1237,33 @@ export default function DashboardClient({
                 const unit = c.goalType === "Distance" ? "km" : c.goalType === "Elevation" ? "m" : "hrs";
                 
                 return (
-                  <div key={c.id} className="p-4 rounded-2xl bg-zinc-950/40 border border-white/5 space-y-3 hover:border-white/10 transition-all duration-300 text-left">
+                  <div key={c.id} className="p-4 rounded-2xl bg-zinc-900/20 backdrop-blur-md border border-white/5 space-y-3 relative overflow-hidden group hover:border-lime-400/20 transition-all duration-300 text-left">
+                    <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-900 border border-white/5 text-[8px] font-bold text-zinc-400 uppercase tracking-wide">
-                          {isRide ? <Bike className="h-2.5 w-2.5 text-lime-400" /> : 
-                           isRun ? <Flame className="h-2.5 w-2.5 text-red-400" /> :
-                           <Footprints className="h-2.5 w-2.5 text-blue-400" />} {c.sportType}
+                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-widest ${
+                          isRide ? "border-lime-400/20 bg-lime-400/5 text-lime-400" :
+                          isRun ? "border-red-400/20 bg-red-400/5 text-red-400" :
+                          "border-blue-400/20 bg-blue-400/5 text-blue-400"
+                        }`}>
+                          {isRide ? <Bike className="h-2.5 w-2.5 shrink-0" /> : 
+                           isRun ? <Flame className="h-2.5 w-2.5 shrink-0" /> :
+                           <Footprints className="h-2.5 w-2.5 shrink-0" />} {c.sportType}
                         </div>
-                        <h4 className="font-extrabold text-xs text-white uppercase tracking-tight mt-1">{c.title}</h4>
-                        <p className="text-[10px] text-zinc-500 mt-0.5">{c.description}</p>
+                        <h4 className="font-extrabold text-xs text-white uppercase tracking-tight mt-1.5">{c.title}</h4>
+                        <p className="text-[10px] text-zinc-450 mt-1 leading-relaxed">{c.description}</p>
                       </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-[9px] font-mono text-zinc-400 block font-bold">{c.participantsCount} joined</span>
-                        <span className="text-[8px] text-lime-400/80 font-mono">Target: {c.goalTarget} {unit}</span>
+                      <div className="flex flex-col items-end gap-1.5 shrink-0 select-none text-right">
+                        <span className="text-[9px] font-mono text-zinc-500 font-bold">{c.participantsCount} joined</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full border border-lime-400/20 bg-lime-400/5 text-[9px] text-lime-400 font-black font-mono">
+                          Target: {c.goalTarget} {unit}
+                        </span>
                       </div>
                     </div>
                     <Button 
                       onClick={() => handleJoin(c.id)}
                       disabled={loadingJoinId === c.id}
-                      className="w-full h-8.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-[10px] uppercase tracking-wider font-extrabold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                      className="w-full h-9 bg-lime-400 hover:bg-lime-500 disabled:bg-zinc-800 disabled:text-zinc-600 disabled:opacity-50 text-black font-extrabold rounded-xl transition-all duration-300 flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider shadow-[0_2px_8px_rgba(163,230,53,0.15)] hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
                     >
                       {loadingJoinId === c.id ? (
                         <>
