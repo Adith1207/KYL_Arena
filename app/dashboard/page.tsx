@@ -82,6 +82,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     }
   }
 
+  // Redirect ORGANIZATION_ADMIN to the admin route as their primary experience
+  if (profile && profile.role === "organization_admin") {
+    redirect("/arena-admin");
+  }
+
   // Fetch associated athlete details if Strava is connected
   let stravaConnection = null;
   let activities: {
