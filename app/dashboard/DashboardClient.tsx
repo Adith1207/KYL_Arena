@@ -7,7 +7,7 @@ import {
   Loader2, LogOut, Activity, AlertTriangle, CheckCircle, 
   Award, Bike, Footprints, Flame, Trophy, 
   ChevronRight, TrendingUp, Sparkles, Clock, Target, 
-  Dumbbell, Home, Users, HelpCircle, X, Shield
+  Dumbbell, Home, Users, HelpCircle, X, Shield, Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence, Variants } from "framer-motion";
@@ -92,8 +92,8 @@ export default function DashboardClient({
   // Onboarding & Preferences Settings Menu States
   const [isTourOpen, setIsTourOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const helpDropdownRef = useRef<HTMLDivElement>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuDropdownRef = useRef<HTMLDivElement>(null);
 
   // State Selector Simulator for verification purposes
   const [simulatedState, setSimulatedState] = useState<"auto" | "A" | "B" | "C" | "D" | "E">("auto");
@@ -128,11 +128,11 @@ export default function DashboardClient({
     }
   }, [profile.tour_completed]);
 
-  // Click outside listener for Help Dropdown Menu
+  // Click outside listener for User Menu Dropdown
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (helpDropdownRef.current && !helpDropdownRef.current.contains(event.target as Node)) {
-        setIsHelpOpen(false);
+      if (menuDropdownRef.current && !menuDropdownRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -366,89 +366,143 @@ export default function DashboardClient({
             </Link>
 
             <div className="flex items-center gap-3">
-              {/* Profile Details header shortcut (Desktop/Mobile Settings trigger) */}
-              <div 
-                id="tour-profile-section" 
-                onClick={() => setIsSettingsOpen(true)}
-                className="flex items-center gap-2.5 md:gap-3 bg-zinc-900/40 border border-white/5 pl-2 pr-2 md:pl-3 md:pr-4 py-1.5 rounded-full backdrop-blur-sm cursor-pointer hover:border-lime-400/30 transition-colors"
-              >
-                <div className="hidden md:block text-right">
-                  <p className="text-[10px] font-black text-white uppercase italic leading-none">{profile.name.split(" ")[0]}</p>
-                  <p className="text-[8px] text-zinc-500 font-mono mt-0.5 leading-none">Rank #9</p>
+              {/* Single Glassmorphic Profile Menu Dropdown */}
+              <div className="relative" ref={menuDropdownRef}>
+                <div 
+                  id="tour-profile-section" 
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  className="flex items-center gap-2.5 md:gap-3 bg-zinc-900/40 border border-white/5 pl-2.5 pr-2.5 md:pl-3.5 md:pr-4 py-1.5 rounded-full backdrop-blur-sm cursor-pointer hover:border-lime-400/35 hover:bg-zinc-900/60 transition-all select-none"
+                >
+                  <div className="hidden md:block text-right">
+                    <p className="text-[10px] font-black text-white uppercase italic leading-none">{profile.name.split(" ")[0]}</p>
+                    <p className="text-[8px] text-lime-400 font-mono mt-0.5 leading-none">Rank #9</p>
+                  </div>
+                  {profile.avatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={profile.avatar} alt={profile.name} className="h-6 w-6 rounded-full object-cover ring-1 ring-lime-400/30" />
+                  ) : (
+                    <div className="h-6 w-6 rounded-full bg-zinc-800 text-[9px] font-black flex items-center justify-center text-lime-400">{getInitials(profile.name)}</div>
+                  )}
                 </div>
-                {profile.avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={profile.avatar} alt={profile.name} className="h-6 w-6 rounded-full object-cover ring-1 ring-lime-400/30" />
-                ) : (
-                  <div className="h-6 w-6 rounded-full bg-zinc-800 text-[9px] font-black flex items-center justify-center text-lime-400">{getInitials(profile.name)}</div>
-                )}
-              </div>
-
-              {/* Dashboard Switcher Button */}
-              {(profile.role === "super_admin" || profile.role === "challenge_admin") && (
-                <Button
-                  asChild
-                  className="hidden sm:flex h-9 px-3.5 border border-lime-400/25 hover:border-lime-400 bg-lime-400/5 hover:bg-lime-400/10 text-lime-400 font-extrabold rounded-xl transition-all items-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer"
-                >
-                  <Link href="/arena-admin">
-                    <Shield className="h-3.5 w-3.5" />
-                    Admin
-                  </Link>
-                </Button>
-              )}
-
-              {/* Permanent Dashboard Header Tour Button */}
-              <Button
-                onClick={() => setIsTourOpen(true)}
-                className="hidden sm:flex h-9 px-3.5 border border-lime-400/25 hover:border-lime-400 bg-lime-400/5 hover:bg-lime-400/10 text-lime-400 font-extrabold rounded-xl transition-all flex items-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer"
-              >
-                <Sparkles className="h-3.5 w-3.5 animate-pulse" />
-                Tour
-              </Button>
-
-              {/* Help Menu Dropdown */}
-              <div className="relative" ref={helpDropdownRef}>
-                <button
-                  onClick={() => setIsHelpOpen(!isHelpOpen)}
-                  className="h-9 w-9 rounded-xl border border-zinc-850 hover:border-zinc-750 bg-zinc-900/40 hover:bg-zinc-900 text-zinc-400 hover:text-white flex items-center justify-center transition-all cursor-pointer"
-                >
-                  <HelpCircle className="h-4.5 w-4.5" />
-                </button>
 
                 <AnimatePresence>
-                  {isHelpOpen && (
+                  {isMenuOpen && (
                     <motion.div
                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute right-0 mt-2 w-44 rounded-2xl bg-zinc-950 border border-zinc-850 shadow-[0_10px_30px_rgba(0,0,0,0.8)] backdrop-blur-xl py-2 z-50 text-left overflow-hidden"
+                      className="absolute right-0 mt-2.5 w-56 rounded-2xl bg-zinc-950/95 border border-white/5 shadow-[0_10px_40px_rgba(0,0,0,0.85),0_0_20px_rgba(163,230,53,0.02)] backdrop-blur-xl py-2.5 z-55 text-left overflow-hidden"
                     >
-                      <div className="px-3.5 py-1 text-[8.5px] font-black text-zinc-500 uppercase tracking-widest border-b border-white/5">Help Menu</div>
-                      <a href="#tour-challenges-section" onClick={(e) => { e.preventDefault(); setIsHelpOpen(false); setActiveTab("challenges"); const suffix = window.innerWidth < 768 ? "-mobile" : "-desktop"; const el = document.getElementById(`tour-challenges-section${suffix}`); if (el) el.scrollIntoView({ behavior: "smooth" }); }} className="flex items-center px-4 py-2 text-[9.5px] uppercase font-bold text-zinc-400 hover:text-white hover:bg-zinc-900/50 transition-colors">FAQs & Support</a>
-                      <a href="#tour-leaderboard-section" onClick={(e) => { e.preventDefault(); setIsHelpOpen(false); setActiveTab("leaderboard"); const suffix = window.innerWidth < 768 ? "-mobile" : "-desktop"; const el = document.getElementById(`tour-leaderboard-section${suffix}`); if (el) el.scrollIntoView({ behavior: "smooth" }); }} className="flex items-center px-4 py-2 text-[9.5px] uppercase font-bold text-zinc-400 hover:text-white hover:bg-zinc-900/50 transition-colors">Community Rules</a>
-                      <button
-                        onClick={() => {
-                          setIsHelpOpen(false);
-                          setIsTourOpen(true);
-                        }}
-                        className="w-full text-left flex items-center px-4 py-2 text-[9.5px] uppercase font-black text-lime-400 hover:bg-lime-950/20 transition-colors cursor-pointer border-t border-white/5"
-                      >
-                        Restart Tour
-                      </button>
+                      {/* Menu Header with User details */}
+                      <div className="px-4 py-2 flex items-center gap-3 border-b border-white/5 pb-3 mb-2">
+                        {profile.avatar ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={profile.avatar} alt={profile.name} className="h-9 w-9 rounded-full object-cover ring-1 ring-lime-400/30" />
+                        ) : (
+                          <div className="h-9 w-9 rounded-full bg-zinc-850 text-xs font-black flex items-center justify-center text-lime-400">{getInitials(profile.name)}</div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-xs font-black text-white truncate">{profile.name}</p>
+                          <p className="text-[9px] text-zinc-500 font-mono truncate">{profile.email}</p>
+                          <span className="inline-block text-[8px] font-mono text-lime-400 bg-lime-400/10 px-1.5 py-0.5 rounded-full mt-1">Rank #9</span>
+                        </div>
+                      </div>
+
+                      {/* Dropdown Options */}
+                      <div className="space-y-0.5 px-1.5">
+                        
+                        {/* Profile Settings */}
+                        <button
+                          onClick={() => {
+                            setIsMenuOpen(false);
+                            setIsSettingsOpen(true);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-xl transition-all cursor-pointer"
+                        >
+                          <Settings className="h-4 w-4 text-zinc-500" />
+                          <span>Profile Settings</span>
+                        </button>
+
+                        {/* Admin Panel switcher (if authorized) */}
+                        {(profile.role === "super_admin" || profile.role === "challenge_admin") && (
+                          <Link
+                            href="/arena-admin"
+                            onClick={() => setIsMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-lime-400 hover:bg-lime-950/20 rounded-xl transition-all cursor-pointer"
+                          >
+                            <Shield className="h-4 w-4 text-lime-400" />
+                            <span>Admin Console</span>
+                          </Link>
+                        )}
+
+                        {/* Restart Tour */}
+                        <button
+                          onClick={() => {
+                            setIsMenuOpen(false);
+                            setIsTourOpen(true);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-xl transition-all cursor-pointer"
+                        >
+                          <Sparkles className="h-4 w-4 text-zinc-500" />
+                          <span>Restart Tour</span>
+                        </button>
+
+                        {/* Help FAQs */}
+                        <a 
+                          href="#tour-challenges-section" 
+                          onClick={(e) => { 
+                            e.preventDefault(); 
+                            setIsMenuOpen(false); 
+                            setActiveTab("challenges"); 
+                            const suffix = window.innerWidth < 768 ? "-mobile" : "-desktop"; 
+                            const el = document.getElementById(`tour-challenges-section${suffix}`); 
+                            if (el) el.scrollIntoView({ behavior: "smooth" }); 
+                          }} 
+                          className="flex items-center gap-2.5 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-xl transition-all cursor-pointer"
+                        >
+                          <HelpCircle className="h-4 w-4 text-zinc-500" />
+                          <span>FAQs & Support</span>
+                        </a>
+
+                        {/* Community Rules */}
+                        <a 
+                          href="#tour-leaderboard-section" 
+                          onClick={(e) => { 
+                            e.preventDefault(); 
+                            setIsMenuOpen(false); 
+                            setActiveTab("leaderboard"); 
+                            const suffix = window.innerWidth < 768 ? "-mobile" : "-desktop"; 
+                            const el = document.getElementById(`tour-leaderboard-section${suffix}`); 
+                            if (el) el.scrollIntoView({ behavior: "smooth" }); 
+                          }} 
+                          className="flex items-center gap-2.5 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-xl transition-all cursor-pointer"
+                        >
+                          <Users className="h-4 w-4 text-zinc-500" />
+                          <span>Community Rules</span>
+                        </a>
+
+                        {/* Divider */}
+                        <div className="h-px bg-white/5 my-1 mx-2" />
+
+                        {/* Sign Out */}
+                        <button
+                          onClick={() => {
+                            setIsMenuOpen(false);
+                            handleLogout();
+                          }}
+                          disabled={loadingLogout}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-red-400 hover:bg-red-950/20 hover:text-red-300 rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {loadingLogout ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4 text-red-400" />}
+                          <span>Sign Out</span>
+                        </button>
+
+                      </div>
+
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
-
-              <Button
-                onClick={handleLogout}
-                disabled={loadingLogout}
-                variant="outline"
-                className="hidden sm:flex h-9 px-3.5 border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-xl transition-all items-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer"
-              >
-                {loadingLogout ? <Loader2 className="h-3 w-3 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
-                Sign Out
-              </Button>
             </div>
           </div>
         </div>
