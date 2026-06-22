@@ -28,6 +28,9 @@ function LoginPageContent() {
         provider: "google",
         options: {
           redirectTo,
+          queryParams: {
+            prompt: "select_account",
+          },
         },
       });
       
