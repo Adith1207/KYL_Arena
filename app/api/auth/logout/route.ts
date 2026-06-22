@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
 
 const cookiesToClear = [
   "kyl-mock-auth",
@@ -7,6 +8,10 @@ const cookiesToClear = [
   "kyl-mock-strava-linked",
   "kyl-mock-activities-synced",
   "kyl-mock-last-synced-at",
+  "kyl-mock-user-id",
+  "kyl-mock-user-email",
+  "kyl-mock-user-name",
+  "kyl-mock-user-avatar",
   "strava-oauth-state",
 ];
 
@@ -23,7 +28,22 @@ export async function POST() {
   }
 
   const response = NextResponse.json({ success: true });
+  const cookieStore = await cookies();
 
+  // Clear any active session cookies starting with 'sb-' or 'kyl-mock-', and static list
+  const allCookies = cookieStore.getAll();
+  allCookies.forEach((c) => {
+    if (c.name.startsWith("sb-") || c.name.startsWith("kyl-mock-") || cookiesToClear.includes(c.name)) {
+      response.cookies.set(c.name, "", {
+        path: "/",
+        maxAge: 0,
+        expires: new Date(0),
+        sameSite: "lax",
+      });
+    }
+  });
+
+  // Extra safety explicit clearing
   cookiesToClear.forEach((name) => {
     response.cookies.set(name, "", {
       path: "/",
@@ -53,7 +73,22 @@ export async function GET(request: Request) {
   }
 
   const response = NextResponse.redirect(new URL(redirectTo, request.url));
+  const cookieStore = await cookies();
 
+  // Clear any active session cookies starting with 'sb-' or 'kyl-mock-', and static list
+  const allCookies = cookieStore.getAll();
+  allCookies.forEach((c) => {
+    if (c.name.startsWith("sb-") || c.name.startsWith("kyl-mock-") || cookiesToClear.includes(c.name)) {
+      response.cookies.set(c.name, "", {
+        path: "/",
+        maxAge: 0,
+        expires: new Date(0),
+        sameSite: "lax",
+      });
+    }
+  });
+
+  // Extra safety explicit clearing
   cookiesToClear.forEach((name) => {
     response.cookies.set(name, "", {
       path: "/",

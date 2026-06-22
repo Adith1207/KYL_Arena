@@ -62,14 +62,34 @@ function createMockBrowserClient() {
         
         // Define mock credentials based on the provider chosen
         const isStrava = provider === "strava";
-        const email = isStrava ? "athlete@strava.com" : "athlete@gmail.com";
-        const name = isStrava ? "Adith Strava" : "Adith Google";
-        const avatar = isStrava 
+        let id = "mock-uuid-12345678";
+        let email = isStrava ? "athlete@strava.com" : "athlete@gmail.com";
+        let name = isStrava ? "Adith Strava" : "Adith Google";
+        let avatar = isStrava 
           ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" 
           : "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80";
 
+        if (!isStrava) {
+          const chooseUserA = window.confirm(
+            "Google Account Chooser (Mock Mode)\n\n" +
+            "Click [OK] to sign in as User A (Adith Google - athlete@gmail.com)\n" +
+            "Click [Cancel] to sign in as User B (User B - athleteB@gmail.com)"
+          );
+          if (!chooseUserA) {
+            id = "mock-uuid-user-b-2222";
+            email = "athleteB@gmail.com";
+            name = "User B";
+            avatar = "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=100&q=80";
+          } else {
+            id = "mock-uuid-user-a-1111";
+            email = "athlete@gmail.com";
+            name = "Adith Google";
+            avatar = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80";
+          }
+        }
+
         const mockUser = {
-          id: "mock-uuid-12345678",
+          id: id,
           email: email,
           user_metadata: {
             full_name: name,
@@ -85,6 +105,10 @@ function createMockBrowserClient() {
         localStorage.setItem("kyl_mock_user", JSON.stringify(mockUser));
         document.cookie = `kyl-mock-auth=true; path=/; max-age=3600; SameSite=Lax`;
         document.cookie = `kyl-mock-provider=${provider}; path=/; max-age=3600; SameSite=Lax`;
+        document.cookie = `kyl-mock-user-id=${mockUser.id}; path=/; max-age=3600; SameSite=Lax`;
+        document.cookie = `kyl-mock-user-email=${mockUser.email}; path=/; max-age=3600; SameSite=Lax`;
+        document.cookie = `kyl-mock-user-name=${encodeURIComponent(mockUser.user_metadata.full_name)}; path=/; max-age=3600; SameSite=Lax`;
+        document.cookie = `kyl-mock-user-avatar=${encodeURIComponent(mockUser.user_metadata.avatar_url)}; path=/; max-age=3600; SameSite=Lax`;
         
         if (isStrava) {
           document.cookie = `kyl-mock-strava-linked=true; path=/; max-age=3600; SameSite=Lax`;
@@ -112,6 +136,10 @@ function createMockBrowserClient() {
         document.cookie = "kyl-mock-auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
         document.cookie = "kyl-mock-provider=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
         document.cookie = "kyl-mock-strava-linked=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie = "kyl-mock-user-id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie = "kyl-mock-user-email=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie = "kyl-mock-user-name=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie = "kyl-mock-user-avatar=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
         
         window.location.href = "/login";
         return { error: null };

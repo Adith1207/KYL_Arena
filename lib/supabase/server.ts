@@ -92,14 +92,17 @@ function createMockServerClient(cookieStore: any) {
         const providerCookie = cookieStore.get("kyl-mock-provider");
         const provider = providerCookie?.value || "google";
 
+        const userId = cookieStore.get("kyl-mock-user-id")?.value || "mock-uuid-12345678";
+        const email = cookieStore.get("kyl-mock-user-email")?.value || (provider === "strava" ? "athlete@strava.com" : "athlete@gmail.com");
+        const name = cookieStore.get("kyl-mock-user-name")?.value ? decodeURIComponent(cookieStore.get("kyl-mock-user-name")?.value) : (provider === "strava" ? "Adith Strava" : "Adith Google");
+        const avatar = cookieStore.get("kyl-mock-user-avatar")?.value ? decodeURIComponent(cookieStore.get("kyl-mock-user-avatar")?.value) : (provider === "strava" ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" : "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80");
+
         const user = {
-          id: "mock-uuid-12345678",
-          email: provider === "strava" ? "athlete@strava.com" : "athlete@gmail.com",
+          id: userId,
+          email: email,
           user_metadata: {
-            full_name: provider === "strava" ? "Adith Strava" : "Adith Google",
-            avatar_url: provider === "strava" 
-              ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" 
-              : "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80",
+            full_name: name,
+            avatar_url: avatar,
             provider: provider,
           },
           app_metadata: {
@@ -119,14 +122,17 @@ function createMockServerClient(cookieStore: any) {
         const providerCookie = cookieStore.get("kyl-mock-provider");
         const provider = providerCookie?.value || "google";
 
+        const userId = cookieStore.get("kyl-mock-user-id")?.value || "mock-uuid-12345678";
+        const email = cookieStore.get("kyl-mock-user-email")?.value || (provider === "strava" ? "athlete@strava.com" : "athlete@gmail.com");
+        const name = cookieStore.get("kyl-mock-user-name")?.value ? decodeURIComponent(cookieStore.get("kyl-mock-user-name")?.value) : (provider === "strava" ? "Adith Strava" : "Adith Google");
+        const avatar = cookieStore.get("kyl-mock-user-avatar")?.value ? decodeURIComponent(cookieStore.get("kyl-mock-user-avatar")?.value) : (provider === "strava" ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" : "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80");
+
         const user = {
-          id: "mock-uuid-12345678",
-          email: provider === "strava" ? "athlete@strava.com" : "athlete@gmail.com",
+          id: userId,
+          email: email,
           user_metadata: {
-            full_name: provider === "strava" ? "Adith Strava" : "Adith Google",
-            avatar_url: provider === "strava" 
-              ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" 
-              : "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80",
+            full_name: name,
+            avatar_url: avatar,
             provider: provider,
           },
           app_metadata: {
