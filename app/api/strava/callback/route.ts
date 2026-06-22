@@ -132,6 +132,14 @@ export async function GET(request: Request) {
       console.error("Failed to update profile table flags for mock Strava:", profileError);
     }
 
+    // 3. Immediately trigger mock activity sync
+    try {
+      const { syncUserActivities } = await import("@/app/api/strava/sync/route");
+      await syncUserActivities(finalUserId);
+    } catch (syncErr) {
+      console.error("Failed to execute automatic mock activity sync:", syncErr);
+    }
+
     return NextResponse.redirect(new URL("/dashboard?strava_connected=success", origin));
   }
 
@@ -397,6 +405,14 @@ export async function GET(request: Request) {
 
     if (profileError) {
       console.error("Failed to update profiles table connection flags:", profileError);
+    }
+
+    // 3. Immediately trigger activity sync
+    try {
+      const { syncUserActivities } = await import("@/app/api/strava/sync/route");
+      await syncUserActivities(user.id);
+    } catch (syncErr) {
+      console.error("Failed to execute automatic activity sync:", syncErr);
     }
 
     return NextResponse.redirect(new URL("/dashboard?strava_connected=success", origin));

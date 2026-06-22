@@ -246,28 +246,6 @@ function LoginPageContent() {
                   </div>
                 )}
                 
-                {/* Strava Authentication Button (Primary CTA) */}
-                <Button
-                  onClick={() => handleLogin("strava")}
-                  disabled={loadingProvider !== null}
-                  className="w-full h-14 bg-[#FC6100] hover:bg-[#E55500] text-white font-extrabold rounded-xl transition-all duration-300 flex items-center justify-center gap-3 text-xs uppercase tracking-wider shadow-[0_4px_16px_rgba(252,97,0,0.2)] hover:shadow-[0_6px_22px_rgba(252,97,0,0.35)] hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
-                >
-                  {loadingProvider === "strava" ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Connecting Strava...
-                    </>
-                  ) : (
-                    <>
-                      {/* Strava SVG Icon */}
-                      <svg className="h-5 w-5 fill-white shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l-2.836 5.637h4.372l1.548-3.087 1.546 3.087h4.373L13.626 2.52l-5.247 9.825" />
-                      </svg>
-                      Continue with Strava
-                    </>
-                  )}
-                </Button>
-
                 {/* Google Authentication Button */}
                 <Button
                   onClick={() => handleLogin("google")}

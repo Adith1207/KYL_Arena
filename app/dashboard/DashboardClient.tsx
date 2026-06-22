@@ -771,7 +771,7 @@ export default function DashboardClient({
                   Connect Strava <span className="text-lime-400 not-italic font-normal">To Begin</span>
                 </h2>
                 <p className="text-xs text-zinc-400 leading-relaxed max-w-xl font-medium">
-                  Connect your profile to synchronize fitness activities, participate in active community challenges, and secure rankings on local leaderboards.
+                  Connect your Strava account to start syncing activities.
                 </p>
               </div>
 

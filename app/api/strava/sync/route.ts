@@ -45,34 +45,29 @@ interface StravaActivity {
  * Fetches the latest 30 activities from Strava API (or simulates in Mock Mode).
  * Upserts them into public.activities and updates last_synced_at.
  */
-export async function GET() {
-  // 1. Verify active user session
-  const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    console.error("Unauthorized sync request:", authError);
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+/**
+ * Internal helper to run the sync logic for a specific user ID.
+ * Returns success status, activities count, and any error message.
+ */
+export async function syncUserActivities(userId: string): Promise<{ success: boolean; error?: string; activitiesCount?: number }> {
   // 2. Fetch Strava Connection from Database to check linking status
   const supabaseAdmin = await createAdminClient();
   const { data: connection, error: connError } = await supabaseAdmin
     .from("strava_connections")
     .select("strava_athlete_id")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .single();
 
   if (connError || !connection) {
     console.error("Missing Strava connection for sync request:", connError);
-    return NextResponse.json({ error: "Strava account is not connected" }, { status: 400 });
+    return { success: false, error: "Strava account is not connected" };
   }
 
   // 3. Obtain a guaranteed valid access token (refreshes if required)
-  const accessToken = await getValidStravaAccessToken(user.id);
+  const accessToken = await getValidStravaAccessToken(userId);
   if (!accessToken) {
-    console.error("Failed to obtain valid Strava token during sync for user:", user.id);
-    return NextResponse.json({ error: "Your Strava session has expired. Please disconnect and reconnect your Strava account." }, { status: 400 });
+    console.error("Failed to obtain valid Strava token during sync for user:", userId);
+    return { success: false, error: "Your Strava session has expired. Please disconnect and reconnect your Strava account." };
   }
 
   // 4. Detect Mock Mode
@@ -88,10 +83,10 @@ export async function GET() {
   const nowStr = new Date().toISOString();
 
   if (isMock) {
-    console.log("Simulating activity fetch in Mock Mode for user:", user.id);
-    activities = generateMockActivities(user.id);
+    console.log("Simulating activity fetch in Mock Mode for user:", userId);
+    activities = generateMockActivities(userId);
   } else {
-    console.log("Fetching live athlete activities from Strava API for user:", user.id);
+    console.log("Fetching live athlete activities from Strava API for user:", userId);
     try {
       const response = await fetch("https://www.strava.com/api/v3/athlete/activities?per_page=30", {
         method: "GET",
@@ -102,13 +97,13 @@ export async function GET() {
 
       if (response.status === 429) {
         console.error("Strava API rate limit exceeded (HTTP 429)");
-        return NextResponse.json({ error: "Strava API rate limit exceeded. Please try again later." }, { status: 429 });
+        return { success: false, error: "Strava API rate limit exceeded. Please try again later." };
       }
 
       if (!response.ok) {
         const errText = await response.text();
         console.error("Failed to fetch activities from Strava. Status:", response.status, errText);
-        return NextResponse.json({ error: "Failed to fetch activities from Strava." }, { status: 400 });
+        return { success: false, error: "Failed to fetch activities from Strava." };
       }
 
       const rawActivities = await response.json() as StravaActivity[];
@@ -116,7 +111,7 @@ export async function GET() {
 
       // Format activities to match DB schema
       activities = rawActivities.map((act) => ({
-        user_id: user.id,
+        user_id: userId,
         strava_activity_id: act.id,
         name: act.name || "Untitled Activity",
         distance: act.distance || 0,
@@ -131,7 +126,7 @@ export async function GET() {
       }));
     } catch (err) {
       console.error("Exceptional error during live Strava activity sync:", err);
-      return NextResponse.json({ error: "Network error fetching activities from Strava." }, { status: 500 });
+      return { success: false, error: "Network error fetching activities from Strava." };
     }
   }
 
@@ -144,7 +139,7 @@ export async function GET() {
 
     if (upsertError) {
       console.error("Database error upserting Strava activities:", upsertError);
-      return NextResponse.json({ error: "Failed to store activities in the database." }, { status: 500 });
+      return { success: false, error: "Failed to store activities in the database." };
     }
   }
 
@@ -153,13 +148,33 @@ export async function GET() {
   const { error: profileError } = await supabaseAdmin
     .from("profiles")
     .update({ last_synced_at: nowStr })
-    .eq("id", user.id);
+    .eq("id", userId);
 
   if (profileError) {
     console.error("Database error updating profile last_synced_at:", profileError);
   }
 
+  return { success: true, activitiesCount: activities.length };
+}
+
+export async function GET() {
+  // 1. Verify active user session
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    console.error("Unauthorized sync request:", authError);
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const syncResult = await syncUserActivities(user.id);
+  if (!syncResult.success) {
+    const status = syncResult.error?.includes("rate limit") ? 429 : 400;
+    return NextResponse.json({ error: syncResult.error }, { status });
+  }
+
   // 7. Retrieve updated total count and latest 5 activities for response state updates
+  const supabaseAdmin = await createAdminClient();
   let totalCount = 0;
   try {
     const { count, error: countError } = await supabaseAdmin
@@ -192,12 +207,25 @@ export async function GET() {
   return NextResponse.json({
     success: true,
     stats: {
-      fetched: activities.length,
+      fetched: syncResult.activitiesCount,
     },
-    last_synced_at: nowStr,
+    last_synced_at: new Date().toISOString(),
     activities_count: totalCount,
     latest_activities: latestActivities,
   });
+}
+
+/**
+ * Helper: Computes a simple hash code for a string.
+ */
+function hashCode(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const chr = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + chr;
+    hash |= 0; // Convert to 32bit integer
+  }
+  return Math.abs(hash);
 }
 
 /**
@@ -213,6 +241,7 @@ function generateMockActivities(userId: string): ActivityInsert[] {
   };
 
   const now = new Date();
+  const userHash = hashCode(userId);
 
   for (let i = 0; i < 30; i++) {
     const sportType = sportTypes[i % sportTypes.length];
@@ -242,7 +271,7 @@ function generateMockActivities(userId: string): ActivityInsert[] {
 
     activities.push({
       user_id: userId,
-      strava_activity_id: 1000000000 + i, // Unique mock ID
+      strava_activity_id: 10000000000 + userHash * 100 + i, // Unique mock ID
       name,
       distance,
       moving_time: movingTime,
