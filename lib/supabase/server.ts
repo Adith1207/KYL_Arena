@@ -310,6 +310,34 @@ class MockQueryBuilder {
         }
         
         if (this.mutationValues) {
+          // Generate slug
+          const title = this.mutationValues.title || "Challenge";
+          const baseSlug = title.toLowerCase().trim()
+            .replace(/[^\w\s-]/g, "")
+            .replace(/[\s_-]+/g, "-")
+            .replace(/^-+|-+$/g, "");
+          let tempSlug = baseSlug;
+          let counter = 1;
+          while (list.some((c: any) => c.slug === tempSlug)) {
+            tempSlug = `${baseSlug}-${counter}`;
+            counter++;
+          }
+
+          // Generate challenge_code
+          const startDate = this.mutationValues.start_date || "2026-01-01";
+          const yearStr = startDate.split("-")[0];
+          const yearChallenges = list.filter((c: any) => c.challenge_code?.startsWith(`KYL-${yearStr}-`));
+          let maxSeq = 0;
+          yearChallenges.forEach((c: any) => {
+            const parts = c.challenge_code.split("-");
+            const seq = parseInt(parts[parts.length - 1], 10);
+            if (!isNaN(seq) && seq > maxSeq) {
+              maxSeq = seq;
+            }
+          });
+          const nextSeq = maxSeq + 1;
+          const challengeCode = `KYL-${yearStr}-${String(nextSeq).padStart(3, "0")}`;
+
           const newChal = {
             id: this.mutationValues.id || Math.random().toString(36).substring(2, 9),
             title: this.mutationValues.title,
@@ -322,7 +350,9 @@ class MockQueryBuilder {
             banner_url: this.mutationValues.banner_url || "https://images.unsplash.com/photo-1541614101331-1a5a3a194e92?auto=format&fit=crop&w=400&q=80",
             status: this.mutationValues.status || "active",
             created_by: this.mutationValues.created_by || "mock-uuid-12345678",
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
+            challenge_code: challengeCode,
+            slug: tempSlug
           };
           list.unshift(newChal);
           this.setCookieOrLocalStorage("kyl-mock-challenges", JSON.stringify(list));
@@ -531,7 +561,9 @@ function getSeedChallenges() {
       banner_url: "https://images.unsplash.com/photo-1541614101331-1a5a3a194e92?auto=format&fit=crop&w=400&q=80",
       status: "active",
       created_by: "mock-uuid-12345678",
-      created_at: "2026-06-01T12:00:00.000Z"
+      created_at: "2026-06-01T12:00:00.000Z",
+      challenge_code: "KYL-2026-001",
+      slug: "kyl-summer-century"
     },
     {
       id: "22222222-2222-2222-2222-222222222222",
@@ -545,7 +577,9 @@ function getSeedChallenges() {
       banner_url: "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?auto=format&fit=crop&w=400&q=80",
       status: "active",
       created_by: "mock-uuid-12345678",
-      created_at: "2026-06-01T12:00:00.000Z"
+      created_at: "2026-06-01T12:00:00.000Z",
+      challenge_code: "KYL-2026-002",
+      slug: "june-run-challenge"
     },
     {
       id: "33333333-3333-3333-3333-333333333333",
@@ -559,7 +593,9 @@ function getSeedChallenges() {
       banner_url: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=400&q=80",
       status: "upcoming",
       created_by: "mock-uuid-12345678",
-      created_at: "2026-06-01T12:00:00.000Z"
+      created_at: "2026-06-01T12:00:00.000Z",
+      challenge_code: "KYL-2026-003",
+      slug: "july-elevation-climb"
     },
     {
       id: "44444444-4444-4444-4444-444444444444",
@@ -573,7 +609,9 @@ function getSeedChallenges() {
       banner_url: "https://images.unsplash.com/photo-1502224562085-639556652f33?auto=format&fit=crop&w=400&q=80",
       status: "archived",
       created_by: "mock-uuid-12345678",
-      created_at: "2026-05-01T12:00:00.000Z"
+      created_at: "2026-05-01T12:00:00.000Z",
+      challenge_code: "KYL-2026-004",
+      slug: "may-walkathon"
     }
   ];
 }

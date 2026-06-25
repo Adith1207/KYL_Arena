@@ -5,7 +5,7 @@ import Link from "next/link";
 import { 
   Users, Activity, Trophy, Flame, ArrowLeft, CheckCircle, 
   LogOut, Loader2, Search, Bike, Footprints, 
-  Shield, X
+  Shield, X, Calendar, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -30,15 +30,16 @@ interface Challenge {
   endDate: string;
   bannerUrl: string;
   status: "active" | "upcoming" | "archived";
+  challenge_code: string;
 }
 
 interface MockActivity {
   id: string;
   name: string;
   sportType: string;
-  distance: number; // in km
-  movingTime: number; // in seconds
-  elevationGain: number; // in meters
+  distance: number;
+  movingTime: number;
+  elevationGain: number;
   startDate: string;
 }
 
@@ -48,11 +49,14 @@ interface Participant {
   email: string;
   avatar: string;
   athleteId: string;
-  distanceCompleted: number; // in km
+  stravaAthleteName: string;
+  stravaAthleteUsername: string;
+  joinDate: string;
+  distanceCompleted: number;
   activitiesCount: number;
   lastActivityDate: string;
-  movingTime: number; // in seconds
-  elevationGain: number; // in meters
+  movingTime: number;
+  elevationGain: number;
   recentActivities: MockActivity[];
 }
 
@@ -114,14 +118,21 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
   const inProgressCount = participants.filter((p) => p.status === "in-progress").length;
   const inactiveCount = participants.filter((p) => p.status === "inactive").length;
 
-  // Filter participants by search query
+  // Real stats calculation
+  const totalDistanceAccumulated = useMemo(() => {
+    return baseParticipants.reduce((sum, p) => sum + p.distanceCompleted, 0);
+  }, [baseParticipants]);
+
+  // Filter participants by search query matching: name, email, strava athlete name, or username
   const filteredParticipants = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return participants;
     return participants.filter((p) => 
       p.name.toLowerCase().includes(q) ||
       p.email.toLowerCase().includes(q) ||
-      p.athleteId.toLowerCase().includes(q)
+      p.athleteId.toLowerCase().includes(q) ||
+      (p.stravaAthleteName && p.stravaAthleteName.toLowerCase().includes(q)) ||
+      (p.stravaAthleteUsername && p.stravaAthleteUsername.toLowerCase().includes(q))
     );
   }, [searchQuery, participants]);
 
@@ -218,34 +229,34 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
       {/* Main Content Area */}
       <main className="relative z-10 flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 pb-28 md:pb-12 text-left">
         
-        {/* Navigation Breadcrumb & Back button */}
+        {/* Navigation Breadcrumb */}
         <div className="flex items-center gap-2">
-          <Link href="/arena-admin" className="text-zinc-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-wider flex items-center gap-1">
+          <Link href="/arena-admin" className="text-zinc-550 hover:text-white transition-colors text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
             <ArrowLeft className="h-3.5 w-3.5" /> Challenges
           </Link>
           <span className="text-zinc-750 text-xs">/</span>
-          <span className="text-lime-400 text-xs font-bold uppercase tracking-wider">{challenge.title}</span>
+          <span className="text-lime-450 text-[10px] font-black uppercase tracking-wider">{challenge.title}</span>
         </div>
 
         {/* Challenge Insights Header Banner */}
         <div className="relative rounded-3xl bg-zinc-900/30 border border-white/5 overflow-hidden p-6 sm:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
-          {/* Banner Glow Strip */}
           <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/25 to-transparent" />
           
           <div className="space-y-2 max-w-2xl text-left">
-            <div className="inline-flex items-center gap-1 px-2.5 py-0.5 border border-lime-400/20 bg-lime-400/5 rounded-full text-[9px] font-black uppercase tracking-widest text-lime-400">
-              <Trophy className="h-3 w-3 animate-bounce" /> {challenge.sportType} Challenge
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 border border-lime-400/20 bg-lime-400/5 rounded-full text-[9px] font-black uppercase tracking-widest text-lime-400">
+              <Trophy className="h-3 w-3 animate-bounce text-lime-400" /> {challenge.sportType} Challenge
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight italic">
-              {challenge.title} <span className="text-lime-400 not-italic font-normal">Insights</span>
+            <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight italic leading-tight">
+              {challenge.title} <span className="text-lime-400 not-italic font-normal">Standings</span>
             </h2>
-            <p className="text-xs text-zinc-400 leading-relaxed font-medium">
+            <p className="text-[9px] text-zinc-500 font-mono tracking-widest uppercase mt-0.5 leading-none">CODE: {challenge.challenge_code}</p>
+            <p className="text-xs text-zinc-400 leading-relaxed font-medium mt-2">
               {challenge.description}
             </p>
           </div>
 
           {/* Goal & Dates target */}
-          <div className="flex flex-col sm:flex-row gap-6 p-4 rounded-2xl bg-zinc-950/60 border border-white/5 font-mono text-xs text-zinc-450 self-start md:self-auto min-w-[200px]">
+          <div className="flex flex-col sm:flex-row gap-6 p-4 rounded-2xl bg-zinc-950/60 border border-white/5 font-mono text-xs text-zinc-450 self-start md:self-auto min-w-[220px]">
             <div>
               <span className="text-[8px] text-zinc-650 uppercase block font-bold">Goal Target</span>
               <span className="text-base font-black text-white">
@@ -260,7 +271,7 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
         </div>
 
         {/* 1. Challenge Overview metrics cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-slideIn">
           
           <div className="bg-zinc-900/30 border border-white/5 rounded-2xl p-5 backdrop-blur-md relative overflow-hidden group hover:border-lime-400/20 transition-all">
             <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/10 to-transparent" />
@@ -274,7 +285,7 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
               </div>
             </div>
             <p className="text-[9px] text-zinc-450 font-mono mt-3">
-              Total unique Strava linkings
+              Total connected community members
             </p>
           </div>
 
@@ -282,15 +293,31 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
             <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/10 to-transparent" />
             <div className="flex justify-between items-start">
               <div className="space-y-1">
-                <p className="text-[9px] text-zinc-500 font-black uppercase tracking-wider">Completed Target</p>
-                <p className="text-xl sm:text-2xl font-mono font-black text-lime-400">{completedCount}</p>
+                <p className="text-[9px] text-zinc-500 font-black uppercase tracking-wider">Completion Rate</p>
+                <p className="text-xl sm:text-2xl font-mono font-black text-lime-400">{totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0}%</p>
               </div>
               <div className="p-2 rounded-lg bg-lime-400/5 text-lime-400 border border-lime-400/10">
                 <CheckCircle className="h-4.5 w-4.5" />
               </div>
             </div>
             <p className="text-[9px] text-lime-400 font-mono mt-3">
-              {Math.round((completedCount / totalCount) * 100)}% challenge completion rate
+              {completedCount} athletes completed target metric
+            </p>
+          </div>
+
+          <div className="bg-zinc-900/30 border border-white/5 rounded-2xl p-5 backdrop-blur-md relative overflow-hidden group hover:border-lime-400/20 transition-all">
+            <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/10 to-transparent" />
+            <div className="flex justify-between items-start">
+              <div className="space-y-1">
+                <p className="text-[9px] text-zinc-500 font-black uppercase tracking-wider">Accumulated Distance</p>
+                <p className="text-xl sm:text-2xl font-mono font-black text-white">{totalDistanceAccumulated.toLocaleString()} {unit}</p>
+              </div>
+              <div className="p-2 rounded-lg bg-lime-400/5 text-lime-400 border border-lime-400/10">
+                <Sparkles className="h-4.5 w-4.5 text-lime-400" />
+              </div>
+            </div>
+            <p className="text-[9px] text-zinc-450 font-mono mt-3">
+              Cumulative log stats across participants
             </p>
           </div>
 
@@ -306,29 +333,13 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
               </div>
             </div>
             <p className="text-[9px] text-zinc-450 font-mono mt-3">
-              Actively logging activities
-            </p>
-          </div>
-
-          <div className="bg-zinc-900/30 border border-white/5 rounded-2xl p-5 backdrop-blur-md relative overflow-hidden group hover:border-lime-400/20 transition-all">
-            <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/10 to-transparent" />
-            <div className="flex justify-between items-start">
-              <div className="space-y-1">
-                <p className="text-[9px] text-zinc-500 font-black uppercase tracking-wider">Inactive</p>
-                <p className="text-xl sm:text-2xl font-mono font-black text-zinc-500">{inactiveCount}</p>
-              </div>
-              <div className="p-2 rounded-lg bg-lime-400/5 text-lime-400 border border-lime-400/10">
-                <Flame className="h-4.5 w-4.5 text-zinc-500" />
-              </div>
-            </div>
-            <p className="text-[9px] text-zinc-450 font-mono mt-3">
-              Joined but 0 activities logged
+              Athletes logging matching logs
             </p>
           </div>
 
         </div>
 
-        {/* Table & Leaderboard layout (Single screen) */}
+        {/* Table & Leaderboard layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
           {/* LEFT: Participant List & Instant Search */}
@@ -341,14 +352,14 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
               </h3>
 
               {/* Instant Search box */}
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-600" />
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-650" />
                 <input 
                   type="text" 
-                  placeholder="Search name, email, ID..."
+                  placeholder="Search name, email, Strava athlete..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-8 pl-9 pr-3.5 bg-zinc-950 border border-white/5 rounded-lg text-xs text-white outline-none focus:border-lime-400/30 transition-all placeholder:text-zinc-600"
+                  className="w-full h-8.5 pl-9.5 pr-3.5 bg-zinc-950 border border-white/5 rounded-lg text-xs text-white outline-none focus:border-lime-400/30 transition-all placeholder:text-zinc-600"
                 />
               </div>
             </div>
@@ -359,7 +370,9 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
                 <thead>
                   <tr className="border-b border-white/5 text-[9px] uppercase font-black text-zinc-550 tracking-wider font-mono">
                     <th className="py-3 px-3">Rank</th>
-                    <th className="py-3 px-3">Athlete</th>
+                    <th className="py-3 px-3">Athlete / Profile</th>
+                    <th className="py-3 px-3">Strava Details</th>
+                    <th className="py-3 px-3">Joined</th>
                     <th className="py-3 px-3">Completed</th>
                     <th className="py-3 px-3">Progress</th>
                     <th className="py-3 px-3 text-center">Activities</th>
@@ -369,7 +382,6 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
                 <tbody>
                   {filteredParticipants.length > 0 ? (
                     filteredParticipants.map((p) => {
-                      // Find actual sorted index in full standings list
                       const actualRank = participants.findIndex(item => item.id === p.id) + 1;
                       return (
                         <tr 
@@ -383,12 +395,21 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
                           <td className="py-3 px-3">
                             <div className="flex items-center gap-3">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={p.avatar} alt={p.name} className="h-6 w-6 rounded-full object-cover ring-1 ring-white/5" />
+                              <img src={p.avatar} alt={p.name} className="h-7.5 w-7.5 rounded-full object-cover ring-1 ring-white/5" />
                               <div className="text-left">
-                                <p className="font-extrabold text-white group-hover:text-lime-400 transition-colors">{p.name}</p>
-                                <p className="text-[9px] text-zinc-500 font-mono truncate max-w-[150px]">{p.email}</p>
+                                <p className="font-extrabold text-white group-hover:text-lime-400 transition-colors leading-tight">{p.name}</p>
+                                <p className="text-[9px] text-zinc-550 font-mono leading-none mt-0.5 truncate max-w-[140px]">{p.email}</p>
                               </div>
                             </div>
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="text-left leading-tight">
+                              <p className="font-semibold text-zinc-300 font-mono text-[10px]">{p.stravaAthleteName || "N/A"}</p>
+                              <p className="text-[8.5px] text-zinc-500 font-mono leading-none mt-0.5">@{p.stravaAthleteUsername || "N/A"}</p>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 font-mono text-zinc-400 text-[10px]">
+                            {p.joinDate}
                           </td>
                           <td className="py-3 px-3 font-mono font-bold text-white">
                             {p.distanceCompleted.toFixed(1)} {unit}
@@ -415,7 +436,7 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
                     })
                   ) : (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-zinc-600 font-mono text-xs border border-dashed border-white/5 rounded-2xl">
+                      <td colSpan={8} className="py-12 text-center text-zinc-650 font-mono text-xs border border-dashed border-white/5 rounded-2xl">
                         No matches found for &quot;{searchQuery}&quot;.
                       </td>
                     </tr>
@@ -426,13 +447,13 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
 
           </div>
 
-          {/* RIGHT: Arena Standings & Live Feed (Innovative Podium + Live Ticker) */}
+          {/* RIGHT: Leaders Podium & Sync Feed */}
           <div className="lg:col-span-4 space-y-6">
             
             {/* Top Performers Podium */}
             <div className="bg-zinc-900/30 border border-white/5 rounded-3xl p-5 sm:p-6 space-y-6 backdrop-blur-md text-center">
               <h3 className="font-extrabold uppercase tracking-wider text-xs text-white border-b border-white/5 pb-4 flex items-center gap-2 justify-center">
-                <Trophy className="h-4.5 w-4.5 text-lime-400" /> Arena Leaders
+                <Trophy className="h-4.5 w-4.5 text-lime-400" /> Leaderboard Leaders
               </h3>
 
               <div className="flex items-end justify-center gap-3 pt-12 pb-2 h-48 select-none">
@@ -451,8 +472,8 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
                       className="absolute -top-5 h-9 w-9 rounded-full object-cover ring-2 ring-slate-400/50 group-hover:scale-105 transition-transform" 
                     />
                     <div className="p-2 text-center w-full min-w-0">
-                      <p className="font-black text-[10px] text-zinc-300 truncate">{participants[1].name.split(" ")[0]}</p>
-                      <p className="font-mono text-[9px] text-zinc-550 font-black mt-0.5">{participants[1].distanceCompleted.toFixed(0)} {unit}</p>
+                      <p className="font-black text-[10px] text-zinc-300 truncate leading-none">{participants[1].name.split(" ")[0]}</p>
+                      <p className="font-mono text-[9px] text-zinc-550 font-black mt-1 leading-none">{participants[1].distanceCompleted.toFixed(0)} {unit}</p>
                     </div>
                   </div>
                 )}
@@ -471,8 +492,8 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
                       className="absolute -top-6 h-11 w-11 rounded-full object-cover ring-2 ring-amber-400 group-hover:scale-105 transition-transform" 
                     />
                     <div className="p-3.5 text-center w-full min-w-0">
-                      <p className="font-black text-[11px] text-white truncate">{participants[0].name.split(" ")[0]}</p>
-                      <p className="font-mono text-[9.5px] text-amber-450 font-black mt-0.5">{participants[0].distanceCompleted.toFixed(0)} {unit}</p>
+                      <p className="font-black text-[11px] text-white truncate leading-none">{participants[0].name.split(" ")[0]}</p>
+                      <p className="font-mono text-[9.5px] text-amber-450 font-black mt-1.5 leading-none">{participants[0].distanceCompleted.toFixed(0)} {unit}</p>
                     </div>
                   </div>
                 )}
@@ -491,8 +512,8 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
                       className="absolute -top-4.5 h-8 w-8 rounded-full object-cover ring-2 ring-amber-700/60 group-hover:scale-105 transition-transform" 
                     />
                     <div className="p-2 text-center w-full min-w-0">
-                      <p className="font-black text-[9.5px] text-zinc-400 truncate">{participants[2].name.split(" ")[0]}</p>
-                      <p className="font-mono text-[8.5px] text-zinc-550 font-black mt-0.5">{participants[2].distanceCompleted.toFixed(0)} {unit}</p>
+                      <p className="font-black text-[9.5px] text-zinc-400 truncate leading-none">{participants[2].name.split(" ")[0]}</p>
+                      <p className="font-mono text-[8.5px] text-zinc-555 font-black mt-1 leading-none">{participants[2].distanceCompleted.toFixed(0)} {unit}</p>
                     </div>
                   </div>
                 )}
@@ -501,7 +522,7 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
             </div>
 
             {/* Live Sync Feed */}
-            <div className="bg-zinc-900/30 border border-white/5 rounded-3xl p-5 sm:p-6 space-y-4 backdrop-blur-md">
+            <div className="bg-zinc-900/30 border border-white/5 rounded-3xl p-5 sm:p-6 space-y-4 backdrop-blur-md text-left">
               <h3 className="font-extrabold uppercase tracking-wider text-xs text-white border-b border-white/5 pb-4">Live Sync Ticker</h3>
               <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                 {recentFeed.length > 0 ? (
@@ -528,21 +549,21 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
                             <p className="font-extrabold text-[11px] text-white truncate group-hover/feed:text-lime-400 transition-colors">
                               {item.name}
                             </p>
-                            <p className="text-[9px] text-zinc-555 truncate m-0">
+                            <p className="text-[9px] text-zinc-550 truncate m-0 mt-0.5">
                               {item.action}
                             </p>
                           </div>
                         </div>
 
-                        <div className="text-right">
-                          <span className="font-mono font-black text-[10px] text-zinc-300 block">{item.displayValue}</span>
-                          <span className="text-[8.5px] text-zinc-500 block">{item.time}</span>
+                        <div className="text-right font-mono">
+                          <span className="font-black text-[10px] text-zinc-300 block">{item.displayValue}</span>
+                          <span className="text-[8.5px] text-zinc-550 block">{item.time}</span>
                         </div>
                       </div>
                     );
                   })
                 ) : (
-                  <div className="py-6 text-center text-zinc-650 font-mono text-[10px] border border-dashed border-white/5 rounded-xl">
+                  <div className="py-6 text-center text-zinc-600 font-mono text-[10px] border border-dashed border-white/5 rounded-xl">
                     No recent activities logged in this challenge.
                   </div>
                 )}
@@ -613,9 +634,28 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
                     <p className="text-[10px] font-mono text-zinc-500 truncate">
                       {selectedParticipant.email}
                     </p>
-                    <p className="text-[8.5px] font-mono font-black text-lime-450 uppercase border border-lime-400/20 px-2 py-0.5 rounded bg-lime-400/5 w-fit">
+                    <p className="text-[8.5px] font-mono font-black text-lime-400 uppercase border border-lime-400/20 px-2 py-0.5 rounded bg-lime-400/5 w-fit">
                       ID: {selectedParticipant.athleteId}
                     </p>
+                  </div>
+                </div>
+
+                {/* Strava profile details */}
+                <div className="space-y-2.5 font-mono text-xs">
+                  <h5 className="text-[9px] uppercase font-black text-zinc-500 tracking-wider">Strava Account Metadata</h5>
+                  <div className="bg-zinc-900/25 border border-white/5 p-4 rounded-xl space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-zinc-550">Strava Name:</span>
+                      <span className="text-white font-bold">{selectedParticipant.stravaAthleteName || "N/A"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-550">Strava Username:</span>
+                      <span className="text-white font-bold">@{selectedParticipant.stravaAthleteUsername || "N/A"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-550">Challenge Join Date:</span>
+                      <span className="text-white">{selectedParticipant.joinDate}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -656,29 +696,29 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
                     </div>
 
                     <div className="bg-zinc-900/25 border border-white/5 p-4 rounded-xl space-y-1">
-                      <span className="text-[8px] text-zinc-650 uppercase block font-bold font-mono">Synced completed</span>
+                      <span className="text-[8px] text-zinc-650 uppercase block font-bold font-mono font-mono">Synced completed</span>
                       <span className="text-sm sm:text-base font-black text-white font-mono">
                         {selectedParticipant.distanceCompleted.toFixed(1)} {unit}
                       </span>
                     </div>
 
                     <div className="bg-zinc-900/25 border border-white/5 p-4 rounded-xl space-y-1">
-                      <span className="text-[8px] text-zinc-650 uppercase block font-bold font-mono">Activities logs</span>
+                      <span className="text-[8px] text-zinc-650 uppercase block font-bold font-mono font-mono">Activities logs</span>
                       <span className="text-sm sm:text-base font-black text-white font-mono">
                         {selectedParticipant.activitiesCount}
                       </span>
                     </div>
 
                     <div className="bg-zinc-900/25 border border-white/5 p-4 rounded-xl space-y-1">
-                      <span className="text-[8px] text-zinc-650 uppercase block font-bold font-mono">Moving Duration</span>
+                      <span className="text-[8px] text-zinc-650 uppercase block font-bold font-mono font-mono">Moving Duration</span>
                       <span className="text-sm sm:text-base font-black text-white font-mono">
                         {formatTime(selectedParticipant.movingTime)}
                       </span>
                     </div>
 
                     <div className="bg-zinc-900/25 border border-white/5 p-4 rounded-xl col-span-2 space-y-1">
-                      <span className="text-[8px] text-zinc-650 uppercase block font-bold font-mono">Total Elevation gain</span>
-                      <span className="text-sm sm:text-base font-black text-lime-450 font-mono">
+                      <span className="text-[8px] text-zinc-650 uppercase block font-bold font-mono font-mono">Total Elevation gain</span>
+                      <span className="text-sm sm:text-base font-black text-lime-400 font-mono">
                         {selectedParticipant.elevationGain.toLocaleString()} meters
                       </span>
                     </div>
@@ -701,19 +741,19 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
                               {act.sportType === "Ride" ? <Bike className="h-4 w-4" /> : <Footprints className="h-4 w-4" />}
                             </div>
                             <div className="text-left">
-                              <p className="font-extrabold text-white text-[11px]">{act.name}</p>
-                              <p className="text-[8.5px] text-zinc-500 font-mono">{act.startDate}</p>
+                              <p className="font-extrabold text-white text-[11px] leading-tight">{act.name}</p>
+                              <p className="text-[8.5px] text-zinc-500 font-mono mt-0.5 leading-none">{act.startDate}</p>
                             </div>
                           </div>
 
                           <div className="text-right font-mono">
-                            <p className="font-black text-white text-[11px]">{act.distance} km</p>
-                            <p className="text-[8.5px] text-zinc-500">{formatTime(act.movingTime)}</p>
+                            <p className="font-black text-white text-[11px] leading-none">{act.distance} km</p>
+                            <p className="text-[8.5px] text-zinc-505 mt-1 leading-none">{formatTime(act.movingTime)}</p>
                           </div>
                         </div>
                       ))
                     ) : (
-                      <div className="py-6 text-center text-zinc-600 font-mono text-[10px] border border-dashed border-white/5 rounded-xl">
+                      <div className="py-6 text-center text-zinc-650 font-mono text-[10px] border border-dashed border-white/5 rounded-xl">
                         No individual workout sessions logged.
                       </div>
                     )}
@@ -726,7 +766,7 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
               <div className="border-t border-white/5 p-6 bg-zinc-950/80 backdrop-blur-md">
                 <Button
                   onClick={() => setSelectedParticipant(null)}
-                  className="w-full h-11 border border-zinc-800 hover:border-zinc-700 bg-zinc-900/60 hover:bg-zinc-900 text-white font-extrabold rounded-xl transition-all text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center"
+                  className="w-full h-11 border border-zinc-850 hover:border-zinc-700 bg-zinc-900/60 hover:bg-zinc-900 text-white font-extrabold rounded-xl transition-all text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center"
                 >
                   Close Profile Audit
                 </Button>
@@ -736,40 +776,6 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
           </>
         )}
       </AnimatePresence>
-
-      {/* FLOATING STATE SIMULATOR PANEL (Mock Developer Controls for Admin Dynamic View) */}
-      <div className="fixed bottom-6 right-6 z-50 bg-zinc-900/90 border border-white/10 rounded-2xl p-3 shadow-2xl backdrop-blur-md flex flex-col items-center gap-2 max-w-[200px]">
-        <span className="text-[9px] font-black uppercase text-zinc-500 tracking-wider">State Simulator</span>
-        
-        {/* Mock Role Selector */}
-        <span className="text-[9px] font-black uppercase text-zinc-500 tracking-wider mt-1 pt-1 border-t border-white/5 w-full text-center">Mock Role</span>
-        <div className="grid grid-cols-2 gap-1 w-full">
-          {(["athlete", "challenge_admin", "organization_admin", "super_admin"] as const).map((r) => (
-            <button
-              key={r}
-              onClick={() => {
-                localStorage.setItem("kyl_mock_role", r);
-                document.cookie = `kyl-mock-role=${r}; path=/; max-age=3600; SameSite=Lax`;
-                if (r === "athlete") {
-                  window.location.href = "/dashboard";
-                } else if (r === "organization_admin" && window.location.pathname === "/dashboard") {
-                  window.location.href = "/arena-admin";
-                } else {
-                  window.location.reload();
-                }
-              }}
-              className={`h-6 px-1 text-[8.5px] font-bold rounded flex items-center justify-center transition-all cursor-pointer truncate ${
-                userRole === r
-                  ? "bg-lime-400 text-black font-black"
-                  : "bg-zinc-800 text-zinc-400 hover:text-white"
-              }`}
-              title={r}
-            >
-              {r.replace("_admin", "")}
-            </button>
-          ))}
-        </div>
-      </div>
 
     </div>
   );

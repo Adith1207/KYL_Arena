@@ -11,64 +11,12 @@ export const metadata = {
 };
 
 interface PageProps {
-  params: Promise<{ challengeId: string }>;
+  params: Promise<{ slug: string }>;
 }
-
-// Mock challenges to match IDs on the server
-const mockChallenges = [
-  {
-    id: "1",
-    title: "KYL Summer Century",
-    description: "Pedal your way to 100 kilometers over the month of June. Ride together, check your limits.",
-    sportType: "Ride",
-    goalType: "Distance",
-    goalTarget: 100,
-    startDate: "2026-06-01",
-    endDate: "2026-06-30",
-    bannerUrl: "https://images.unsplash.com/photo-1541614101331-1a5a3a194e92?auto=format&fit=crop&w=400&q=80",
-    status: "active" as const
-  },
-  {
-    id: "2",
-    title: "June Run Challenge",
-    description: "Lace up and complete 50 kilometers of running. Stay consistent throughout June.",
-    sportType: "Run",
-    goalType: "Distance",
-    goalTarget: 50,
-    startDate: "2026-06-01",
-    endDate: "2026-06-30",
-    bannerUrl: "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?auto=format&fit=crop&w=400&q=80",
-    status: "active" as const
-  },
-  {
-    id: "3",
-    title: "July Elevation Climb",
-    description: "Climb 2,000 meters of total elevation gain. Any run, walk, or cycle counts.",
-    sportType: "Multisport",
-    goalType: "Elevation",
-    goalTarget: 2000,
-    startDate: "2026-07-01",
-    endDate: "2026-07-31",
-    bannerUrl: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=400&q=80",
-    status: "upcoming" as const
-  },
-  {
-    id: "4",
-    title: "May Walkathon",
-    description: "Cover 30 kilometers of walking to kickstart your summer fitness habit.",
-    sportType: "Walk",
-    goalType: "Distance",
-    goalTarget: 30,
-    startDate: "2026-05-01",
-    endDate: "2026-05-31",
-    bannerUrl: "https://images.unsplash.com/photo-1502224562085-639556652f33?auto=format&fit=crop&w=400&q=80",
-    status: "archived" as const
-  }
-];
 
 export default async function ChallengeInsightsPage({ params }: PageProps) {
   const resolvedParams = await params;
-  const challengeId = resolvedParams.challengeId;
+  const slug = resolvedParams.slug;
 
   const supabase = await createClient();
   const supabaseAdmin = await createAdminClient();
@@ -199,13 +147,13 @@ export default async function ChallengeInsightsPage({ params }: PageProps) {
     );
   }
 
-  // Find the challenge from the database
+  // Find the challenge from the database by slug
   let challenge = null;
   try {
     const { data, error: challengeError } = await supabaseAdmin
       .from("challenges")
       .select("*")
-      .eq("id", challengeId)
+      .eq("slug", slug)
       .single();
 
     if (!challengeError && data) {
@@ -219,11 +167,12 @@ export default async function ChallengeInsightsPage({ params }: PageProps) {
         startDate: data.start_date,
         endDate: data.end_date,
         bannerUrl: data.banner_url || "",
-        status: data.status
+        status: data.status,
+        challenge_code: data.challenge_code || `KYL-${new Date(data.start_date).getFullYear()}-${data.id.substring(0,3).toUpperCase()}`
       };
     }
   } catch (e) {
-    console.error("Failed to fetch challenge details on server:", e);
+    console.error("Failed to fetch challenge details on server by slug:", e);
   }
 
   if (!challenge) {
@@ -237,7 +186,7 @@ export default async function ChallengeInsightsPage({ params }: PageProps) {
     const { data: participations, error: partError } = await supabaseAdmin
       .from("challenge_participants")
       .select("*")
-      .eq("challenge_id", challengeId);
+      .eq("challenge_id", challenge.id);
 
     if (!partError && participations && participations.length > 0) {
       const participantUserIds = participations.map((p: any) => p.user_id);
@@ -247,6 +196,12 @@ export default async function ChallengeInsightsPage({ params }: PageProps) {
         .from("profiles")
         .select("id, name, email, avatar, strava_athlete_id")
         .in("id", participantUserIds);
+
+      // Fetch all strava connections to get athlete_name / athlete_username
+      const { data: stravaConns } = await supabaseAdmin
+        .from("strava_connections")
+        .select("user_id, athlete_name, athlete_username")
+        .in("user_id", participantUserIds);
 
       // Fetch all activities of these participants in the challenge range
       const challengeStart = `${challenge.startDate}T00:00:00Z`;
@@ -262,9 +217,11 @@ export default async function ChallengeInsightsPage({ params }: PageProps) {
 
       const acts = activitiesData || [];
       const profs = profiles || [];
+      const conns = stravaConns || [];
 
       participantsList = participations.map((p: any) => {
         const userProf = profs.find((pr: any) => pr.id === p.user_id);
+        const userStrava = conns.find((sc: any) => sc.user_id === p.user_id);
         const userActs = acts.filter((act: any) => {
           if (act.user_id !== p.user_id) return false;
           const matchesSport = 
@@ -315,6 +272,9 @@ export default async function ChallengeInsightsPage({ params }: PageProps) {
           email: userProf?.email || "",
           avatar: userProf?.avatar || "",
           athleteId: userProf?.strava_athlete_id || "N/A",
+          stravaAthleteName: userStrava?.athlete_name || "",
+          stravaAthleteUsername: userStrava?.athlete_username || "",
+          joinDate: p.joined_at ? new Date(p.joined_at).toISOString().split("T")[0] : "N/A",
           distanceCompleted: Number(completedVal.toFixed(1)),
           activitiesCount: userActs.length,
           lastActivityDate: lastActDate,
@@ -374,7 +334,7 @@ export default async function ChallengeInsightsPage({ params }: PageProps) {
       });
     }
   } catch (e) {
-    console.error("Failed to query participant standings on server page:", e);
+    console.error("Failed to query participant standings on server page by slug:", e);
   }
 
   return (

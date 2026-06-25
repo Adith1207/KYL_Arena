@@ -1535,7 +1535,7 @@ export default function DashboardClient({
           asChild
           className="w-full h-9 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-white rounded-xl transition-all flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider font-extrabold cursor-pointer"
         >
-          <Link href={`/arena-admin/challenges/${selectedChallenge.id}`}>
+          <Link href={`/arena-admin/challenges/${selectedChallenge.slug}`}>
             <span>View Full Leaderboard</span>
             <ChevronRight className="h-3.5 w-3.5" />
           </Link>
