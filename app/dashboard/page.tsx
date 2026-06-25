@@ -250,7 +250,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           userJoined: participantUserIds.includes(user.id),
           participantsCount: participantUserIds.length,
           userRank,
-          leaderboard: leaderboard.slice(0, 5) // Top 5
+          leaderboard: leaderboard.slice(0, 5), // Top 5
+          slug: c.slug || c.title.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-"),
         });
       }
     }

@@ -160,52 +160,186 @@ export default async function AdminPage() {
     console.error("Failed to fetch challenges in admin route:", e);
   }
 
-  // Fetch participant counts for challenges
-  const participantCounts: Record<string, number> = {};
+  // Fetch all challenge participants (for dynamic metrics and completion rate)
+  let dbParticipations: any[] = [];
   try {
-    const { data: allParticipants, error: participantsError } = await supabaseAdmin
+    const { data, error: partError } = await supabaseAdmin
       .from("challenge_participants")
-      .select("challenge_id");
-    if (!participantsError && allParticipants) {
-      allParticipants.forEach((p: any) => {
-        participantCounts[p.challenge_id] = (participantCounts[p.challenge_id] || 0) + 1;
-      });
+      .select("*");
+    if (!partError && data) {
+      dbParticipations = data;
     }
   } catch (e) {
-    console.error("Failed to fetch participant counts in admin route:", e);
+    console.error("Failed to fetch challenge participants in admin route:", e);
   }
 
-  // Fetch metrics dynamically
-  let totalMembers = 0;
-  let activeAthletes = 0;
-  let activeChallenges = 0;
-  let syncedActivities = 0;
+  const participantCounts: Record<string, number> = {};
+  dbParticipations.forEach((p: any) => {
+    participantCounts[p.challenge_id] = (participantCounts[p.challenge_id] || 0) + 1;
+  });
 
+  // Fetch all profiles for search and inspector
+  let dbProfiles: any[] = [];
   try {
-    const { count: membersCount } = await supabaseAdmin
+    const { data, error: profError } = await supabaseAdmin
       .from("profiles")
-      .select("*", { count: "exact", head: true });
-    totalMembers = membersCount || 0;
-
-    const { count: athletesCount } = await supabaseAdmin
-      .from("profiles")
-      .select("*", { count: "exact", head: true })
-      .eq("strava_connected", true);
-    activeAthletes = athletesCount || 0;
-
-    const { count: activeCount } = await supabaseAdmin
-      .from("challenges")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "active");
-    activeChallenges = activeCount || 0;
-
-    const { count: activitiesCount } = await supabaseAdmin
-      .from("activities")
-      .select("*", { count: "exact", head: true });
-    syncedActivities = activitiesCount || 0;
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (!profError && data) {
+      dbProfiles = data;
+    }
   } catch (e) {
-    console.error("Failed to fetch admin dashboard metrics:", e);
+    console.error("Failed to fetch profiles in admin route:", e);
   }
+
+  // Fetch all Strava connections to enrich athlete profiles
+  let dbStravaConns: any[] = [];
+  try {
+    const { data, error: connError } = await supabaseAdmin
+      .from("strava_connections")
+      .select("user_id, athlete_name, athlete_username");
+    if (!connError && data) {
+      dbStravaConns = data;
+    }
+  } catch (e) {
+    console.error("Failed to fetch Strava connections in admin route:", e);
+  }
+
+  // Fetch all activities to calculate total distance, community growth, and global feed
+  let dbActivities: any[] = [];
+  try {
+    const { data, error: actError } = await supabaseAdmin
+      .from("activities")
+      .select("id, user_id, strava_activity_id, name, distance, moving_time, total_elevation_gain, start_date, sport_type")
+      .order("start_date", { ascending: false });
+    if (!actError && data) {
+      dbActivities = data;
+    }
+  } catch (e) {
+    console.error("Failed to fetch activities in admin route:", e);
+  }
+
+  // Calculate dynamic stats
+  const totalMembers = dbProfiles.length;
+  const activeAthletes = dbProfiles.filter(p => p.strava_connected).length;
+  const activeChallenges = dbChallenges.filter(c => c.status === "active").length;
+  const syncedActivities = dbActivities.length;
+
+  const totalDistanceM = dbActivities.reduce((sum, act) => sum + Number(act.distance || 0), 0);
+  const totalDistanceKm = Number((totalDistanceM / 1000).toFixed(1));
+
+  // Compute average completion rate across all participations
+  let completedParticipations = 0;
+  let totalParticipations = dbParticipations.length;
+
+  dbParticipations.forEach((p: any) => {
+    const challenge = dbChallenges.find(c => c.id === p.challenge_id);
+    if (!challenge) return;
+
+    const challengeStart = `${challenge.start_date}T00:00:00Z`;
+    const challengeEnd = `${challenge.end_date}T23:59:59Z`;
+
+    // Filter matching activities
+    const userActs = dbActivities.filter((act: any) => {
+      if (act.user_id !== p.user_id) return false;
+      if (act.start_date < challengeStart || act.start_date > challengeEnd) return false;
+      const matchesSport = 
+        challenge.sport_type === "Multisport" ||
+        act.sport_type?.toLowerCase() === challenge.sport_type?.toLowerCase();
+      return matchesSport;
+    });
+
+    let completedVal = 0;
+    userActs.forEach((act: any) => {
+      if (challenge.goal_metric === "Distance") {
+        completedVal += Number(act.distance || 0) / 1000;
+      } else if (challenge.goal_metric === "Elevation") {
+        completedVal += Number(act.total_elevation_gain || 0);
+      } else if (challenge.goal_metric === "Time" || challenge.goal_metric === "Duration") {
+        completedVal += Number(act.moving_time || 0) / 3600;
+      }
+    });
+
+    if (completedVal >= Number(challenge.goal_target)) {
+      completedParticipations++;
+    }
+  });
+
+  const averageCompletionRate = totalParticipations > 0 
+    ? Math.round((completedParticipations / totalParticipations) * 100) 
+    : 0;
+
+  // Build global recent activity feed
+  const recentActivities = dbActivities.slice(0, 10).map((act: any) => {
+    const profile = dbProfiles.find(p => p.id === act.user_id);
+    return {
+      id: String(act.strava_activity_id || act.id),
+      name: profile?.name || "Athlete",
+      avatar: profile?.avatar || "",
+      action: `logged ${act.name || "Workout"}`,
+      sportType: act.sport_type,
+      displayValue: `${(Number(act.distance || 0) / 1000).toFixed(1)} km`,
+      time: act.start_date ? new Date(act.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Recently",
+      participantId: act.user_id
+    };
+  });
+
+  // Prepare enriched athlete details for global search and inspection
+  const athletes = dbProfiles.map((prof: any) => {
+    const stravaConn = dbStravaConns.find(sc => sc.user_id === prof.id);
+    
+    // Calculate total distance inside any challenge
+    let challengeDistance = 0;
+    const userParticipations = dbParticipations.filter(p => p.user_id === prof.id);
+    
+    userParticipations.forEach((p: any) => {
+      const challenge = dbChallenges.find(c => c.id === p.challenge_id);
+      if (!challenge) return;
+
+      const challengeStart = `${challenge.start_date}T00:00:00Z`;
+      const challengeEnd = `${challenge.end_date}T23:59:59Z`;
+
+      const matchingActs = dbActivities.filter((act: any) => {
+        if (act.user_id !== prof.id) return false;
+        if (act.start_date < challengeStart || act.start_date > challengeEnd) return false;
+        const matchesSport = 
+          challenge.sport_type === "Multisport" ||
+          act.sport_type?.toLowerCase() === challenge.sport_type?.toLowerCase();
+        return matchesSport;
+      });
+
+      matchingActs.forEach((act: any) => {
+        challengeDistance += Number(act.distance || 0) / 1000;
+      });
+    });
+
+    const userRecentActs = dbActivities
+      .filter(act => act.user_id === prof.id)
+      .slice(0, 5)
+      .map(act => ({
+        id: String(act.strava_activity_id || act.id),
+        name: act.name || "Workout",
+        sportType: act.sport_type || "Ride",
+        distance: Number(((act.distance || 0) / 1000).toFixed(1)),
+        movingTime: Number(act.moving_time || 0),
+        elevationGain: Number(act.total_elevation_gain || 0),
+        startDate: act.start_date ? new Date(act.start_date).toISOString().split("T")[0] : ""
+      }));
+
+    return {
+      id: prof.id,
+      name: prof.name || "Athlete",
+      email: prof.email || "",
+      avatar: prof.avatar || "",
+      athleteId: prof.strava_athlete_id || "N/A",
+      stravaAthleteName: stravaConn?.athlete_name || "",
+      stravaAthleteUsername: stravaConn?.athlete_username || "",
+      joinedAt: prof.created_at ? new Date(prof.created_at).toISOString().split("T")[0] : "N/A",
+      stravaConnected: prof.strava_connected,
+      challengeDistance: Number(challengeDistance.toFixed(1)),
+      recentActivities: userRecentActs
+    };
+  });
 
   const challenges = dbChallenges.map((c) => ({
     id: c.id,
@@ -219,6 +353,8 @@ export default async function AdminPage() {
     bannerUrl: c.banner_url || "",
     status: c.status as "active" | "upcoming" | "archived",
     participantsCount: participantCounts[c.id] || 0,
+    challenge_code: c.challenge_code || `KYL-${new Date(c.start_date).getFullYear()}-${c.id.substring(0,3).toUpperCase()}`,
+    slug: c.slug || c.title.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-"),
   }));
 
   const metrics = {
@@ -226,6 +362,8 @@ export default async function AdminPage() {
     activeAthletes,
     activeChallenges,
     syncedActivities,
+    totalDistance: totalDistanceKm,
+    averageCompletionRate
   };
 
   // Otherwise, load and render the Admin Dashboard Client Component
@@ -235,6 +373,8 @@ export default async function AdminPage() {
       userRole={userRole}
       initialChallenges={challenges}
       initialMetrics={metrics}
+      allAthletes={athletes}
+      recentFeed={recentActivities}
     />
   );
 }
