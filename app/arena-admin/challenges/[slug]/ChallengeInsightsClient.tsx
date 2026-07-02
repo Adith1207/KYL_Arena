@@ -150,7 +150,9 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
       localStorage.removeItem("kyl_mock_activities_synced");
       localStorage.removeItem("kyl_mock_last_synced_at");
       localStorage.removeItem("kyl_mock_role");
-      window.location.href = "/login";
+      localStorage.removeItem("kyl_remember_device");
+      document.cookie = "kyl-remember-device=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+      window.location.href = "/";
     }
   };
 
