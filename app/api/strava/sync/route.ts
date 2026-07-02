@@ -70,14 +70,15 @@ export async function syncUserActivities(userId: string): Promise<{ success: boo
     return { success: false, error: "Your Strava session has expired. Please disconnect and reconnect your Strava account." };
   }
 
-  // 4. Detect Mock Mode
   const clientId = process.env.STRAVA_CLIENT_ID || process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID;
   const clientSecret = process.env.STRAVA_CLIENT_SECRET;
   const isMock = 
-    !clientId || 
-    clientId.includes("placeholder") || 
-    !clientSecret || 
-    clientSecret.includes("placeholder");
+    process.env.NODE_ENV !== "production" && (
+      !clientId || 
+      clientId.includes("placeholder") || 
+      !clientSecret || 
+      clientSecret.includes("placeholder")
+    );
 
   let activities: ActivityInsert[] = [];
   const nowStr = new Date().toISOString();

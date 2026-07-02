@@ -15,16 +15,9 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      const forwardedHost = request.headers.get("x-forwarded-host");
-      const isLocalEnv = process.env.NODE_ENV === "development";
-      
-      if (isLocalEnv) {
-        return NextResponse.redirect(`${origin}${next}`);
-      } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`);
-      } else {
-        return NextResponse.redirect(`${origin}${next}`);
-      }
+      const host = request.headers.get("x-forwarded-host") || new URL(request.url).host;
+      const protocol = request.headers.get("x-forwarded-proto") || (new URL(request.url).protocol === "https:" ? "https" : "http");
+      return NextResponse.redirect(`${protocol}://${host}${next}`);
     }
   }
 
