@@ -36,13 +36,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     let profile = null;
     let profileLookupResult = "";
     try {
-      console.log("Starting dashboard query: Fetch profiles");
+      console.log("Loading Profile...");
       const { data, error: profileError } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", user.id)
         .single();
-      console.log(`Finished dashboard query: Fetch profiles. Query returned ${data ? 1 : 0} rows`);
+      console.log("Finished Profile");
         
       if (!profileError && data) {
         profile = data;
@@ -64,7 +64,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       const var_provider = user.app_metadata?.provider || "google";
 
       try {
-        console.log("Starting dashboard query: Recreate profile");
+        console.log("Loading Profile...");
         const { data: newProfile, error: createProfileError } = await supabaseAdmin
           .from("profiles")
           .insert({
@@ -78,7 +78,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           })
           .select()
           .single();
-        console.log(`Finished dashboard query: Recreate profile. Query returned ${newProfile ? 1 : 0} rows`);
+        console.log("Finished Profile");
 
         if (createProfileError || !newProfile) {
           console.error(`Failed to recreate profile for user ${user.id}:`, createProfileError || "No data returned");
@@ -111,15 +111,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     let activitiesCount = 0;
     let allActivities: any[] = [];
 
-    if (profile.strava_connected) {
+    if (profile?.strava_connected) {
       try {
-        console.log("Starting dashboard query: Fetch strava_connections");
+        console.log("Loading Stats...");
         const { data: connData, error: connError } = await supabaseAdmin
           .from("strava_connections")
           .select("athlete_name, athlete_username, athlete_avatar, created_at")
           .eq("user_id", user.id)
           .single();
-        console.log(`Finished dashboard query: Fetch strava_connections. Query returned ${connData ? 1 : 0} rows`);
+        console.log("Finished Stats");
         
         if (!connError && connData) {
           stravaConnection = connData;
@@ -130,14 +130,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       // Fetch latest 5 activities
       try {
-        console.log("Starting dashboard query: Fetch latest 5 activities");
+        console.log("Loading Activities...");
         const { data: actData, error: actError } = await supabase
           .from("activities")
           .select("name, sport_type, distance, moving_time, start_date, average_speed, total_elevation_gain")
           .eq("user_id", user.id)
           .order("start_date", { ascending: false })
           .limit(5);
-        console.log(`Finished dashboard query: Fetch latest 5 activities. Query returned ${actData?.length || 0} rows`);
+        console.log("Finished Activities");
 
         if (!actError && actData) {
           activities = actData;
@@ -148,13 +148,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       // Fetch all user activities for dynamic challenge progress calculations
       try {
-        console.log("Starting dashboard query: Fetch all activities");
+        console.log("Loading Activities...");
         const { data: allActData, error: allActError } = await supabase
           .from("activities")
           .select("name, sport_type, distance, total_elevation_gain, moving_time, start_date, average_speed")
           .eq("user_id", user.id)
           .order("start_date", { ascending: false });
-        console.log(`Finished dashboard query: Fetch all activities. Query returned ${allActData?.length || 0} rows`);
+        console.log("Finished Activities");
 
         if (!allActError && allActData) {
           allActivities = allActData;
@@ -165,12 +165,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       // Fetch count of all activities
       try {
-        console.log("Starting dashboard query: Fetch activities count");
+        console.log("Loading Activities...");
         const { count, error: countError } = await supabase
           .from("activities")
           .select("*", { count: "exact", head: true })
           .eq("user_id", user.id);
-        console.log(`Finished dashboard query: Fetch activities count. Query returned count ${count || 0}`);
+        console.log("Finished Activities");
 
         if (!countError && count !== null) {
           activitiesCount = count;
@@ -183,11 +183,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     // Fetch overall db connections count using admin client
     let totalConnectionsCount = 0;
     try {
-      console.log("Starting dashboard query: Fetch total connections count");
+      console.log("Loading Stats...");
       const { count, error: countError } = await supabaseAdmin
         .from("strava_connections")
         .select("*", { count: "exact", head: true });
-      console.log(`Finished dashboard query: Fetch total connections count. Query returned count ${count || 0}`);
+      console.log("Finished Stats");
       if (!countError && count !== null) {
         totalConnectionsCount = count;
       }
@@ -198,16 +198,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     // Fetch active challenges and calculate leaderboard & standings dynamically on the server
     const activeChallenges: any[] = [];
     try {
-      console.log("Starting dashboard query: Fetch active challenges");
+      console.log("Loading Challenges...");
       const { data: dbChallenges, error: challengesError } = await supabaseAdmin
         .from("challenges")
         .select("*")
         .in("status", ["active", "upcoming"])
         .order("created_at", { ascending: false });
-      console.log(`Finished dashboard query: Fetch active challenges. Query returned ${dbChallenges?.length || 0} rows`);
+      console.log("Finished Challenges");
 
       if (!challengesError && dbChallenges) {
-        console.log("Starting dashboard query: Fetch challenge participations");
+        console.log("Loading Leaderboard...");
         let dbParticipations: any[] = [];
         try {
           const { data } = await supabaseAdmin
@@ -217,7 +217,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         } catch (e) {
           console.error("Failed to query challenge participants:", e);
         }
-        console.log(`Finished dashboard query: Fetch challenge participations. Query returned ${dbParticipations.length} rows`);
+        console.log("Finished Leaderboard");
 
         for (const c of dbChallenges) {
           try {
@@ -229,7 +229,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
             if (participantUserIds.length > 0) {
               // Fetch activities of all challenge participants within challenge date range
-              console.log(`Starting dashboard query: Fetch activities for challenge ${c.id}`);
+              console.log("Loading Leaderboard...");
               let actData: any[] = [];
               try {
                 const { data } = await supabaseAdmin
@@ -242,7 +242,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               } catch (e) {
                 console.error(`Failed to fetch activities for challenge ${c.id}:`, e);
               }
-              console.log(`Finished dashboard query: Fetch activities for challenge ${c.id}. Query returned ${actData.length} rows`);
+              console.log("Finished Leaderboard");
 
               // Group by user
               const userTotals: Record<string, number> = {};
@@ -265,7 +265,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               });
 
               // Fetch profiles to get names/avatars
-              console.log(`Starting dashboard query: Fetch profiles for challenge ${c.id}`);
+              console.log("Loading Leaderboard...");
               let profiles: any[] = [];
               try {
                 const { data } = await supabaseAdmin
@@ -276,7 +276,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               } catch (e) {
                 console.error(`Failed to fetch profiles for challenge ${c.id}:`, e);
               }
-              console.log(`Finished dashboard query: Fetch profiles for challenge ${c.id}. Query returned ${profiles.length} rows`);
+              console.log("Finished Leaderboard");
 
               leaderboard = challengeParts.map((p: any) => {
                 const prof = profiles.find((pr: any) => pr.id === p.user_id);
@@ -335,7 +335,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         provider: user.app_metadata?.provider || "N/A",
         lastSignIn: user.last_sign_in_at || "N/A",
       },
-      athleteId: profile.strava_athlete_id || "N/A",
+      athleteId: profile?.strava_athlete_id || "N/A",
       existingConnectionCount: totalConnectionsCount,
       oauthCallbackResult: error ? `Error: ${error}` : (stravaConnected ? `Success: ${stravaConnected}` : (info ? `Info: ${info}` : "No callback active")),
       profileLookupResult: profileLookupResult,

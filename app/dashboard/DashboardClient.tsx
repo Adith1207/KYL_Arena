@@ -1288,7 +1288,7 @@ export default function DashboardClient({
     );
   }
 
-  const getProgressVal = (c: any) => {
+  function getProgressVal(c: any) {
     const userActivities = profile.activities || [];
     let completed = 0;
     
@@ -1318,11 +1318,11 @@ export default function DashboardClient({
     });
 
     return Number(completed.toFixed(1));
-  };
+  }
 
-  const handleJoin = async (challengeId: string, challengeTitle: string) => {
+  async function handleJoin(challengeId: string, challengeTitle: string) {
     if (!profile.strava_connected) {
-      addNotification("Strava Required", "Please connect your Strava profile first to join challenges!", "warning");
+      addNotification("Challenge Required", "Please connect your Strava profile first to join challenges!", "warning");
       return;
     }
     if (loadingJoinId || justJoinedIds.includes(challengeId)) return; // prevent duplicate
@@ -1356,7 +1356,7 @@ export default function DashboardClient({
     } finally {
       setLoadingJoinId(null);
     }
-  };
+  }
 
   // Render Enrolled Challenges Section
   function renderCurrentChallengesSection(idSuffix = "") {
