@@ -388,7 +388,9 @@ class MockQueryBuilder {
           return { data: [newPart], error: null, count: 1 };
         }
       }
-
+      if (this.mutationValues) {
+        return { data: Array.isArray(this.mutationValues) ? this.mutationValues : [this.mutationValues], error: null, count: 1 };
+      }
       return { data: null, error: null, count: null };
     }
 
