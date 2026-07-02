@@ -118,7 +118,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       // Fetch latest 5 activities
       const { data: actData, error: actError } = await supabase
         .from("activities")
-        .select("name, sport_type, distance, moving_time, start_date")
+        .select("name, sport_type, distance, moving_time, start_date, average_speed, total_elevation_gain")
         .eq("user_id", user.id)
         .order("start_date", { ascending: false })
         .limit(5);
@@ -130,7 +130,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       // Fetch all user activities for dynamic challenge progress calculations
       const { data: allActData } = await supabase
         .from("activities")
-        .select("name, sport_type, distance, total_elevation_gain, moving_time, start_date")
+        .select("name, sport_type, distance, total_elevation_gain, moving_time, start_date, average_speed")
         .eq("user_id", user.id)
         .order("start_date", { ascending: false });
 
@@ -171,7 +171,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     const { data: dbChallenges, error: challengesError } = await supabaseAdmin
       .from("challenges")
       .select("*")
-      .eq("status", "active")
+      .in("status", ["active", "upcoming"])
       .order("created_at", { ascending: false });
 
     if (!challengesError && dbChallenges) {

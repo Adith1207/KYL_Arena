@@ -102,19 +102,22 @@ function createMockBrowserClient() {
         };
         
         // Persist session details across localStorage & cookies
+        const remember = typeof window !== "undefined" && localStorage.getItem("kyl_remember_device") === "true";
+        const maxAge = remember ? 30 * 24 * 3600 : 3600; // 30 days vs 1 hour
+
         localStorage.setItem("kyl_mock_user", JSON.stringify(mockUser));
-        document.cookie = `kyl-mock-auth=true; path=/; max-age=3600; SameSite=Lax`;
-        document.cookie = `kyl-mock-provider=${provider}; path=/; max-age=3600; SameSite=Lax`;
-        document.cookie = `kyl-mock-user-id=${mockUser.id}; path=/; max-age=3600; SameSite=Lax`;
-        document.cookie = `kyl-mock-user-email=${mockUser.email}; path=/; max-age=3600; SameSite=Lax`;
-        document.cookie = `kyl-mock-user-name=${encodeURIComponent(mockUser.user_metadata.full_name)}; path=/; max-age=3600; SameSite=Lax`;
-        document.cookie = `kyl-mock-user-avatar=${encodeURIComponent(mockUser.user_metadata.avatar_url)}; path=/; max-age=3600; SameSite=Lax`;
+        document.cookie = `kyl-mock-auth=true; path=/; max-age=${maxAge}; SameSite=Lax`;
+        document.cookie = `kyl-mock-provider=${provider}; path=/; max-age=${maxAge}; SameSite=Lax`;
+        document.cookie = `kyl-mock-user-id=${mockUser.id}; path=/; max-age=${maxAge}; SameSite=Lax`;
+        document.cookie = `kyl-mock-user-email=${mockUser.email}; path=/; max-age=${maxAge}; SameSite=Lax`;
+        document.cookie = `kyl-mock-user-name=${encodeURIComponent(mockUser.user_metadata.full_name)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+        document.cookie = `kyl-mock-user-avatar=${encodeURIComponent(mockUser.user_metadata.avatar_url)}; path=/; max-age=${maxAge}; SameSite=Lax`;
         
         if (isStrava) {
-          document.cookie = `kyl-mock-strava-linked=true; path=/; max-age=3600; SameSite=Lax`;
+          document.cookie = `kyl-mock-strava-linked=true; path=/; max-age=${maxAge}; SameSite=Lax`;
           localStorage.setItem("kyl_mock_strava_linked", "true");
         } else {
-          document.cookie = `kyl-mock-strava-linked=false; path=/; max-age=3600; SameSite=Lax`;
+          document.cookie = `kyl-mock-strava-linked=false; path=/; max-age=${maxAge}; SameSite=Lax`;
           localStorage.removeItem("kyl_mock_strava_linked");
         }
         

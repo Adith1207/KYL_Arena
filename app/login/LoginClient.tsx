@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2, Trophy, Flame, Shield, Activity, AlertTriangle } from "lucide-react";
@@ -10,6 +10,13 @@ function LoginPageContent() {
   const searchParams = useSearchParams();
   const errorParam = searchParams.get("error");
   const [loadingProvider, setLoadingProvider] = useState<"google" | "strava" | null>(null);
+  const [rememberDevice, setRememberDevice] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setRememberDevice(localStorage.getItem("kyl_remember_device") === "true");
+    }
+  }, []);
 
   const handleLogin = async (provider: "google" | "strava") => {
     setLoadingProvider(provider);
@@ -248,7 +255,23 @@ function LoginPageContent() {
                     </div>
                   </div>
                 )}
-                
+                {/* Remember this device Checkbox */}
+                <div className="flex items-center gap-2.5 pb-2 select-none text-left">
+                  <input
+                    id="remember-device"
+                    type="checkbox"
+                    checked={rememberDevice}
+                    onChange={(e) => {
+                      setRememberDevice(e.target.checked);
+                      localStorage.setItem("kyl_remember_device", e.target.checked ? "true" : "false");
+                    }}
+                    className="h-4 w-4 rounded border-zinc-800 bg-zinc-950 text-lime-400 focus:ring-lime-400/20 focus:ring-opacity-50 accent-lime-400 cursor-pointer"
+                  />
+                  <label htmlFor="remember-device" className="text-[10px] text-zinc-450 font-black uppercase tracking-widest cursor-pointer hover:text-zinc-300 transition-colors">
+                    Remember this device
+                  </label>
+                </div>
+
                 {/* Google Authentication Button */}
                 <Button
                   onClick={() => handleLogin("google")}
