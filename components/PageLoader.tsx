@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { Activity } from "lucide-react";
@@ -8,6 +8,7 @@ import { Activity } from "lucide-react";
 interface PageLoaderContextType {
   showLoader: (text?: string) => void;
   hideLoader: () => void;
+  setIsLoading: (v: boolean) => void;
 }
 
 const PageLoaderContext = createContext<PageLoaderContextType | undefined>(undefined);
@@ -20,12 +21,21 @@ export function usePageLoader() {
   return context;
 }
 
+// Inner component that uses useSearchParams — must be wrapped in Suspense
+function RouteChangeWatcher({ onRouteChange }: { onRouteChange: () => void }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    onRouteChange();
+  }, [pathname, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return null;
+}
+
 export function PageLoaderProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingText, setLoadingText] = useState("Syncing Arena...");
-  
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   const showLoader = (text = "Syncing Arena...") => {
     setLoadingText(text);
@@ -36,17 +46,11 @@ export function PageLoaderProvider({ children }: { children: React.ReactNode }) 
     setIsLoading(false);
   };
 
-  // Hide loader whenever route change completes
-  useEffect(() => {
-    setIsLoading(false);
-  }, [pathname, searchParams]);
-
   // Intercept normal anchor link clicks for page navigation transitions
   useEffect(() => {
     const handleAnchorClick = (e: MouseEvent) => {
-      // Find the closest anchor tag
       const link = (e.target as HTMLElement).closest("a");
-      
+
       if (
         link &&
         link.href &&
@@ -64,7 +68,6 @@ export function PageLoaderProvider({ children }: { children: React.ReactNode }) 
           const targetUrl = new URL(link.href);
           const currentUrl = new URL(window.location.href);
 
-          // Only intercept same-origin, different-pathway navigations
           if (
             targetUrl.origin === currentUrl.origin &&
             (targetUrl.pathname !== currentUrl.pathname || targetUrl.search !== currentUrl.search)
@@ -87,7 +90,7 @@ export function PageLoaderProvider({ children }: { children: React.ReactNode }) 
             setLoadingText(text);
             setIsLoading(true);
           }
-        } catch (err) {
+        } catch {
           // ignore invalid URLs
         }
       }
@@ -98,8 +101,14 @@ export function PageLoaderProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   return (
-    <PageLoaderContext.Provider value={{ showLoader, hideLoader }}>
+    <PageLoaderContext.Provider value={{ showLoader, hideLoader, setIsLoading }}>
+      {/* Suspense boundary required by Next.js for useSearchParams */}
+      <Suspense fallback={null}>
+        <RouteChangeWatcher onRouteChange={() => setIsLoading(false)} />
+      </Suspense>
+
       {children}
+
       <AnimatePresence>
         {isLoading && (
           <motion.div
@@ -111,12 +120,12 @@ export function PageLoaderProvider({ children }: { children: React.ReactNode }) 
           >
             {/* Cyber Grid Background */}
             <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff02_1px,transparent_1px),linear-gradient(to_bottom,#ffffff02_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
-            
-            {/* Scanning radar indicator line */}
+
+            {/* Scanning top bar */}
             <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-lime-500/30 to-transparent shadow-[0_0_8px_#84cc16] animate-bounce w-full" />
 
             <div className="relative flex flex-col items-center gap-6 max-w-sm px-6">
-              {/* Glowing Custom Logo Container */}
+              {/* Animated Logo */}
               <div className="relative">
                 <motion.div
                   animate={{ rotate: 360 }}
@@ -125,13 +134,11 @@ export function PageLoaderProvider({ children }: { children: React.ReactNode }) 
                 >
                   <Activity className="h-8 w-8 text-lime-400" />
                 </motion.div>
-                
-                {/* Secondary rotating accent border */}
                 <div className="absolute -inset-1 border border-lime-500/10 rounded-[18px] animate-[spin_10s_linear_infinite]" />
               </div>
 
               <div className="space-y-2">
-                <motion.h3 
+                <motion.h3
                   initial={{ y: 10, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.1 }}
@@ -151,16 +158,16 @@ export function PageLoaderProvider({ children }: { children: React.ReactNode }) 
 
               {/* Pulsing Loading Bar */}
               <div className="w-40 bg-zinc-900 h-1 rounded-full overflow-hidden border border-white/5 relative">
-                <motion.div 
+                <motion.div
                   className="absolute inset-y-0 left-0 bg-lime-500 rounded-full shadow-[0_0_8px_#84cc16] w-1/3"
-                  animate={{ 
+                  animate={{
                     left: ["-30%", "110%"],
-                    width: ["20%", "40%", "20%"]
+                    width: ["20%", "40%", "20%"],
                   }}
-                  transition={{ 
-                    repeat: Infinity, 
-                    duration: 1.5, 
-                    ease: "easeInOut" 
+                  transition={{
+                    repeat: Infinity,
+                    duration: 1.5,
+                    ease: "easeInOut",
                   }}
                 />
               </div>
