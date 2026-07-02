@@ -13,6 +13,7 @@ const cookiesToClear = [
   "kyl-mock-user-name",
   "kyl-mock-user-avatar",
   "strava-oauth-state",
+  "kyl-remember-device",
 ];
 
 /**
@@ -63,7 +64,7 @@ export async function POST() {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const error = searchParams.get("error");
-  const redirectTo = error ? `/login?error=${error}` : "/login";
+  const redirectTo = error ? `/login?error=${error}` : "/";
 
   try {
     const supabase = await createClient();

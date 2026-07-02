@@ -31,15 +31,28 @@ export async function updateSession(request: NextRequest) {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet) {
+        const rememberCookie = request.cookies.get("kyl-remember-device")?.value === "true";
         cookiesToSet.forEach(({ name, value }) =>
           request.cookies.set(name, value)
         );
         supabaseResponse = NextResponse.next({
           request,
         });
-        cookiesToSet.forEach(({ name, value, options }) =>
-          supabaseResponse.cookies.set(name, value, options)
-        );
+        cookiesToSet.forEach(({ name, value, options }) => {
+          let updatedOptions = { ...options };
+          if (name.startsWith("sb-")) {
+            if (rememberCookie) {
+              updatedOptions.maxAge = 30 * 24 * 3600;
+              if (updatedOptions.expires) {
+                updatedOptions.expires = new Date(Date.now() + 30 * 24 * 3600 * 1000);
+              }
+            } else {
+              delete updatedOptions.maxAge;
+              delete updatedOptions.expires;
+            }
+          }
+          supabaseResponse.cookies.set(name, value, updatedOptions);
+        });
       },
     },
   });

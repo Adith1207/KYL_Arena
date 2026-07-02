@@ -25,9 +25,10 @@ export async function middleware(request: NextRequest) {
 
   const isProtectedPath = 
     path.startsWith("/dashboard") || 
+    path.startsWith("/arena-admin") ||
+    path.startsWith("/admin") ||
     path.startsWith("/api/strava/sync") || 
-    path.startsWith("/api/strava/disconnect") ||
-    path.startsWith("/challenges");
+    path.startsWith("/api/strava/disconnect");
 
   const isLoginPath = path.startsWith("/login");
 
@@ -52,11 +53,6 @@ export async function middleware(request: NextRequest) {
       const redirectResponse = NextResponse.redirect(loginUrl);
       redirectResponse.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       return redirectResponse;
-    }
-
-    if (isLoginPath && isAuthenticated) {
-      const dashboardUrl = new URL("/dashboard", request.url);
-      return NextResponse.redirect(dashboardUrl);
     }
   }
 

@@ -11,11 +11,33 @@ function LoginPageContent() {
   const errorParam = searchParams.get("error");
   const [loadingProvider, setLoadingProvider] = useState<"google" | "strava" | null>(null);
   const [rememberDevice, setRememberDevice] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setRememberDevice(localStorage.getItem("kyl_remember_device") === "true");
+      const stored = localStorage.getItem("kyl_remember_device") === "true";
+      setRememberDevice(stored);
+      if (stored) {
+        document.cookie = "kyl-remember-device=true; path=/; max-age=2592000; SameSite=Lax";
+      } else {
+        document.cookie = "kyl-remember-device=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+      }
     }
+
+    async function checkUser() {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        setCurrentUser(user);
+      } catch (e) {
+        console.error("Failed to check auth state on login page:", e);
+      } finally {
+        setCheckingAuth(false);
+      }
+    }
+    checkUser();
   }, []);
 
   const handleLogin = async (provider: "google" | "strava") => {
@@ -264,6 +286,11 @@ function LoginPageContent() {
                     onChange={(e) => {
                       setRememberDevice(e.target.checked);
                       localStorage.setItem("kyl_remember_device", e.target.checked ? "true" : "false");
+                      if (e.target.checked) {
+                        document.cookie = "kyl-remember-device=true; path=/; max-age=2592000; SameSite=Lax";
+                      } else {
+                        document.cookie = "kyl-remember-device=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+                      }
                     }}
                     className="h-4 w-4 rounded border-zinc-800 bg-zinc-950 text-lime-400 focus:ring-lime-400/20 focus:ring-opacity-50 accent-lime-400 cursor-pointer"
                   />
@@ -272,43 +299,60 @@ function LoginPageContent() {
                   </label>
                 </div>
 
-                {/* Google Authentication Button */}
-                <Button
-                  onClick={() => handleLogin("google")}
-                  disabled={loadingProvider !== null}
-                  variant="outline"
-                  className="w-full h-14 bg-zinc-950 hover:bg-zinc-900 border-zinc-800 hover:border-zinc-700 text-white font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-3 text-xs uppercase tracking-wider hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
-                >
-                  {loadingProvider === "google" ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Connecting Google...
-                    </>
-                  ) : (
-                    <>
-                      {/* Google SVG Icon */}
-                      <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path
-                          fill="#EA4335"
-                          d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.67 1.63 15.02 1 12 1 7.35 1 3.39 3.67 1.41 7.56l3.89 3.02C6.22 7.56 8.87 5.04 12 5.04z"
-                        />
-                        <path
-                          fill="#4285F4"
-                          d="M23.49 12.27c0-.81-.07-1.59-.2-2.36H12v4.51h6.46c-.29 1.48-1.14 2.74-2.4 3.58l3.76 2.91c2.2-2.03 3.67-5.02 3.67-8.64z"
-                        />
-                        <path
-                          fill="#FBBC05"
-                          d="M5.3 14.42c-.25-.73-.39-1.5-.39-2.3s.14-1.57.39-2.3L1.41 6.8c-.83 1.66-1.3 3.53-1.3 5.5s.47 3.84 1.3 5.5l3.89-2.88z"
-                        />
-                        <path
-                          fill="#34A853"
-                          d="M12 23c3.24 0 5.97-1.09 7.96-2.96l-3.76-2.91c-1.11.75-2.53 1.21-4.2 1.21-3.13 0-5.78-2.52-6.7-5.54L1.41 15.68C3.39 19.57 7.35 23 12 23z"
-                        />
-                      </svg>
-                      Continue with Google
-                    </>
-                  )}
-                </Button>
+                {/* Google Authentication or Go to Dashboard Button */}
+                {checkingAuth ? (
+                  <Button
+                    disabled
+                    className="w-full h-14 bg-zinc-900 border border-zinc-800 text-zinc-500 font-bold rounded-xl flex items-center justify-center gap-3 text-xs uppercase tracking-wider cursor-not-allowed"
+                  >
+                    <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+                    Checking Session...
+                  </Button>
+                ) : currentUser ? (
+                  <Button
+                    onClick={() => window.location.href = "/dashboard"}
+                    className="w-full h-14 bg-lime-400 hover:bg-lime-300 text-black font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-3 text-xs uppercase tracking-wider hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+                  >
+                    Go to Dashboard
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => handleLogin("google")}
+                    disabled={loadingProvider !== null}
+                    variant="outline"
+                    className="w-full h-14 bg-zinc-950 hover:bg-zinc-900 border-zinc-800 hover:border-zinc-700 text-white font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-3 text-xs uppercase tracking-wider hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+                  >
+                    {loadingProvider === "google" ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Connecting Google...
+                      </>
+                    ) : (
+                      <>
+                        {/* Google SVG Icon */}
+                        <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path
+                            fill="#EA4335"
+                            d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.67 1.63 15.02 1 12 1 7.35 1 3.39 3.67 1.41 7.56l3.89 3.02C6.22 7.56 8.87 5.04 12 5.04z"
+                          />
+                          <path
+                            fill="#4285F4"
+                            d="M23.49 12.27c0-.81-.07-1.59-.2-2.36H12v4.51h6.46c-.29 1.48-1.14 2.74-2.4 3.58l3.76 2.91c2.2-2.03 3.67-5.02 3.67-8.64z"
+                          />
+                          <path
+                            fill="#FBBC05"
+                            d="M5.3 14.42c-.25-.73-.39-1.5-.39-2.3s.14-1.57.39-2.3L1.41 6.8c-.83 1.66-1.3 3.53-1.3 5.5s.47 3.84 1.3 5.5l3.89-2.88z"
+                          />
+                          <path
+                            fill="#34A853"
+                            d="M12 23c3.24 0 5.97-1.09 7.96-2.96l-3.76-2.91c-1.11.75-2.53 1.21-4.2 1.21-3.13 0-5.78-2.52-6.7-5.54L1.41 15.68C3.39 19.57 7.35 23 12 23z"
+                          />
+                        </svg>
+                        Continue with Google
+                      </>
+                    )}
+                  </Button>
+                )}
 
               </div>
 

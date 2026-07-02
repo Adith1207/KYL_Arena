@@ -31,10 +31,23 @@ export async function createClient(): Promise<SupabaseClient> {
         return cookieStore.getAll();
       },
       setAll(cookiesToSet) {
+        const rememberCookie = cookieStore.get("kyl-remember-device")?.value === "true";
         try {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          );
+          cookiesToSet.forEach(({ name, value, options }) => {
+            let updatedOptions = { ...options };
+            if (name.startsWith("sb-")) {
+              if (rememberCookie) {
+                updatedOptions.maxAge = 30 * 24 * 3600;
+                if (updatedOptions.expires) {
+                  updatedOptions.expires = new Date(Date.now() + 30 * 24 * 3600 * 1000);
+                }
+              } else {
+                delete updatedOptions.maxAge;
+                delete updatedOptions.expires;
+              }
+            }
+            cookieStore.set(name, value, updatedOptions);
+          });
         } catch {
           // Allowed to fail if called from Server Components during static rendering or layout runs
         }
