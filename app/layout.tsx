@@ -25,6 +25,9 @@ export const metadata: Metadata = {
   },
 };
 
+import { PageLoaderProvider } from "@/components/PageLoader";
+import { ToastProvider } from "@/components/Toast";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -35,7 +38,13 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} dark h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <ToastProvider>
+          <PageLoaderProvider>
+            {children}
+          </PageLoaderProvider>
+        </ToastProvider>
+      </body>
     </html>
   );
 }

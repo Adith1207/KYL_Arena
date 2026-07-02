@@ -3,6 +3,8 @@
 import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useToast } from "@/components/Toast";
+import { usePageLoader } from "@/components/PageLoader";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Cpu, Trophy, UserCheck, Users, Activity, Layers, Award, Compass, 
@@ -88,15 +90,12 @@ export default function AthletesClient({
   initialActivities,
 }: AthletesClientProps) {
   const router = useRouter();
+  const { addToast } = useToast();
+  const { showLoader } = usePageLoader();
 
-  // Toast notifications state
-  const [notifications, setNotifications] = useState<{ id: string; title: string; message: string; type: "success" | "error" | "info" | "warning" }[]>([]);
+  // Toast notifications state proxy mapping
   const addNotification = (title: string, message: string, type: "success" | "error" | "info" | "warning" = "success") => {
-    const id = Math.random().toString(36).substring(2, 9);
-    setNotifications(prev => [...prev, { id, title, message, type }]);
-    setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n.id !== id));
-    }, 4000);
+    addToast(title, type, message);
   };
 
   // UI States
@@ -124,6 +123,7 @@ export default function AthletesClient({
 
   const handleLogout = async () => {
     setLoadingLogout(true);
+    showLoader("Signing out...");
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } catch (e) {

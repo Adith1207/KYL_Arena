@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { usePageLoader } from "@/components/PageLoader";
 import { 
   Users, Activity, Trophy, Flame, ArrowLeft, CheckCircle, 
   LogOut, Loader2, Search, Bike, Footprints, 
@@ -84,6 +85,7 @@ interface ChallengeInsightsClientProps {
 }
 
 export default function ChallengeInsightsClient({ profile, userRole, challenge, initialParticipants, recentFeed }: ChallengeInsightsClientProps) {
+  const { showLoader } = usePageLoader();
   const [loadingLogout, setLoadingLogout] = useState(false);
   const [isNotificationsMenuOpen, setIsNotificationsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -140,6 +142,7 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
   // Standard sign out handler
   const handleLogout = async () => {
     setLoadingLogout(true);
+    showLoader("Signing out...");
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } catch (e) {

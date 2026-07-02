@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/Toast";
+import { usePageLoader } from "@/components/PageLoader";
 import { 
   Loader2, LogOut, Activity, AlertTriangle, CheckCircle, 
   Award, Bike, Footprints, Flame, Trophy, 
@@ -82,6 +84,8 @@ export default function DashboardClient({
   activeChallenges
 }: DashboardClientProps) {
   const router = useRouter();
+  const { addToast } = useToast();
+  const { showLoader, hideLoader } = usePageLoader();
   const [profile, setProfile] = useState<ProfileData>(initialProfile);
   const [loadingConnect, setLoadingConnect] = useState(false);
   const [loadingDisconnect, setLoadingDisconnect] = useState(false);
@@ -89,18 +93,14 @@ export default function DashboardClient({
   const [loadingJoinId, setLoadingJoinId] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncStatusText, setSyncStatusText] = useState("Syncing Strava...");
   
   // Responsive bottom nav tab selector for mobile screens
   const [activeTab, setActiveTab] = useState<"dashboard" | "challenges" | "leaderboard">("dashboard");
 
-  // Toast notifications state
-  const [notifications, setNotifications] = useState<{ id: string; title: string; message: string; type: "success" | "error" | "info" | "warning" }[]>([]);
+  // Toast notifications state proxy mapping
   const addNotification = (title: string, message: string, type: "success" | "error" | "info" | "warning" = "success") => {
-    const id = Math.random().toString(36).substring(2, 9);
-    setNotifications(prev => [...prev, { id, title, message, type }]);
-    setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n.id !== id));
-    }, 4000);
+    addToast(title, type, message);
   };
   
   // Track IDs that have been joined during this session to avoid latency gaps
@@ -181,6 +181,20 @@ export default function DashboardClient({
     setIsSyncing(true);
     setSyncError(null);
     setShowSyncSuccess(false);
+    setSyncStatusText("Syncing Strava...");
+
+    const messages = [
+      { delay: 2000, text: "Fetching activities..." },
+      { delay: 4500, text: "Calculating rankings..." },
+      { delay: 7000, text: "Almost done..." }
+    ];
+
+    const timers = messages.map(m =>
+      setTimeout(() => {
+        setSyncStatusText(m.text);
+      }, m.delay)
+    );
+
     addNotification("Sync Started", "Checking Strava API for new athlete activities...", "info");
     try {
       const res = await fetch("/api/strava/sync");
@@ -200,7 +214,7 @@ export default function DashboardClient({
         const importedCount = Math.max(0, newCount - currentCount);
         
         addNotification(
-          "Sync Complete", 
+          "Activities Synced", 
           `Your dashboard activities are fully up to date!`, 
           "success"
         );
@@ -225,6 +239,7 @@ export default function DashboardClient({
       addNotification("Sync Failed", "Network error synchronizing activities.", "error");
       setSyncError("Network error synchronizing activities.");
     } finally {
+      timers.forEach(clearTimeout);
       setIsSyncing(false);
     }
   };
@@ -283,6 +298,7 @@ export default function DashboardClient({
 
   const handleLogout = async () => {
     setLoadingLogout(true);
+    showLoader("Signing out...");
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } catch (e) {
@@ -323,6 +339,7 @@ export default function DashboardClient({
 
   const handleConnectStrava = () => {
     setLoadingConnect(true);
+    showLoader("Connecting Strava...");
     window.location.href = "/api/strava/connect";
   };
 
@@ -347,12 +364,13 @@ export default function DashboardClient({
         setJoinedChallenge(false);
         setCompletedChallenge(false);
         setCurrentConnectionCount(prev => prev !== undefined ? Math.max(0, prev - 1) : 0);
+        addNotification("Strava Disconnected", "Your Strava profile connection has been removed.", "info");
       } else {
         const data = await res.json();
-        alert(`Failed to disconnect: ${data.error || "Unknown error"}`);
+        addNotification("Disconnection Failed", data.error || "Unknown error", "error");
       }
     } catch {
-      alert("Error disconnecting Strava.");
+      addNotification("Disconnection Failed", "Error disconnecting Strava.", "error");
     } finally {
       setLoadingDisconnect(false);
     }
@@ -1761,8 +1779,17 @@ export default function DashboardClient({
                 variant="outline"
                 className="h-10 px-6 border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-white rounded-xl transition-all flex items-center justify-center gap-2 text-[10px] uppercase tracking-wider mx-auto cursor-pointer"
               >
-                {isSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Activity className="h-3.5 w-3.5" />}
-                Refresh activities sync
+                {isSyncing ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-lime-400" />
+                    {syncStatusText}
+                  </>
+                ) : (
+                  <>
+                    <Activity className="h-3.5 w-3.5" />
+                    Refresh activities sync
+                  </>
+                )}
               </Button>
             </div>
           </motion.div>

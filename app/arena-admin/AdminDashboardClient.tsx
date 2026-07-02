@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/Toast";
+import { usePageLoader } from "@/components/PageLoader";
 import { 
   Users, Activity, Trophy, Flame, Plus, ArrowLeft,
   CheckCircle, Target, LogOut, Loader2,
@@ -100,6 +102,8 @@ export default function AdminDashboardClient({
   recentFeed = []
 }: AdminDashboardClientProps) {
   const router = useRouter();
+  const { addToast } = useToast();
+  const { showLoader, hideLoader } = usePageLoader();
   const [loadingLogout, setLoadingLogout] = useState(false);
   const [isNotificationsMenuOpen, setIsNotificationsMenuOpen] = useState(false);
   const [loadingCreate, setLoadingCreate] = useState(false);
@@ -120,15 +124,9 @@ export default function AdminDashboardClient({
   const [donutHoveredIdx, setDonutHoveredIdx] = useState<number | null>(null);
   const [selectedRange, setSelectedRange] = useState("Jun 18 - Jun 24, 2026");
   
-  // Notification system
-  const [notifications, setNotifications] = useState<{ id: string; title: string; message: string; type: "success" | "error" | "info" | "warning" }[]>([]);
-
+  // Toast notifications state proxy mapping
   const addNotification = (title: string, message: string, type: "success" | "error" | "info" | "warning" = "success") => {
-    const id = Math.random().toString(36).substring(7);
-    setNotifications(prev => [...prev, { id, title, message, type }]);
-    setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n.id !== id));
-    }, 4000);
+    addToast(title, type, message);
   };
 
   // Form Fields State
@@ -175,6 +173,7 @@ export default function AdminDashboardClient({
 
   const handleLogout = async () => {
     setLoadingLogout(true);
+    showLoader("Signing out...");
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } catch (e) {
@@ -634,32 +633,7 @@ export default function AdminDashboardClient({
       <div className="fixed top-0 right-1/4 translate-x-1/2 w-[600px] h-[600px] bg-lime-500/5 rounded-full blur-[140px] pointer-events-none z-0 animate-pulse duration-[12000ms]" />
       <div className="fixed bottom-10 left-1/4 -translate-x-1/2 w-[500px] h-[500px] bg-emerald-500/5 rounded-full blur-[120px] pointer-events-none z-0 animate-pulse duration-[9000ms]" />
 
-      {/* TOAST SYSTEM POPUPS */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
-        <AnimatePresence>
-          {notifications.map((n) => (
-            <motion.div
-              key={n.id}
-              initial={{ opacity: 0, y: 30, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.85, transition: { duration: 0.15 } }}
-              className="pointer-events-auto flex gap-3 p-4 bg-zinc-900/90 border border-white/10 rounded-2xl shadow-[0_10px_35px_rgba(0,0,0,0.6)] backdrop-blur-md items-start"
-            >
-              {n.type === "success" && <CheckCircle className="h-5 w-5 text-lime-400 shrink-0 mt-0.5" />}
-              {n.type === "error" && <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />}
-              {n.type === "info" && <Sparkles className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />}
-              {n.type === "warning" && <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />}
-              <div className="flex-1 text-left">
-                <p className="text-[11px] font-black uppercase text-white tracking-wide">{n.title}</p>
-                <p className="text-[10px] text-zinc-400 mt-1 leading-normal font-medium">{n.message}</p>
-              </div>
-              <button onClick={() => setNotifications(prev => prev.filter(x => x.id !== n.id))} className="text-zinc-550 hover:text-white shrink-0">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
+
 
       {/* SIDEBAR NAVIGATION (Desktop) */}
       <aside className="hidden lg:flex w-64 flex-col border-r border-white/5 bg-zinc-950 shrink-0 relative z-20">
