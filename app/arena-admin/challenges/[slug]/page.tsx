@@ -18,332 +18,345 @@ export default async function ChallengeInsightsPage({ params }: PageProps) {
   const resolvedParams = await params;
   const slug = resolvedParams.slug;
 
-  const supabase = await createClient();
-  const supabaseAdmin = await createAdminClient();
-
-  // Verify session
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    redirect("/login");
-  }
-
-  // Fetch user profile to check role
-  let profile = null;
   try {
-    const { data, error: profileError } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single();
+    const supabase = await createClient();
+    const supabaseAdmin = await createAdminClient();
 
-    if (!profileError && data) {
-      profile = data;
+    // Verify session
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      redirect("/login");
     }
-  } catch (e) {
-    console.error("Failed to fetch profile in challenge route:", e);
-  }
 
-  // Auto-recreate profile if missing
-  if (!profile || profile.id !== user.id) {
-    const var_name = user.user_metadata?.full_name || user.user_metadata?.name || "Athlete";
-    const var_avatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || "";
-    const var_provider = user.app_metadata?.provider || "google";
+    // Fetch user profile to check role
+    let profile = null;
+    try {
+      const { data, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
 
-    const { data: newProfile, error: createProfileError } = await supabaseAdmin
-      .from("profiles")
-      .insert({
-        id: user.id,
-        email: user.email,
-        name: var_name,
-        avatar: var_avatar,
-        auth_provider: var_provider,
-        strava_connected: var_provider === "strava",
-        strava_athlete_id: var_provider === "strava" ? user.user_metadata?.sub : null
-      })
-      .select()
-      .single();
-
-    if (createProfileError) {
-      console.error(`Failed to recreate profile for admin check:`, createProfileError);
-      redirect("/api/auth/logout?error=unauthorized");
-    } else {
-      profile = newProfile;
+      if (!profileError && data) {
+        profile = data;
+      }
+    } catch (e) {
+      console.error("Failed to fetch profile in challenge route:", e);
     }
-  }
 
-  // Check roles: athlete is unauthorized. Admins are: super_admin, challenge_admin, organization_admin
-  const allowedRoles = ["super_admin", "challenge_admin", "organization_admin"];
-  const userRole = profile?.role || "athlete";
-  const isAuthorized = allowedRoles.includes(userRole);
+    // Auto-recreate profile if missing
+    if (!profile || profile.id !== user.id) {
+      const var_name = user.user_metadata?.full_name || user.user_metadata?.name || "Athlete";
+      const var_avatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || "";
+      const var_provider = user.app_metadata?.provider || "google";
 
-  if (!isAuthorized) {
-    // Render the premium 403 Access Denied UI
-    return (
-      <div className="relative min-h-screen bg-zinc-950 text-white selection:bg-red-500 selection:text-white flex flex-col justify-between items-center px-4 py-12">
-        {/* Background Ambient Glows */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808003_1px,transparent_1px),linear-gradient(to_bottom,#80808003_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-red-500/5 rounded-full blur-[100px] pointer-events-none" />
+      const { data: newProfile, error: createProfileError } = await supabaseAdmin
+        .from("profiles")
+        .insert({
+          id: user.id,
+          email: user.email,
+          name: var_name,
+          avatar: var_avatar,
+          auth_provider: var_provider,
+          strava_connected: var_provider === "strava",
+          strava_athlete_id: var_provider === "strava" ? user.user_metadata?.sub : null
+        })
+        .select()
+        .single();
 
-        {/* Header Logo */}
-        <div className="relative z-10 flex items-center gap-3">
-          <svg className="h-8 w-8" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <g fill="#ef4444"><circle cx="48" cy="20" r="7" /><path d="M 28 69 C 14 78, 12 79, 10 80 Z" /></g>
-          </svg>
-          <div className="flex flex-col text-left">
-            <span className="text-sm font-black tracking-wider text-white leading-none">
-              KYL <span className="text-lime-400">ARENA</span>
-            </span>
-            <span className="text-[7.5px] font-bold text-zinc-500 uppercase tracking-widest mt-0.5">
-              Know Your Limits
-            </span>
-          </div>
-        </div>
+      if (createProfileError || !newProfile) {
+        console.error(`Failed to recreate profile for admin check:`, createProfileError || "No data returned");
+        redirect("/api/auth/logout?error=unauthorized");
+      } else {
+        profile = newProfile;
+      }
+    }
 
-        {/* 403 Content Card */}
-        <div className="relative z-10 my-auto max-w-md w-full bg-zinc-900/30 backdrop-blur-xl border border-red-500/20 rounded-3xl p-8 sm:p-10 text-center shadow-[0_12px_40px_rgba(239,68,68,0.05)] space-y-8">
-          <div className="mx-auto h-16 w-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-500 shadow-[0_0_20px_rgba(239,68,68,0.15)] animate-pulse">
-            <ShieldAlert className="h-8 w-8" />
-          </div>
+    // Check roles: athlete is unauthorized. Admins are: super_admin, challenge_admin, organization_admin
+    const allowedRoles = ["super_admin", "challenge_admin", "organization_admin"];
+    const userRole = profile?.role || "athlete";
+    const isAuthorized = allowedRoles.includes(userRole);
 
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-red-500/30 bg-red-500/5 text-red-400 font-mono text-[9px] font-extrabold uppercase tracking-widest">
-              Security Violation • Error 403
+    if (!isAuthorized) {
+      // Render the premium 403 Access Denied UI
+      return (
+        <div className="relative min-h-screen bg-zinc-950 text-white selection:bg-red-500 selection:text-white flex flex-col justify-between items-center px-4 py-12">
+          {/* Background Ambient Glows */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808003_1px,transparent_1px),linear-gradient(to_bottom,#80808003_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-red-500/5 rounded-full blur-[100px] pointer-events-none" />
+
+          {/* Header Logo */}
+          <div className="relative z-10 flex items-center gap-3">
+            <svg className="h-8 w-8" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <g fill="#ef4444"><circle cx="48" cy="20" r="7" /><path d="M 28 69 C 14 78, 12 79, 10 80 Z" /></g>
+            </svg>
+            <div className="flex flex-col text-left">
+              <span className="text-sm font-black tracking-wider text-white leading-none">
+                KYL <span className="text-lime-400">ARENA</span>
+              </span>
+              <span className="text-[7.5px] font-bold text-zinc-500 uppercase tracking-widest mt-0.5">
+                Know Your Limits
+              </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight italic">
-              Access <span className="text-red-500 not-italic">Denied</span>
-            </h1>
-            <p className="text-zinc-400 text-xs sm:text-sm font-medium leading-relaxed">
-              Your profile is currently registered as <span className="text-white font-bold">{userRole.toUpperCase()}</span>. You do not have authorization to access the KYL Arena admin tools or challenge insights.
-            </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <Button
-              className="flex-1 h-12 border border-zinc-800 hover:border-zinc-700 bg-zinc-900/50 hover:bg-zinc-900 text-white font-extrabold rounded-xl transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer"
-              asChild
-            >
-              <Link href="/dashboard">
-                <ArrowLeft className="h-4 w-4" />
-                Return to Dashboard
+          {/* 403 Content Card */}
+          <div className="relative z-10 my-auto max-w-md w-full bg-zinc-900/30 backdrop-blur-xl border border-red-500/20 rounded-3xl p-8 sm:p-10 text-center shadow-[0_12px_40px_rgba(239,68,68,0.05)] space-y-8">
+            <div className="mx-auto h-16 w-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-500 shadow-[0_0_20px_rgba(239,68,68,0.15)] animate-pulse">
+              <ShieldAlert className="h-8 w-8" />
+            </div>
+
+            <div className="space-y-3">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-red-500/30 bg-red-500/5 text-red-400 font-mono text-[9px] font-extrabold uppercase tracking-widest">
+                Security Violation • Error 403
+              </div>
+              <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
+                Access Denied
+              </h1>
+              <p className="text-zinc-400 text-xs leading-relaxed max-w-xs mx-auto">
+                You do not possess the necessary credentials to view the admin console. This gateway is restricted to community organizers.
+              </p>
+            </div>
+
+            <div className="pt-2 flex flex-col gap-2">
+              <Link href="/dashboard" passHref legacyBehavior>
+                <Button className="w-full bg-white text-black hover:bg-zinc-200 text-xs font-bold h-11 rounded-xl shadow-lg flex items-center justify-center gap-2 transition duration-300">
+                  <ArrowLeft className="h-4 w-4" /> Return to Dashboard
+                </Button>
               </Link>
-            </Button>
-            <Button
-              className="h-12 px-5 border border-red-950 hover:border-red-900 bg-red-950/20 hover:bg-red-950/40 text-red-400 font-extrabold rounded-xl transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer"
-              asChild
-            >
-              <Link href="/api/auth/logout">
-                <LogOut className="h-4 w-4" />
-                Sign Out
+              <Link href="/api/auth/logout" passHref legacyBehavior>
+                <Button variant="ghost" className="w-full hover:bg-white/5 text-zinc-500 hover:text-white text-xs font-bold h-11 rounded-xl transition duration-300 flex items-center justify-center gap-2">
+                  <LogOut className="h-4 w-4" /> Disconnect Session
+                </Button>
               </Link>
-            </Button>
+            </div>
           </div>
+
+          {/* Footer Branding */}
+          <p className="relative z-10 text-[9px] font-mono text-zinc-600 uppercase tracking-widest">
+            KYL Security Firewall v4.0.2
+          </p>
         </div>
+      );
+    }
 
-        {/* Footer */}
-        <div className="relative z-10 text-[10px] text-zinc-650">
-          <span>© 2026 KYL Arena. Security Operations Center.</span>
+    // Find the challenge from the database by slug
+    let challenge = null;
+    try {
+      const { data, error: challengeError } = await supabaseAdmin
+        .from("challenges")
+        .select("*")
+        .eq("slug", slug)
+        .single();
+
+      if (!challengeError && data) {
+        challenge = {
+          id: data.id,
+          title: data.title,
+          description: data.description || "",
+          sportType: data.sport_type,
+          goalType: data.goal_metric,
+          goalTarget: Number(data.goal_target),
+          startDate: data.start_date,
+          endDate: data.end_date,
+          bannerUrl: data.banner_url || "",
+          status: data.status,
+          challenge_code: data.challenge_code || `KYL-${new Date(data.start_date).getFullYear()}-${data.id.substring(0,3).toUpperCase()}`
+        };
+      }
+    } catch (e) {
+      console.error("Failed to fetch challenge details on server by slug:", e);
+    }
+
+    if (!challenge) {
+      redirect("/arena-admin");
+    }
+
+    // Fetch participants and their activities
+    let participantsList: any[] = [];
+    let recentFeed: any[] = [];
+    try {
+      const { data: participations, error: partError } = await supabaseAdmin
+        .from("challenge_participants")
+        .select("*")
+        .eq("challenge_id", challenge.id);
+
+      if (!partError && participations && participations.length > 0) {
+        const participantUserIds = participations.map((p: any) => p.user_id);
+
+        // Fetch profiles to get name, avatar, email, strava_athlete_id
+        const { data: profiles } = await supabaseAdmin
+          .from("profiles")
+          .select("id, name, email, avatar, strava_athlete_id")
+          .in("id", participantUserIds);
+
+        // Fetch all strava connections to get athlete_name / athlete_username
+        const { data: stravaConns } = await supabaseAdmin
+          .from("strava_connections")
+          .select("user_id, athlete_name, athlete_username")
+          .in("user_id", participantUserIds);
+
+        // Fetch all activities of these participants in the challenge range
+        const challengeStart = `${challenge.startDate}T00:00:00Z`;
+        const challengeEnd = `${challenge.endDate}T23:59:59Z`;
+
+        const { data: activitiesData } = await supabaseAdmin
+          .from("activities")
+          .select("user_id, strava_activity_id, name, sport_type, distance, total_elevation_gain, moving_time, start_date")
+          .in("user_id", participantUserIds)
+          .gte("start_date", challengeStart)
+          .lte("start_date", challengeEnd)
+          .order("start_date", { ascending: false });
+
+        const acts = activitiesData || [];
+        const profs = profiles || [];
+        const conns = stravaConns || [];
+
+        participantsList = participations.map((p: any) => {
+          const userProf = profs.find((pr: any) => pr.id === p.user_id);
+          const userStrava = conns.find((sc: any) => sc.user_id === p.user_id);
+          const userActs = acts.filter((act: any) => {
+            if (act.user_id !== p.user_id) return false;
+            const matchesSport = 
+              challenge.sportType === "Multisport" ||
+              act.sport_type?.toLowerCase() === challenge.sportType?.toLowerCase();
+            return matchesSport;
+          });
+
+          // Compute metrics
+          let completedVal = 0;
+          let totalTimeSec = 0;
+          let totalElevM = 0;
+          let lastActDate = "Never";
+
+          if (userActs.length > 0) {
+            const latestAct = userActs[0];
+            if (latestAct.start_date) {
+              lastActDate = new Date(latestAct.start_date).toISOString().split("T")[0];
+            }
+          }
+
+          userActs.forEach((act: any) => {
+            totalTimeSec += Number(act.moving_time || 0);
+            totalElevM += Number(act.total_elevation_gain || 0);
+            
+            if (challenge.goalType === "Distance") {
+              completedVal += Number(act.distance || 0) / 1000;
+            } else if (challenge.goalType === "Elevation") {
+              completedVal += Number(act.total_elevation_gain || 0);
+            } else if (challenge.goalType === "Time" || challenge.goalType === "Duration") {
+              completedVal += Number(act.moving_time || 0) / 3600;
+            }
+          });
+
+          const recentActsFormatted = userActs.slice(0, 5).map((act: any) => ({
+            id: String(act.strava_activity_id || Math.random().toString()),
+            name: act.name || `${challenge.sportType} Workout`,
+            sportType: act.sport_type || challenge.sportType,
+            distance: Number(((act.distance || 0) / 1000).toFixed(1)),
+            movingTime: Number(act.moving_time || 0),
+            elevationGain: Number(act.total_elevation_gain || 0),
+            startDate: act.start_date ? new Date(act.start_date).toISOString().split("T")[0] : ""
+          }));
+
+          return {
+            id: p.user_id,
+            name: userProf?.name || "Athlete",
+            email: userProf?.email || "",
+            avatar: userProf?.avatar || "",
+            athleteId: userProf?.strava_athlete_id || "N/A",
+            stravaAthleteName: userStrava?.athlete_name || "",
+            stravaAthleteUsername: userStrava?.athlete_username || "",
+            joinDate: p.joined_at ? new Date(p.joined_at).toISOString().split("T")[0] : "N/A",
+            distanceCompleted: Number(completedVal.toFixed(1)),
+            activitiesCount: userActs.length,
+            lastActivityDate: lastActDate,
+            movingTime: totalTimeSec,
+            elevationGain: totalElevM,
+            recentActivities: recentActsFormatted
+          };
+        });
+
+        // Sort by completed value descending
+        participantsList.sort((a, b) => b.distanceCompleted - a.distanceCompleted);
+
+        // Build live sync ticker items
+        recentFeed = acts.slice(0, 10).map((act: any) => {
+          const userProf = profs.find((pr: any) => pr.id === act.user_id);
+          const name = userProf?.name || "Athlete";
+          const actName = act.name || `${act.sport_type} Workout`;
+          const actionStr = `synced ${actName}`;
+          
+          let timeDisplay = "Recently";
+          if (act.start_date) {
+            const actDate = new Date(act.start_date);
+            const diffMs = new Date().getTime() - actDate.getTime();
+            const diffMins = Math.floor(diffMs / (1000 * 60));
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            
+            if (diffMins < 60) {
+              timeDisplay = `${Math.max(1, diffMins)} mins ago`;
+            } else if (diffHours < 24) {
+              timeDisplay = `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+            } else if (diffDays < 7) {
+              timeDisplay = `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+            } else {
+              timeDisplay = actDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+            }
+          }
+
+          let displayVal = "";
+          if (challenge.goalType === "Distance") {
+            displayVal = `+${(Number(act.distance || 0) / 1000).toFixed(1)} km`;
+          } else if (challenge.goalType === "Elevation") {
+            displayVal = `+${Number(act.total_elevation_gain || 0)} m`;
+          } else if (challenge.goalType === "Time" || challenge.goalType === "Duration") {
+            displayVal = `+${(Number(act.moving_time || 0) / 3600).toFixed(1)} hrs`;
+          }
+
+          return {
+            id: String(act.strava_activity_id || Math.random().toString()),
+            name,
+            action: actionStr,
+            sportType: act.sport_type,
+            displayValue: displayVal,
+            time: timeDisplay,
+            participantId: act.user_id
+          };
+        });
+      }
+    } catch (e) {
+      console.error("Failed to query participant standings on server page by slug:", e);
+    }
+
+    return (
+      <ChallengeInsightsClient
+        profile={profile}
+        userRole={userRole}
+        challenge={challenge}
+        initialParticipants={participantsList}
+        recentFeed={recentFeed}
+      />
+    );
+  } catch (e: any) {
+    if (e.digest?.startsWith("NEXT_REDIRECT") || e.digest === "DYNAMIC_SERVER_USAGE" || e.message?.includes("Dynamic server usage") || e.name === "DynamicServerError") {
+      throw e;
+    }
+    console.error("Admin Challenge Insights server rendering crashed:", e);
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
+        <div className="bg-zinc-900/50 backdrop-blur-xl border border-red-500/20 rounded-2xl p-6 max-w-md w-full text-center shadow-lg">
+          <h2 className="text-xl font-bold text-white mb-2">Failed to load Challenge Insights</h2>
+          <p className="text-zinc-400 text-xs mb-4 leading-relaxed">
+            An error occurred while compiling standings, activities, or participant profiles for this challenge. Please try again.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <a href={`/arena-admin/challenges/${slug}`} className="px-4 py-2 bg-lime-500 text-black text-xs font-bold rounded-lg hover:bg-lime-400 transition">Retry Loading</a>
+            <a href="/arena-admin" className="px-4 py-2 bg-zinc-800 text-zinc-300 text-xs font-bold rounded-lg hover:bg-zinc-700 transition">Back to Admin</a>
+          </div>
         </div>
       </div>
     );
   }
-
-  // Find the challenge from the database by slug
-  let challenge = null;
-  try {
-    const { data, error: challengeError } = await supabaseAdmin
-      .from("challenges")
-      .select("*")
-      .eq("slug", slug)
-      .single();
-
-    if (!challengeError && data) {
-      challenge = {
-        id: data.id,
-        title: data.title,
-        description: data.description || "",
-        sportType: data.sport_type,
-        goalType: data.goal_metric,
-        goalTarget: Number(data.goal_target),
-        startDate: data.start_date,
-        endDate: data.end_date,
-        bannerUrl: data.banner_url || "",
-        status: data.status,
-        challenge_code: data.challenge_code || `KYL-${new Date(data.start_date).getFullYear()}-${data.id.substring(0,3).toUpperCase()}`
-      };
-    }
-  } catch (e) {
-    console.error("Failed to fetch challenge details on server by slug:", e);
-  }
-
-  if (!challenge) {
-    redirect("/arena-admin");
-  }
-
-  // Fetch participants and their activities
-  let participantsList: any[] = [];
-  let recentFeed: any[] = [];
-  try {
-    const { data: participations, error: partError } = await supabaseAdmin
-      .from("challenge_participants")
-      .select("*")
-      .eq("challenge_id", challenge.id);
-
-    if (!partError && participations && participations.length > 0) {
-      const participantUserIds = participations.map((p: any) => p.user_id);
-
-      // Fetch profiles to get name, avatar, email, strava_athlete_id
-      const { data: profiles } = await supabaseAdmin
-        .from("profiles")
-        .select("id, name, email, avatar, strava_athlete_id")
-        .in("id", participantUserIds);
-
-      // Fetch all strava connections to get athlete_name / athlete_username
-      const { data: stravaConns } = await supabaseAdmin
-        .from("strava_connections")
-        .select("user_id, athlete_name, athlete_username")
-        .in("user_id", participantUserIds);
-
-      // Fetch all activities of these participants in the challenge range
-      const challengeStart = `${challenge.startDate}T00:00:00Z`;
-      const challengeEnd = `${challenge.endDate}T23:59:59Z`;
-
-      const { data: activitiesData } = await supabaseAdmin
-        .from("activities")
-        .select("user_id, strava_activity_id, name, sport_type, distance, total_elevation_gain, moving_time, start_date")
-        .in("user_id", participantUserIds)
-        .gte("start_date", challengeStart)
-        .lte("start_date", challengeEnd)
-        .order("start_date", { ascending: false });
-
-      const acts = activitiesData || [];
-      const profs = profiles || [];
-      const conns = stravaConns || [];
-
-      participantsList = participations.map((p: any) => {
-        const userProf = profs.find((pr: any) => pr.id === p.user_id);
-        const userStrava = conns.find((sc: any) => sc.user_id === p.user_id);
-        const userActs = acts.filter((act: any) => {
-          if (act.user_id !== p.user_id) return false;
-          const matchesSport = 
-            challenge.sportType === "Multisport" ||
-            act.sport_type?.toLowerCase() === challenge.sportType?.toLowerCase();
-          return matchesSport;
-        });
-
-        // Compute metrics
-        let completedVal = 0;
-        let totalTimeSec = 0;
-        let totalElevM = 0;
-        let lastActDate = "Never";
-
-        if (userActs.length > 0) {
-          const latestAct = userActs[0];
-          if (latestAct.start_date) {
-            lastActDate = new Date(latestAct.start_date).toISOString().split("T")[0];
-          }
-        }
-
-        userActs.forEach((act: any) => {
-          totalTimeSec += Number(act.moving_time || 0);
-          totalElevM += Number(act.total_elevation_gain || 0);
-          
-          if (challenge.goalType === "Distance") {
-            completedVal += Number(act.distance || 0) / 1000;
-          } else if (challenge.goalType === "Elevation") {
-            completedVal += Number(act.total_elevation_gain || 0);
-          } else if (challenge.goalType === "Time" || challenge.goalType === "Duration") {
-            completedVal += Number(act.moving_time || 0) / 3600;
-          }
-        });
-
-        const recentActsFormatted = userActs.slice(0, 5).map((act: any) => ({
-          id: String(act.strava_activity_id || Math.random().toString()),
-          name: act.name || `${challenge.sportType} Workout`,
-          sportType: act.sport_type || challenge.sportType,
-          distance: Number(((act.distance || 0) / 1000).toFixed(1)),
-          movingTime: Number(act.moving_time || 0),
-          elevationGain: Number(act.total_elevation_gain || 0),
-          startDate: act.start_date ? new Date(act.start_date).toISOString().split("T")[0] : ""
-        }));
-
-        return {
-          id: p.user_id,
-          name: userProf?.name || "Athlete",
-          email: userProf?.email || "",
-          avatar: userProf?.avatar || "",
-          athleteId: userProf?.strava_athlete_id || "N/A",
-          stravaAthleteName: userStrava?.athlete_name || "",
-          stravaAthleteUsername: userStrava?.athlete_username || "",
-          joinDate: p.joined_at ? new Date(p.joined_at).toISOString().split("T")[0] : "N/A",
-          distanceCompleted: Number(completedVal.toFixed(1)),
-          activitiesCount: userActs.length,
-          lastActivityDate: lastActDate,
-          movingTime: totalTimeSec,
-          elevationGain: totalElevM,
-          recentActivities: recentActsFormatted
-        };
-      });
-
-      // Sort by completed value descending
-      participantsList.sort((a, b) => b.distanceCompleted - a.distanceCompleted);
-
-      // Build live sync ticker items
-      recentFeed = acts.slice(0, 10).map((act: any) => {
-        const userProf = profs.find((pr: any) => pr.id === act.user_id);
-        const name = userProf?.name || "Athlete";
-        const actName = act.name || `${act.sport_type} Workout`;
-        const actionStr = `synced ${actName}`;
-        
-        let timeDisplay = "Recently";
-        if (act.start_date) {
-          const actDate = new Date(act.start_date);
-          const diffMs = new Date().getTime() - actDate.getTime();
-          const diffMins = Math.floor(diffMs / (1000 * 60));
-          const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-          
-          if (diffMins < 60) {
-            timeDisplay = `${Math.max(1, diffMins)} mins ago`;
-          } else if (diffHours < 24) {
-            timeDisplay = `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
-          } else if (diffDays < 7) {
-            timeDisplay = `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
-          } else {
-            timeDisplay = actDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-          }
-        }
-
-        let displayVal = "";
-        if (challenge.goalType === "Distance") {
-          displayVal = `+${(Number(act.distance || 0) / 1000).toFixed(1)} km`;
-        } else if (challenge.goalType === "Elevation") {
-          displayVal = `+${Number(act.total_elevation_gain || 0)} m`;
-        } else if (challenge.goalType === "Time" || challenge.goalType === "Duration") {
-          displayVal = `+${(Number(act.moving_time || 0) / 3600).toFixed(1)} hrs`;
-        }
-
-        return {
-          id: String(act.strava_activity_id || Math.random().toString()),
-          name,
-          action: actionStr,
-          sportType: act.sport_type,
-          displayValue: displayVal,
-          time: timeDisplay,
-          participantId: act.user_id
-        };
-      });
-    }
-  } catch (e) {
-    console.error("Failed to query participant standings on server page by slug:", e);
-  }
-
-  return (
-    <ChallengeInsightsClient
-      profile={profile}
-      userRole={userRole}
-      challenge={challenge}
-      initialParticipants={participantsList}
-      recentFeed={recentFeed}
-    />
-  );
 }

@@ -11,16 +11,18 @@ export function createClient(): SupabaseClient {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   const isMock = 
-    !url || 
-    url.includes("placeholder") || 
-    !anonKey || 
-    anonKey.includes("placeholder");
+    process.env.NODE_ENV !== "production" && (
+      !url || 
+      url.includes("placeholder") || 
+      !anonKey || 
+      anonKey.includes("placeholder")
+    );
 
   if (isMock) {
     return createMockBrowserClient() as unknown as SupabaseClient;
   }
 
-  return createBrowserClient(url, anonKey) as unknown as SupabaseClient;
+  return createBrowserClient(url!, anonKey!) as unknown as SupabaseClient;
 }
 
 /**
@@ -168,6 +170,8 @@ class MockQueryBuilder {
   private limitCount: number = -1;
   private eqFilters: { column: string; value: any }[] = [];
   private inFilters: { column: string; values: any[] }[] = [];
+  private gteFilters: { column: string; value: any }[] = [];
+  private lteFilters: { column: string; value: any }[] = [];
   private isDelete: boolean = false;
   private orderColumn: string | null = null;
   private orderAscending: boolean = false;
@@ -189,6 +193,16 @@ class MockQueryBuilder {
 
   in(column: string, values: any[]) {
     this.inFilters.push({ column, values });
+    return this;
+  }
+
+  gte(column: string, value: any) {
+    this.gteFilters.push({ column, value });
+    return this;
+  }
+
+  lte(column: string, value: any) {
+    this.lteFilters.push({ column, value });
     return this;
   }
 
@@ -432,6 +446,14 @@ class MockQueryBuilder {
       for (const filter of this.inFilters) {
         filtered = filtered.filter((p: any) => filter.values.includes(p[filter.column]));
       }
+      // Apply gte filters
+      for (const filter of this.gteFilters) {
+        filtered = filtered.filter((item: any) => item[filter.column] >= filter.value);
+      }
+      // Apply lte filters
+      for (const filter of this.lteFilters) {
+        filtered = filtered.filter((item: any) => item[filter.column] <= filter.value);
+      }
 
       return {
         data: filtered,
@@ -453,6 +475,14 @@ class MockQueryBuilder {
       // Apply eq filters
       for (const filter of this.eqFilters) {
         filtered = filtered.filter((c: any) => c[filter.column] === filter.value);
+      }
+      // Apply gte filters
+      for (const filter of this.gteFilters) {
+        filtered = filtered.filter((item: any) => item[filter.column] >= filter.value);
+      }
+      // Apply lte filters
+      for (const filter of this.lteFilters) {
+        filtered = filtered.filter((item: any) => item[filter.column] <= filter.value);
       }
       // Apply sorting
       if (this.orderColumn === "created_at" || this.orderColumn === "start_date") {
@@ -486,6 +516,14 @@ class MockQueryBuilder {
       // Apply in filters
       for (const filter of this.inFilters) {
         filtered = filtered.filter((p: any) => filter.values.includes(p[filter.column]));
+      }
+      // Apply gte filters
+      for (const filter of this.gteFilters) {
+        filtered = filtered.filter((item: any) => item[filter.column] >= filter.value);
+      }
+      // Apply lte filters
+      for (const filter of this.lteFilters) {
+        filtered = filtered.filter((item: any) => item[filter.column] <= filter.value);
       }
 
       return { data: filtered, error: null, count: filtered.length };
@@ -531,6 +569,14 @@ class MockQueryBuilder {
       for (const filter of this.inFilters) {
         filtered = filtered.filter((a: any) => filter.values.includes(a[filter.column]));
       }
+      // Apply gte filters
+      for (const filter of this.gteFilters) {
+        filtered = filtered.filter((item: any) => item[filter.column] >= filter.value);
+      }
+      // Apply lte filters
+      for (const filter of this.lteFilters) {
+        filtered = filtered.filter((item: any) => item[filter.column] <= filter.value);
+      }
       // Sort
       filtered.sort((a, b) => b.start_date.localeCompare(a.start_date));
 
@@ -545,6 +591,9 @@ class MockQueryBuilder {
       };
     }
 
+    if (this.mutationValues) {
+      return { data: Array.isArray(this.mutationValues) ? this.mutationValues : [this.mutationValues], error: null, count: 1 };
+    }
     return { data: null, error: null, count: null };
   }
 }

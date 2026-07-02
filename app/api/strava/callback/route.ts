@@ -11,15 +11,22 @@ import { cookies } from "next/headers";
  * Supports a simulated mock connection pathway if running in Mock Mode.
  */
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const requestUrl = new URL(request.url);
+  const host = request.headers.get("x-forwarded-host") || requestUrl.host;
+  const protocol = request.headers.get("x-forwarded-proto") || (requestUrl.protocol === "https:" ? "https" : "http");
+  const origin = `${protocol}://${host}`;
+
+  const { searchParams } = requestUrl;
   const code = searchParams.get("code");
   const state = searchParams.get("state");
   const isMockParam = searchParams.get("mock") === "true";
+  let isFreshLogin = true;
 
-  if (!code || !state) {
-    console.error("Missing code or state params in callback.");
-    return NextResponse.redirect(new URL("/login?error=missing_params", origin));
-  }
+  try {
+    if (!code || !state) {
+      console.error("Missing code or state params in callback.");
+      return NextResponse.redirect(new URL("/login?error=missing_params", origin));
+    }
 
   // Get active authenticated session user (if any)
   const supabase = await createClient();
@@ -46,7 +53,7 @@ export async function GET(request: Request) {
   // Clean up state cookie on successful verification
   cookieStore.delete("strava-oauth-state");
 
-  const isFreshLogin = flowType === "auth";
+    isFreshLogin = flowType === "auth";
 
   if (!isFreshLogin) {
     if (!user) {
@@ -63,11 +70,13 @@ export async function GET(request: Request) {
   const clientId = process.env.STRAVA_CLIENT_ID || process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID;
   const clientSecret = process.env.STRAVA_CLIENT_SECRET;
   const isMock = 
-    isMockParam ||
-    !clientId || 
-    clientId.includes("placeholder") || 
-    !clientSecret || 
-    clientSecret.includes("placeholder");
+    process.env.NODE_ENV !== "production" && (
+      isMockParam ||
+      !clientId || 
+      clientId.includes("placeholder") || 
+      !clientSecret || 
+      clientSecret.includes("placeholder")
+    );
 
   if (isMock) {
     const finalUserId = user?.id || "mock-uuid-12345678";
@@ -144,7 +153,6 @@ export async function GET(request: Request) {
   }
 
   // Real OAuth token exchange
-  try {
     const res = await fetch("https://www.strava.com/oauth/token", {
       method: "POST",
       headers: {

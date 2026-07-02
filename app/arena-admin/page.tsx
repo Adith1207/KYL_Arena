@@ -16,58 +16,59 @@ export const metadata = {
  * Renders a stylized 403 page for unauthorized athletes, or the Admin Dashboard Client.
  */
 export default async function AdminPage() {
-  const supabase = await createClient();
-  const supabaseAdmin = await createAdminClient();
-
-  // Verify session
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    redirect("/login");
-  }
-
-  // Fetch user profile to check role
-  let profile = null;
   try {
-    const { data, error: profileError } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single();
+    const supabase = await createClient();
+    const supabaseAdmin = await createAdminClient();
 
-    if (!profileError && data) {
-      profile = data;
+    // Verify session
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      redirect("/login");
     }
-  } catch (e) {
-    console.error("Failed to fetch profile in admin route:", e);
-  }
 
-  // Auto-recreate profile if missing
-  if (!profile || profile.id !== user.id) {
-    const var_name = user.user_metadata?.full_name || user.user_metadata?.name || "Athlete";
-    const var_avatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || "";
-    const var_provider = user.app_metadata?.provider || "google";
+    // Fetch user profile to check role
+    let profile = null;
+    try {
+      const { data, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
 
-    const { data: newProfile, error: createProfileError } = await supabaseAdmin
-      .from("profiles")
-      .insert({
-        id: user.id,
-        email: user.email,
-        name: var_name,
-        avatar: var_avatar,
-        auth_provider: var_provider,
-        strava_connected: var_provider === "strava",
-        strava_athlete_id: var_provider === "strava" ? user.user_metadata?.sub : null
-      })
-      .select()
-      .single();
-
-    if (createProfileError) {
-      console.error(`Failed to recreate profile for admin check:`, createProfileError);
-      redirect("/api/auth/logout?error=unauthorized");
-    } else {
-      profile = newProfile;
+      if (!profileError && data) {
+        profile = data;
+      }
+    } catch (e) {
+      console.error("Failed to fetch profile in admin route:", e);
     }
-  }
+
+    // Auto-recreate profile if missing
+    if (!profile || profile.id !== user.id) {
+      const var_name = user.user_metadata?.full_name || user.user_metadata?.name || "Athlete";
+      const var_avatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || "";
+      const var_provider = user.app_metadata?.provider || "google";
+
+      const { data: newProfile, error: createProfileError } = await supabaseAdmin
+        .from("profiles")
+        .insert({
+          id: user.id,
+          email: user.email,
+          name: var_name,
+          avatar: var_avatar,
+          auth_provider: var_provider,
+          strava_connected: var_provider === "strava",
+          strava_athlete_id: var_provider === "strava" ? user.user_metadata?.sub : null
+        })
+        .select()
+        .single();
+
+      if (createProfileError || !newProfile) {
+        console.error(`Failed to recreate profile for admin check:`, createProfileError || "No data returned");
+        redirect("/api/auth/logout?error=unauthorized");
+      } else {
+        profile = newProfile;
+      }
+    }
 
   // Check roles: athlete is unauthorized. Admins are: super_admin, challenge_admin, organization_admin
   const allowedRoles = ["super_admin", "challenge_admin", "organization_admin"];
@@ -366,15 +367,35 @@ export default async function AdminPage() {
     averageCompletionRate
   };
 
-  // Otherwise, load and render the Admin Dashboard Client Component
-  return (
-    <AdminDashboardClient
-      profile={profile}
-      userRole={userRole}
-      initialChallenges={challenges}
-      initialMetrics={metrics}
-      allAthletes={athletes}
-      recentFeed={recentActivities}
-    />
-  );
+    // Otherwise, load and render the Admin Dashboard Client Component
+    return (
+      <AdminDashboardClient
+        profile={profile}
+        userRole={userRole}
+        initialChallenges={challenges}
+        initialMetrics={metrics}
+        allAthletes={athletes}
+        recentFeed={recentActivities}
+      />
+    );
+  } catch (e: any) {
+    if (e.digest?.startsWith("NEXT_REDIRECT") || e.digest === "DYNAMIC_SERVER_USAGE" || e.message?.includes("Dynamic server usage") || e.name === "DynamicServerError") {
+      throw e;
+    }
+    console.error("Admin Dashboard server rendering crashed:", e);
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
+        <div className="bg-zinc-900/50 backdrop-blur-xl border border-red-500/20 rounded-2xl p-6 max-w-md w-full text-center shadow-lg">
+          <h2 className="text-xl font-bold text-white mb-2">Failed to load Admin Center</h2>
+          <p className="text-zinc-400 text-xs mb-4 leading-relaxed">
+            An error occurred while compiling system metrics, challenge records, or athlete profiles. Please try again.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <a href="/arena-admin" className="px-4 py-2 bg-lime-500 text-black text-xs font-bold rounded-lg hover:bg-lime-400 transition">Retry Loading</a>
+            <a href="/dashboard" className="px-4 py-2 bg-zinc-800 text-zinc-300 text-xs font-bold rounded-lg hover:bg-zinc-700 transition">Return to App</a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 }

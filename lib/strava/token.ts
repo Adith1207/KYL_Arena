@@ -33,10 +33,12 @@ export async function getValidStravaToken(userId: string): Promise<string | null
   const clientId = process.env.STRAVA_CLIENT_ID || process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID;
   const clientSecret = process.env.STRAVA_CLIENT_SECRET;
   const isMock = 
-    !clientId || 
-    clientId.includes("placeholder") || 
-    !clientSecret || 
-    clientSecret.includes("placeholder");
+    process.env.NODE_ENV !== "production" && (
+      !clientId || 
+      clientId.includes("placeholder") || 
+      !clientSecret || 
+      clientSecret.includes("placeholder")
+    );
 
   if (isMock) {
     const mockAccessToken = `mock_access_token_${Math.random().toString(36).substring(7)}`;
