@@ -36,11 +36,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     let profile = null;
     let profileLookupResult = "";
     try {
+      console.log("Starting dashboard query: Fetch profiles");
       const { data, error: profileError } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", user.id)
         .single();
+      console.log(`Finished dashboard query: Fetch profiles. Query returned ${data ? 1 : 0} rows`);
         
       if (!profileError && data) {
         profile = data;
@@ -49,6 +51,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         profileLookupResult = `Failed: ${profileError?.message || "No profile found"}`;
       }
     } catch (e: unknown) {
+      console.error("Failed to query profiles for dashboard page:", e);
       const errMsg = e instanceof Error ? e.message : "Unexpected exception";
       profileLookupResult = `Error: ${errMsg}`;
     }
@@ -60,26 +63,34 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       const var_avatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || "";
       const var_provider = user.app_metadata?.provider || "google";
 
-      const { data: newProfile, error: createProfileError } = await supabaseAdmin
-        .from("profiles")
-        .insert({
-          id: user.id,
-          email: user.email,
-          name: var_name,
-          avatar: var_avatar,
-          auth_provider: var_provider,
-          strava_connected: var_provider === "strava",
-          strava_athlete_id: var_provider === "strava" ? user.user_metadata?.sub : null
-        })
-        .select()
-        .single();
+      try {
+        console.log("Starting dashboard query: Recreate profile");
+        const { data: newProfile, error: createProfileError } = await supabaseAdmin
+          .from("profiles")
+          .insert({
+            id: user.id,
+            email: user.email,
+            name: var_name,
+            avatar: var_avatar,
+            auth_provider: var_provider,
+            strava_connected: var_provider === "strava",
+            strava_athlete_id: var_provider === "strava" ? user.user_metadata?.sub : null
+          })
+          .select()
+          .single();
+        console.log(`Finished dashboard query: Recreate profile. Query returned ${newProfile ? 1 : 0} rows`);
 
-      if (createProfileError || !newProfile) {
-        console.error(`Failed to recreate profile for user ${user.id}:`, createProfileError || "No data returned");
+        if (createProfileError || !newProfile) {
+          console.error(`Failed to recreate profile for user ${user.id}:`, createProfileError || "No data returned");
+          redirect("/api/auth/logout?error=unauthorized");
+        } else {
+          profile = newProfile;
+          profileLookupResult = `Recreated Profile (strava_connected: ${newProfile.strava_connected})`;
+        }
+      } catch (e) {
+        if (e instanceof Error && (e as any).digest?.startsWith("NEXT_REDIRECT")) throw e;
+        console.error("Failed to insert recreated profile:", e);
         redirect("/api/auth/logout?error=unauthorized");
-      } else {
-        profile = newProfile;
-        profileLookupResult = `Recreated Profile (strava_connected: ${newProfile.strava_connected})`;
       }
     }
 
@@ -102,11 +113,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
     if (profile.strava_connected) {
       try {
+        console.log("Starting dashboard query: Fetch strava_connections");
         const { data: connData, error: connError } = await supabaseAdmin
           .from("strava_connections")
           .select("athlete_name, athlete_username, athlete_avatar, created_at")
           .eq("user_id", user.id)
           .single();
+        console.log(`Finished dashboard query: Fetch strava_connections. Query returned ${connData ? 1 : 0} rows`);
         
         if (!connError && connData) {
           stravaConnection = connData;
@@ -115,50 +128,66 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         console.error("Failed to query strava_connections:", e);
       }
 
+      // Fetch latest 5 activities
       try {
-        // Fetch latest 5 activities
+        console.log("Starting dashboard query: Fetch latest 5 activities");
         const { data: actData, error: actError } = await supabase
           .from("activities")
           .select("name, sport_type, distance, moving_time, start_date, average_speed, total_elevation_gain")
           .eq("user_id", user.id)
           .order("start_date", { ascending: false })
           .limit(5);
+        console.log(`Finished dashboard query: Fetch latest 5 activities. Query returned ${actData?.length || 0} rows`);
 
         if (!actError && actData) {
           activities = actData;
         }
+      } catch (e) {
+        console.error("Failed to query latest 5 activities:", e);
+      }
 
-        // Fetch all user activities for dynamic challenge progress calculations
-        const { data: allActData } = await supabase
+      // Fetch all user activities for dynamic challenge progress calculations
+      try {
+        console.log("Starting dashboard query: Fetch all activities");
+        const { data: allActData, error: allActError } = await supabase
           .from("activities")
           .select("name, sport_type, distance, total_elevation_gain, moving_time, start_date, average_speed")
           .eq("user_id", user.id)
           .order("start_date", { ascending: false });
+        console.log(`Finished dashboard query: Fetch all activities. Query returned ${allActData?.length || 0} rows`);
 
-        if (allActData) {
+        if (!allActError && allActData) {
           allActivities = allActData;
         }
+      } catch (e) {
+        console.error("Failed to query all activities:", e);
+      }
 
-        // Fetch count of all activities
+      // Fetch count of all activities
+      try {
+        console.log("Starting dashboard query: Fetch activities count");
         const { count, error: countError } = await supabase
           .from("activities")
           .select("*", { count: "exact", head: true })
           .eq("user_id", user.id);
+        console.log(`Finished dashboard query: Fetch activities count. Query returned count ${count || 0}`);
 
         if (!countError && count !== null) {
           activitiesCount = count;
         }
       } catch (e) {
-        console.error("Failed to query activities for dashboard page:", e);
+        console.error("Failed to query activities count:", e);
       }
     }
 
     // Fetch overall db connections count using admin client
     let totalConnectionsCount = 0;
     try {
+      console.log("Starting dashboard query: Fetch total connections count");
       const { count, error: countError } = await supabaseAdmin
         .from("strava_connections")
         .select("*", { count: "exact", head: true });
+      console.log(`Finished dashboard query: Fetch total connections count. Query returned count ${count || 0}`);
       if (!countError && count !== null) {
         totalConnectionsCount = count;
       }
@@ -169,91 +198,121 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     // Fetch active challenges and calculate leaderboard & standings dynamically on the server
     const activeChallenges: any[] = [];
     try {
+      console.log("Starting dashboard query: Fetch active challenges");
       const { data: dbChallenges, error: challengesError } = await supabaseAdmin
         .from("challenges")
         .select("*")
         .in("status", ["active", "upcoming"])
         .order("created_at", { ascending: false });
+      console.log(`Finished dashboard query: Fetch active challenges. Query returned ${dbChallenges?.length || 0} rows`);
 
       if (!challengesError && dbChallenges) {
-        const { data: dbParticipations } = await supabaseAdmin
-          .from("challenge_participants")
-          .select("*");
+        console.log("Starting dashboard query: Fetch challenge participations");
+        let dbParticipations: any[] = [];
+        try {
+          const { data } = await supabaseAdmin
+            .from("challenge_participants")
+            .select("*");
+          dbParticipations = data || [];
+        } catch (e) {
+          console.error("Failed to query challenge participants:", e);
+        }
+        console.log(`Finished dashboard query: Fetch challenge participations. Query returned ${dbParticipations.length} rows`);
 
         for (const c of dbChallenges) {
-          const challengeParts = (dbParticipations || []).filter((p: any) => p.challenge_id === c.id);
-          const participantUserIds = challengeParts.map((p: any) => p.user_id);
-          
-          let userRank = null;
-          let leaderboard: any[] = [];
+          try {
+            const challengeParts = dbParticipations.filter((p: any) => p.challenge_id === c.id);
+            const participantUserIds = challengeParts.map((p: any) => p.user_id);
+            
+            let userRank = null;
+            let leaderboard: any[] = [];
 
-          if (participantUserIds.length > 0) {
-            // Fetch activities of all challenge participants within challenge date range
-            const { data: actData } = await supabaseAdmin
-              .from("activities")
-              .select("user_id, distance, total_elevation_gain, moving_time, start_date, sport_type")
-              .in("user_id", participantUserIds)
-              .gte("start_date", `${c.start_date}T00:00:00Z`)
-              .lte("start_date", `${c.end_date}T23:59:59Z`);
-
-            // Group by user
-            const userTotals: Record<string, number> = {};
-            participantUserIds.forEach(uid => { userTotals[uid] = 0; });
-
-            actData?.forEach((act: any) => {
-              const matchesSport = 
-                c.sport_type === "Multisport" || 
-                act.sport_type?.toLowerCase() === c.sport_type?.toLowerCase();
-
-              if (matchesSport) {
-                if (c.goal_metric === "Distance") {
-                  userTotals[act.user_id] += Number(act.distance) / 1000;
-                } else if (c.goal_metric === "Elevation") {
-                  userTotals[act.user_id] += Number(act.total_elevation_gain || 0);
-                } else if (c.goal_metric === "Time" || c.goal_metric === "Duration") {
-                  userTotals[act.user_id] += Number(act.moving_time || 0) / 3600;
-                }
+            if (participantUserIds.length > 0) {
+              // Fetch activities of all challenge participants within challenge date range
+              console.log(`Starting dashboard query: Fetch activities for challenge ${c.id}`);
+              let actData: any[] = [];
+              try {
+                const { data } = await supabaseAdmin
+                  .from("activities")
+                  .select("user_id, distance, total_elevation_gain, moving_time, start_date, sport_type")
+                  .in("user_id", participantUserIds)
+                  .gte("start_date", `${c.start_date}T00:00:00Z`)
+                  .lte("start_date", `${c.end_date}T23:59:59Z`);
+                actData = data || [];
+              } catch (e) {
+                console.error(`Failed to fetch activities for challenge ${c.id}:`, e);
               }
+              console.log(`Finished dashboard query: Fetch activities for challenge ${c.id}. Query returned ${actData.length} rows`);
+
+              // Group by user
+              const userTotals: Record<string, number> = {};
+              participantUserIds.forEach(uid => { userTotals[uid] = 0; });
+
+              actData.forEach((act: any) => {
+                const matchesSport = 
+                  c.sport_type === "Multisport" || 
+                  act.sport_type?.toLowerCase() === c.sport_type?.toLowerCase();
+
+                if (matchesSport) {
+                  if (c.goal_metric === "Distance") {
+                    userTotals[act.user_id] += Number(act.distance) / 1000;
+                  } else if (c.goal_metric === "Elevation") {
+                    userTotals[act.user_id] += Number(act.total_elevation_gain || 0);
+                  } else if (c.goal_metric === "Time" || c.goal_metric === "Duration") {
+                    userTotals[act.user_id] += Number(act.moving_time || 0) / 3600;
+                  }
+                }
+              });
+
+              // Fetch profiles to get names/avatars
+              console.log(`Starting dashboard query: Fetch profiles for challenge ${c.id}`);
+              let profiles: any[] = [];
+              try {
+                const { data } = await supabaseAdmin
+                  .from("profiles")
+                  .select("id, name, avatar")
+                  .in("id", participantUserIds);
+                profiles = data || [];
+              } catch (e) {
+                console.error(`Failed to fetch profiles for challenge ${c.id}:`, e);
+              }
+              console.log(`Finished dashboard query: Fetch profiles for challenge ${c.id}. Query returned ${profiles.length} rows`);
+
+              leaderboard = challengeParts.map((p: any) => {
+                const prof = profiles.find((pr: any) => pr.id === p.user_id);
+                return {
+                  userId: p.user_id,
+                  name: prof?.name || "Athlete",
+                  avatar: prof?.avatar || "",
+                  completed: userTotals[p.user_id] || 0
+                };
+              });
+
+              leaderboard.sort((a, b) => b.completed - a.completed);
+              const rankIndex = leaderboard.findIndex(item => item.userId === user.id);
+              userRank = rankIndex !== -1 ? rankIndex + 1 : null;
+            }
+
+            activeChallenges.push({
+              id: c.id,
+              title: c.title,
+              description: c.description || "",
+              sportType: c.sport_type,
+              goalType: c.goal_metric,
+              goalTarget: Number(c.goal_target),
+              startDate: c.start_date,
+              endDate: c.end_date,
+              bannerUrl: c.banner_url || "",
+              status: c.status,
+              userJoined: participantUserIds.includes(user.id),
+              participantsCount: participantUserIds.length,
+              userRank,
+              leaderboard: leaderboard.slice(0, 5), // Top 5
+              slug: c.slug || c.title.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-"),
             });
-
-            // Fetch profiles to get names/avatars
-            const { data: profiles } = await supabaseAdmin
-              .from("profiles")
-              .select("id, name, avatar")
-              .in("id", participantUserIds);
-
-            leaderboard = challengeParts.map((p: any) => {
-              const prof = profiles?.find((pr: any) => pr.id === p.user_id);
-              return {
-                userId: p.user_id,
-                name: prof?.name || "Athlete",
-                avatar: prof?.avatar || "",
-                completed: userTotals[p.user_id] || 0
-              };
-            });
-
-            leaderboard.sort((a, b) => b.completed - a.completed);
-            const rankIndex = leaderboard.findIndex(item => item.userId === user.id);
-            userRank = rankIndex !== -1 ? rankIndex + 1 : null;
+          } catch (e) {
+            console.error(`Failed to compile challenge ${c.id} standing:`, e);
           }
-
-          activeChallenges.push({
-            id: c.id,
-            title: c.title,
-            description: c.description || "",
-            sportType: c.sport_type,
-            goalType: c.goal_metric,
-            goalTarget: Number(c.goal_target),
-            startDate: c.start_date,
-            endDate: c.end_date,
-            bannerUrl: c.banner_url || "",
-            status: c.status,
-            userJoined: participantUserIds.includes(user.id),
-            participantsCount: participantUserIds.length,
-            userRank,
-            leaderboard: leaderboard.slice(0, 5), // Top 5
-            slug: c.slug || c.title.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-"),
-          });
         }
       }
     } catch (e) {
