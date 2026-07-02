@@ -101,6 +101,7 @@ export default function AdminDashboardClient({
 }: AdminDashboardClientProps) {
   const router = useRouter();
   const [loadingLogout, setLoadingLogout] = useState(false);
+  const [isNotificationsMenuOpen, setIsNotificationsMenuOpen] = useState(false);
   const [loadingCreate, setLoadingCreate] = useState(false);
   const [loadingSync, setLoadingSync] = useState(false);
   const [activeTab, setActiveTab] = useState<"active" | "upcoming" | "archived">("active");
@@ -669,7 +670,7 @@ export default function AdminDashboardClient({
               KYL <span className="text-lime-400">ARENA</span>
             </span>
             <span className="text-[7.5px] font-bold text-zinc-500 uppercase tracking-widest mt-0.5">
-              Admin Console
+              ADMIN CONSOLE
             </span>
           </div>
         </div>
@@ -681,6 +682,10 @@ export default function AdminDashboardClient({
             <button
               key={link.title}
               onClick={() => {
+                if (link.title === "Athletes") {
+                  router.push("/arena-admin/athletes");
+                  return;
+                }
                 if (link.title === "Dashboard") return;
                 addNotification("Module Active", `Accessing ${link.title} dashboard control card.`, "info");
               }}
@@ -703,26 +708,7 @@ export default function AdminDashboardClient({
           ))}
         </nav>
 
-        {/* Profile Card / Dropdown */}
-        <div className="p-4 border-t border-white/5 bg-zinc-950/80 backdrop-blur-md">
-          <div className="flex items-center justify-between p-2 rounded-2xl hover:bg-zinc-900/40 border border-transparent hover:border-white/5 transition-all">
-            <div className="flex items-center gap-3 min-w-0">
-              {profile.avatar ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={profile.avatar} alt={profile.name} className="h-8 w-8 rounded-full object-cover ring-2 ring-lime-400/30 shrink-0" />
-              ) : (
-                <div className="h-8 w-8 rounded-full bg-zinc-800 text-[10px] font-black flex items-center justify-center text-lime-400 shrink-0">{getInitials(profile.name)}</div>
-              )}
-              <div className="text-left min-w-0">
-                <p className="text-[11px] font-black text-white uppercase italic leading-none truncate">{profile.name}</p>
-                <p className="text-[8px] text-lime-455 font-mono mt-1 leading-none">{userRole.replace("_", " ").toUpperCase()}</p>
-              </div>
-            </div>
-            <button onClick={handleLogout} disabled={loadingLogout} className="text-zinc-550 hover:text-red-450 transition-colors p-1" title="Sign Out">
-              {loadingLogout ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
-            </button>
-          </div>
-        </div>
+        {/* Profile controls moved to header */}
       </aside>
 
       {/* MOBILE HEADER */}
@@ -748,7 +734,14 @@ export default function AdminDashboardClient({
                   <svg className="h-6 w-6" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <g fill="#22c55e"><circle cx="48" cy="20" r="7" /><path d="M 28 69 C 14 78, 12 79, 10 80 Z" /></g>
                   </svg>
-                  <span className="text-xs font-black tracking-wider text-white">KYL ARENA</span>
+                  <div className="flex flex-col text-left">
+                    <span className="text-xs font-black tracking-wider text-white leading-none">
+                      KYL <span className="text-lime-400">ARENA</span>
+                    </span>
+                    <span className="text-[7.5px] font-bold text-zinc-555 uppercase tracking-widest mt-0.5 font-mono">
+                      ADMIN CONSOLE
+                    </span>
+                  </div>
                 </div>
                 <button onClick={() => setIsSidebarOpen(false)} className="text-zinc-405 hover:text-white">
                   <X className="h-5 w-5" />
@@ -760,6 +753,10 @@ export default function AdminDashboardClient({
                     key={link.title}
                     onClick={() => {
                       setIsSidebarOpen(false);
+                      if (link.title === "Athletes") {
+                        router.push("/arena-admin/athletes");
+                        return;
+                      }
                       if (link.title === "Dashboard") return;
                       addNotification("Module Active", `Accessing ${link.title} console...`, "info");
                     }}
@@ -776,20 +773,7 @@ export default function AdminDashboardClient({
                   </button>
                 ))}
               </nav>
-              <div className="p-4 border-t border-white/5">
-                <div className="flex items-center gap-3 justify-between p-2">
-                  <div className="flex items-center gap-3">
-                    <img src={profile.avatar} alt="" className="h-8 w-8 rounded-full object-cover" />
-                    <div className="text-left">
-                      <p className="text-[11px] font-black text-white truncate max-w-[120px]">{profile.name}</p>
-                      <p className="text-[8px] text-lime-400 font-mono">{userRole.toUpperCase()}</p>
-                    </div>
-                  </div>
-                  <button onClick={handleLogout} className="text-zinc-550 hover:text-white">
-                    <LogOut className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
+              {/* Profile controls moved to header */}
             </motion.aside>
           </>
         )}
@@ -813,32 +797,82 @@ export default function AdminDashboardClient({
             </div>
           </div>
 
-          <div className="flex items-center gap-3.5">
-            {/* System Health Component */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full border border-lime-450/20 bg-lime-400/5 shadow-[0_0_10px_rgba(34,197,94,0.05)]">
-              <span className="h-2 w-2 rounded-full bg-lime-400 animate-pulse" />
-              <span className="text-[9px] font-bold tracking-wider text-lime-400 uppercase font-mono">SYSTEM HEALTH: OPERATIONAL</span>
-            </div>
+          <div className="flex items-center gap-3">
+            
+            {/* Switch to Athlete View */}
+            <Link 
+              href="/dashboard"
+              className="hidden sm:inline-flex h-9 px-3.5 border border-zinc-800 hover:border-zinc-700 bg-zinc-900/50 hover:bg-zinc-900 text-zinc-300 hover:text-white font-extrabold rounded-xl transition-all items-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer"
+            >
+              Switch to Athlete View
+            </Link>
 
-            {/* Date Picker Pill */}
+            {/* Notifications Bell */}
             <div className="relative">
               <button 
-                onClick={() => addNotification("Range Active", "Date filter constrained to current challenge month.", "info")}
-                className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 border border-white/5 hover:border-white/10 text-[9px] font-bold text-zinc-450 uppercase rounded-xl transition-all font-mono"
+                onClick={() => setIsNotificationsMenuOpen(!isNotificationsMenuOpen)}
+                className={`p-2.5 text-zinc-455 hover:text-white bg-zinc-900/50 hover:bg-zinc-900 border border-white/5 rounded-xl transition-all relative ${isNotificationsMenuOpen ? "border-lime-400/30 text-white" : ""}`}
               >
-                <Calendar className="h-3 w-3 text-zinc-400" />
-                <span>{selectedRange}</span>
+                <Bell className="h-4 w-4" />
+                <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-lime-400 shadow-[0_0_8px_rgba(163,230,53,0.8)]" />
               </button>
+
+              <AnimatePresence>
+                {isNotificationsMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setIsNotificationsMenuOpen(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute right-0 mt-2 w-72 bg-zinc-950 border border-white/10 rounded-2xl p-4 shadow-[0_15px_45px_rgba(0,0,0,0.8)] z-40 text-left font-sans"
+                    >
+                      <h3 className="text-[10px] uppercase font-black tracking-widest text-zinc-400 mb-3 font-mono flex items-center justify-between">
+                        <span>System Notifications</span>
+                        <span className="px-1.5 py-0.5 rounded bg-lime-400/10 text-lime-400 text-[8px] font-bold border border-lime-400/20">Active</span>
+                      </h3>
+                      <div className="space-y-2.5 max-h-[220px] overflow-y-auto scrollbar-thin">
+                        <div className="p-2 bg-zinc-900/40 rounded-lg border border-white/5">
+                          <p className="text-[10px] font-bold text-white uppercase font-mono">Sync Pipeline Stable</p>
+                          <p className="text-[9px] text-zinc-400 mt-0.5 leading-normal">All Strava sync instances completed without fatal errors today.</p>
+                          <span className="text-[8px] text-zinc-550 font-mono mt-1 block">1 hour ago</span>
+                        </div>
+                        <div className="p-2 bg-zinc-900/40 rounded-lg border border-white/5">
+                          <p className="text-[10px] font-bold text-white uppercase font-mono">New Athlete Connected</p>
+                          <p className="text-[9px] text-zinc-400 mt-0.5 leading-normal">A new profile was configured and verified with Strava auth token.</p>
+                          <span className="text-[8px] text-zinc-550 font-mono mt-1 block">4 hours ago</span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
             </div>
 
-            {/* Export Reports */}
-            <Button
-              onClick={handleExportReports}
-              className="h-8 px-3 border border-white/10 hover:border-white/20 bg-zinc-900 hover:bg-zinc-850 text-white font-extrabold rounded-xl transition-all flex items-center gap-1.5 text-[9px] uppercase tracking-wider cursor-pointer font-mono"
+            {/* Profile badge (avatar, name, role) */}
+            <div className="flex items-center gap-2.5 bg-zinc-900/40 border border-white/5 px-3 py-1.5 rounded-xl backdrop-blur-sm">
+              {profile.avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={profile.avatar} alt={profile.name} className="h-6 w-6 rounded-full object-cover ring-1 ring-lime-400/30 shrink-0" />
+              ) : (
+                <div className="h-6 w-6 rounded-full bg-zinc-800 text-[9px] font-black flex items-center justify-center text-lime-400 shrink-0">{getInitials(profile.name)}</div>
+              )}
+              <div className="text-left hidden md:block">
+                <p className="text-[10px] font-black text-white uppercase italic leading-none">{profile.name}</p>
+                <p className="text-[8px] text-lime-450 font-mono mt-0.5 leading-none">{userRole.replace("_", " ").toUpperCase()}</p>
+              </div>
+            </div>
+
+            {/* Sign Out */}
+            <button 
+              onClick={handleLogout} 
+              disabled={loadingLogout} 
+              className="p-2.5 text-zinc-450 hover:text-red-400 bg-zinc-900/50 hover:bg-zinc-900 border border-white/5 hover:border-red-950 rounded-xl transition-all cursor-pointer shrink-0" 
+              title="Sign Out"
             >
-              <Download className="h-3.5 w-3.5" />
-              <span>Export Report</span>
-            </Button>
+              {loadingLogout ? <Loader2 className="h-4 w-4 animate-spin text-zinc-400" /> : <LogOut className="h-4 w-4" />}
+            </button>
+
           </div>
         </header>
 
@@ -846,11 +880,11 @@ export default function AdminDashboardClient({
         <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1400px] w-full mx-auto pb-24 lg:pb-12 text-left">
           
           {/* 1. HERO SEARCH EXPERIENCE (Dominant Command Bar) */}
-          <div ref={searchRef} className="bg-zinc-900/30 border border-white/5 rounded-3xl p-5 relative overflow-visible shadow-[0_12px_45px_rgba(0,0,0,0.5)] backdrop-blur-xl group hover:border-lime-400/10 transition-all">
+          <div ref={searchRef} className="bg-zinc-900/40 border border-white/5 rounded-3xl p-5 relative overflow-visible shadow-[0_12px_45px_rgba(0,0,0,0.5)] group hover:border-lime-400/20 transition-all">
             <div className="absolute -inset-px bg-gradient-to-r from-lime-500/5 to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none rounded-3xl" />
             <div className="relative space-y-3 z-30">
               <div className="flex items-center justify-between">
-                <h2 className="text-[10px] uppercase font-black tracking-widest text-lime-450 flex items-center gap-2 font-mono">
+                <h2 className="text-[10px] uppercase font-black tracking-widest text-lime-455 flex items-center gap-2 font-mono">
                   <Search className="h-3.5 w-3.5 text-lime-400" /> Command Hub Search
                 </h2>
                 <div className="flex items-center gap-2">
@@ -888,7 +922,8 @@ export default function AdminDashboardClient({
                     initial={{ opacity: 0, y: 10, scale: 0.99 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.99 }}
-                    className="absolute top-full left-0 right-0 mt-2 bg-zinc-900 border border-white/10 rounded-2xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.85)] backdrop-blur-2xl max-h-[380px] overflow-y-auto text-left z-50 divide-y divide-white/5"
+                    style={{ backgroundColor: '#09090b' }}
+                    className="absolute top-full left-0 right-0 mt-2 border border-white/10 border-t-2 border-t-lime-400 rounded-2xl overflow-hidden shadow-[0_30px_70px_rgba(0,0,0,0.95),0_0_20px_rgba(34,197,94,0.05)] max-h-[380px] overflow-y-auto text-left z-50 divide-y divide-white/5"
                   >
                     {!hasSearchResults ? (
                       <div className="p-6 text-center text-zinc-550 text-xs font-mono">

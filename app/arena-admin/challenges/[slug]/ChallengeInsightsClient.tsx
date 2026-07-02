@@ -5,7 +5,7 @@ import Link from "next/link";
 import { 
   Users, Activity, Trophy, Flame, ArrowLeft, CheckCircle, 
   LogOut, Loader2, Search, Bike, Footprints, 
-  Shield, X, Calendar, Sparkles
+  Shield, X, Calendar, Sparkles, Bell
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -85,6 +85,7 @@ interface ChallengeInsightsClientProps {
 
 export default function ChallengeInsightsClient({ profile, userRole, challenge, initialParticipants, recentFeed }: ChallengeInsightsClientProps) {
   const [loadingLogout, setLoadingLogout] = useState(false);
+  const [isNotificationsMenuOpen, setIsNotificationsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedParticipant, setSelectedParticipant] = useState<ParticipantWithProgress | null>(null);
 
@@ -182,29 +183,18 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
                 <span className="text-sm font-black tracking-wider text-white leading-none">
                   KYL <span className="text-lime-400">ARENA</span>
                 </span>
-                <span className="text-[7.5px] font-bold text-lime-450 uppercase tracking-widest mt-0.5">
-                  Admin Console
+                <span className="text-[7.5px] font-bold text-zinc-500 uppercase tracking-widest mt-0.5">
+                  ADMIN CONSOLE
                 </span>
               </div>
             </Link>
 
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2.5 bg-zinc-900/40 border border-lime-400/20 px-3 py-1.5 rounded-full backdrop-blur-sm">
-                <div className="text-right">
-                  <p className="text-[10px] font-black text-white uppercase italic leading-none">{profile.name.split(" ")[0]}</p>
-                  <p className="text-[8px] text-lime-400 font-mono mt-0.5 leading-none">{userRole.replace("_", " ").toUpperCase()}</p>
-                </div>
-                {profile.avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={profile.avatar} alt={profile.name} className="h-6 w-6 rounded-full object-cover ring-1 ring-lime-400/30" />
-                ) : (
-                  <div className="h-6 w-6 rounded-full bg-zinc-800 text-[9px] font-black flex items-center justify-center text-lime-400">{getInitials(profile.name)}</div>
-                )}
-              </div>
-
+              
+              {/* Control Center Back Link */}
               <Button
                 asChild
-                className="h-9 px-3.5 border border-lime-400/25 hover:border-lime-400 bg-lime-400/5 hover:bg-lime-400/10 text-lime-400 font-extrabold rounded-xl transition-all flex items-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer"
+                className="h-9 px-3.5 border border-zinc-800 hover:border-zinc-700 bg-zinc-900/50 hover:bg-zinc-900 text-zinc-300 hover:text-white font-extrabold rounded-xl transition-all flex items-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer"
               >
                 <Link href="/arena-admin">
                   <ArrowLeft className="h-3.5 w-3.5" />
@@ -212,13 +202,78 @@ export default function ChallengeInsightsClient({ profile, userRole, challenge, 
                 </Link>
               </Button>
 
+              {/* Switch to Athlete View */}
+              <Link 
+                href="/dashboard"
+                className="hidden sm:inline-flex h-9 px-3.5 border border-zinc-800 hover:border-zinc-700 bg-zinc-900/50 hover:bg-zinc-900 text-zinc-300 hover:text-white font-extrabold rounded-xl transition-all items-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer"
+              >
+                Switch to Athlete View
+              </Link>
+
+              {/* Notifications Bell */}
+              <div className="relative">
+                <button 
+                  onClick={() => setIsNotificationsMenuOpen(!isNotificationsMenuOpen)}
+                  className={`p-2.5 text-zinc-455 hover:text-white bg-zinc-900/50 hover:bg-zinc-900 border border-white/5 rounded-xl transition-all relative ${isNotificationsMenuOpen ? "border-lime-400/30 text-white" : ""}`}
+                >
+                  <Bell className="h-4 w-4" />
+                  <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-lime-400 shadow-[0_0_8px_rgba(163,230,53,0.8)]" />
+                </button>
+
+                <AnimatePresence>
+                  {isNotificationsMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-30" onClick={() => setIsNotificationsMenuOpen(false)} />
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute right-0 mt-2 w-72 bg-zinc-950 border border-white/10 rounded-2xl p-4 shadow-[0_15px_45px_rgba(0,0,0,0.8)] z-40 text-left font-sans"
+                      >
+                        <h3 className="text-[10px] uppercase font-black tracking-widest text-zinc-400 mb-3 font-mono flex items-center justify-between">
+                          <span>System Notifications</span>
+                          <span className="px-1.5 py-0.5 rounded bg-lime-400/10 text-lime-400 text-[8px] font-bold border border-lime-400/20">Active</span>
+                        </h3>
+                        <div className="space-y-2.5 max-h-[220px] overflow-y-auto scrollbar-thin">
+                          <div className="p-2 bg-zinc-900/40 rounded-lg border border-white/5">
+                            <p className="text-[10px] font-bold text-white uppercase font-mono">Sync Pipeline Stable</p>
+                            <p className="text-[9px] text-zinc-400 mt-0.5 leading-normal">All Strava sync instances completed without fatal errors today.</p>
+                            <span className="text-[8px] text-zinc-550 font-mono mt-1 block">1 hour ago</span>
+                          </div>
+                          <div className="p-2 bg-zinc-900/40 rounded-lg border border-white/5">
+                            <p className="text-[10px] font-bold text-white uppercase font-mono">New Athlete Connected</p>
+                            <p className="text-[9px] text-zinc-400 mt-0.5 leading-normal">A new profile was configured and verified with Strava auth token.</p>
+                            <span className="text-[8px] text-zinc-550 font-mono mt-1 block">4 hours ago</span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Profile Badge */}
+              <div className="flex items-center gap-2.5 bg-zinc-900/40 border border-white/5 px-3 py-1.5 rounded-xl backdrop-blur-sm">
+                {profile.avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={profile.avatar} alt={profile.name} className="h-6 w-6 rounded-full object-cover ring-1 ring-lime-400/30 shrink-0" />
+                ) : (
+                  <div className="h-6 w-6 rounded-full bg-zinc-800 text-[9px] font-black flex items-center justify-center text-lime-400 shrink-0">{getInitials(profile.name)}</div>
+                )}
+                <div className="text-left hidden md:block">
+                  <p className="text-[10px] font-black text-white uppercase italic leading-none">{profile.name.split(" ")[0]}</p>
+                  <p className="text-[8px] text-lime-450 font-mono mt-0.5 leading-none">{userRole.replace("_", " ").toUpperCase()}</p>
+                </div>
+              </div>
+
+              {/* Sign Out */}
               <Button
                 onClick={handleLogout}
                 disabled={loadingLogout}
                 variant="outline"
-                className="h-9 px-3.5 border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-xl transition-all flex items-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer"
+                className="h-9 px-3 border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-xl transition-all flex items-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer"
               >
-                {loadingLogout ? <Loader2 className="h-3 w-3 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
+                {loadingLogout ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
                 Sign Out
               </Button>
             </div>
