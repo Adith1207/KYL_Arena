@@ -112,10 +112,6 @@ export default function DashboardClient({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuDropdownRef = useRef<HTMLDivElement>(null);
 
-  // State Selector Simulator for verification purposes
-  const [simulatedState, setSimulatedState] = useState<"auto" | "A" | "B" | "C" | "D" | "E">("auto");
-  const [joinedChallenge, setJoinedChallenge] = useState<boolean>(false);
-  const [completedChallenge, setCompletedChallenge] = useState<boolean>(false);
 
   // Sync success indicator for micro-interaction
   const [showSyncSuccess, setShowSyncSuccess] = useState(false);
@@ -156,24 +152,18 @@ export default function DashboardClient({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Determine current display State (A, B, C, D, E) based on database or simulation controls
+  // Determine current display State (A, B, C, D, E) based on live database profile data
   let currentState: "A" | "B" | "C" | "D" | "E" = "A";
-  if (simulatedState !== "auto") {
-    currentState = simulatedState;
+  if (!profile.strava_connected) {
+    currentState = "A";
+  } else if (!profile.activities || profile.activities.length === 0) {
+    currentState = "B";
+  } else if (activeChallenges.some((c) => c.userJoined && c.completed)) {
+    currentState = "E";
+  } else if (activeChallenges.some((c) => c.userJoined)) {
+    currentState = "D";
   } else {
-    if (!profile.strava_connected) {
-      currentState = "A";
-    } else if (!profile.activities || profile.activities.length === 0) {
-      currentState = "B";
-    } else {
-      if (completedChallenge) {
-        currentState = "E";
-      } else if (joinedChallenge) {
-        currentState = "D";
-      } else {
-        currentState = "C";
-      }
-    }
+    currentState = "C";
   }
 
   // Handle live activities synchronization
@@ -361,8 +351,6 @@ export default function DashboardClient({
           activities: [],
           activities_count: 0,
         }));
-        setJoinedChallenge(false);
-        setCompletedChallenge(false);
         setCurrentConnectionCount(prev => prev !== undefined ? Math.max(0, prev - 1) : 0);
         addNotification("Strava Disconnected", "Your Strava profile connection has been removed.", "info");
       } else {
@@ -376,27 +364,6 @@ export default function DashboardClient({
     }
   };
 
-  // Helper mock activites generator to support simulated State C transitions
-  const triggerMockSync = () => {
-    setIsSyncing(true);
-    setTimeout(() => {
-      setProfile((prev) => ({
-        ...prev,
-        last_synced_at: new Date().toISOString(),
-        activities: [
-          { name: "Morning Gravel Grind 🚴", sport_type: "Ride", distance: 48500, moving_time: 7200, start_date: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString() },
-          { name: "Interval Speed Session ⚡", sport_type: "Run", distance: 10500, moving_time: 2900, start_date: new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString() },
-          { name: "Recovery Run Along Park 🌳", sport_type: "Run", distance: 5200, moving_time: 1700, start_date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
-          { name: "Lunch Walk 🚶", sport_type: "Walk", distance: 3800, moving_time: 2400, start_date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString() },
-          { name: "Weekend Century Ride 🚴‍♂️🔥", sport_type: "Ride", distance: 102400, moving_time: 14800, start_date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString() }
-        ],
-        activities_count: 5,
-      }));
-      setIsSyncing(false);
-      setShowSyncSuccess(true);
-      setTimeout(() => setShowSyncSuccess(false), 5000);
-    }, 1200);
-  };
 
   // Get initials for avatar fallback
   const getInitials = (fullName: string) => {
@@ -787,85 +754,6 @@ export default function DashboardClient({
 
 
 
-      {/* FLOATING STATE SIMULATOR PANEL (Mock Developer Controls) */}
-      <div className="fixed bottom-20 md:bottom-6 right-6 z-50 bg-zinc-900/90 border border-white/10 rounded-2xl p-3 shadow-2xl backdrop-blur-md flex flex-col items-center gap-2 max-w-[200px]">
-        <span className="text-[9px] font-black uppercase text-zinc-500 tracking-wider">State Simulator</span>
-        <div className="flex gap-1 flex-wrap justify-center">
-          {(["auto", "A", "B", "C", "D", "E"] as const).map((st) => (
-            <button
-              key={st}
-              onClick={() => {
-                setSimulatedState(st);
-                if (st === "D") {
-                  setJoinedChallenge(true);
-                  setCompletedChallenge(false);
-                } else if (st === "E") {
-                  setJoinedChallenge(true);
-                  setCompletedChallenge(true);
-                } else if (st === "C") {
-                  setJoinedChallenge(false);
-                  setCompletedChallenge(false);
-                  if (!profile.activities || profile.activities.length === 0) {
-                    setProfile(prev => ({
-                      ...prev,
-                      activities: [
-                        { name: "Morning Gravel Grind 🚴", sport_type: "Ride", distance: 48500, moving_time: 7200, start_date: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString() },
-                        { name: "Interval Speed Session ⚡", sport_type: "Run", distance: 10500, moving_time: 2900, start_date: new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString() },
-                        { name: "Recovery Run Along Park 🌳", sport_type: "Run", distance: 5200, moving_time: 1700, start_date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
-                        { name: "Lunch Walk 🚶", sport_type: "Walk", distance: 3800, moving_time: 2400, start_date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString() },
-                        { name: "Weekend Century Ride 🚴‍♂️🔥", sport_type: "Ride", distance: 102400, moving_time: 14800, start_date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString() }
-                      ],
-                      activities_count: 5,
-                    }));
-                  }
-                } else if (st === "A") {
-                  setJoinedChallenge(false);
-                  setCompletedChallenge(false);
-                } else if (st === "B") {
-                  setJoinedChallenge(false);
-                  setCompletedChallenge(false);
-                  setProfile(prev => ({ ...prev, activities: [], activities_count: 0 }));
-                }
-              }}
-              className={`h-6 w-8 text-[10px] font-bold rounded flex items-center justify-center transition-all cursor-pointer ${
-                simulatedState === st
-                  ? "bg-lime-400 text-black font-black"
-                  : "bg-zinc-800 text-zinc-400 hover:text-white"
-              }`}
-            >
-              {st}
-            </button>
-          ))}
-        </div>
-
-        {/* Mock Role Selector */}
-        <span className="text-[9px] font-black uppercase text-zinc-500 tracking-wider mt-2 pt-2 border-t border-white/5 w-full text-center">Mock Role</span>
-        <div className="grid grid-cols-2 gap-1 w-full">
-          {(["athlete", "challenge_admin", "organization_admin", "super_admin"] as const).map((r) => (
-            <button
-              key={r}
-              onClick={() => {
-                localStorage.setItem("kyl_mock_role", r);
-                document.cookie = `kyl-mock-role=${r}; path=/; max-age=3600; SameSite=Lax`;
-                if (r === "organization_admin") {
-                  window.location.href = "/arena-admin";
-                } else {
-                  window.location.reload();
-                }
-              }}
-              className={`h-6 px-1 text-[8.5px] font-bold rounded flex items-center justify-center transition-all cursor-pointer truncate ${
-                profile.role === r
-                  ? "bg-lime-400 text-black font-black"
-                  : "bg-zinc-800 text-zinc-400 hover:text-white"
-              }`}
-              title={r}
-            >
-              {r.replace("_admin", "")}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Settings Modal Component */}
       {renderSettingsModal()}
 
@@ -980,24 +868,13 @@ export default function DashboardClient({
                 <p className="text-[10px] text-zinc-450 leading-relaxed max-w-xs">Once you finish a ride, run, or walk and save it to your Strava profile, it automatically pulls into our database.</p>
               </div>
 
-              {/* Interactive test trigger */}
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Button 
-                  onClick={triggerMockSync} 
-                  disabled={isSyncing}
-                  className="px-6 h-11 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 text-xs uppercase tracking-wider hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
-                >
-                  {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
-                  Sync Mock Activity
-                </Button>
-                <Link 
-                  href="https://www.strava.com" 
-                  target="_blank"
-                  className="px-6 h-11 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-extrabold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 text-xs uppercase tracking-wider bg-zinc-950/20"
-                >
-                  Go to Strava
-                </Link>
-              </div>
+              <Link 
+                href="https://www.strava.com" 
+                target="_blank"
+                className="inline-flex items-center px-6 h-11 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-extrabold rounded-xl transition-all duration-300 gap-2 text-xs uppercase tracking-wider bg-zinc-950/20"
+              >
+                Go to Strava
+              </Link>
             </div>
           )}
 
@@ -1125,14 +1002,6 @@ export default function DashboardClient({
                   View Leaderboard
                 </Button>
 
-                {/* Simulated fast finish button */}
-                <Button
-                  onClick={() => setCompletedChallenge(true)}
-                  className="px-4 h-10 border border-lime-500/10 hover:border-lime-500/25 bg-lime-950/10 hover:bg-lime-950/20 text-lime-400 font-extrabold rounded-xl transition-all duration-300 flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider cursor-pointer"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Mock Finish
-                </Button>
               </div>
 
             </div>
@@ -1185,8 +1054,9 @@ export default function DashboardClient({
                 <div className="pt-2">
                   <Button
                     onClick={() => {
-                      setJoinedChallenge(false);
-                      setCompletedChallenge(false);
+                      const suffix = window.innerWidth < 768 ? "-mobile" : "-desktop";
+                      const upcomingEl = document.getElementById(`tour-upcoming-challenges-section${suffix}`);
+                      if (upcomingEl) upcomingEl.scrollIntoView({ behavior: "smooth" });
                     }}
                     className="px-6 h-11 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 text-xs uppercase tracking-wider hover:scale-[1.01] active:scale-[0.99] mx-auto cursor-pointer shadow-lg shadow-lime-400/10"
                   >
@@ -1856,14 +1726,7 @@ export default function DashboardClient({
               <h4 className="font-extrabold text-xs text-white uppercase tracking-wider">No activities synced yet</h4>
               <p className="text-[10px] text-zinc-500 leading-relaxed max-w-xs mx-auto">Once your Strava connection registers workouts, they will populate here instantly to count towards challenges.</p>
             </div>
-            {profile.strava_connected ? (
-              <Button 
-                onClick={triggerMockSync} 
-                className="h-9 px-5 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-lg transition-colors text-[10px] uppercase tracking-wider cursor-pointer"
-              >
-                Simulate Activity Import
-              </Button>
-            ) : (
+            {!profile.strava_connected && (
               <Button 
                 onClick={handleConnectStrava} 
                 className="h-9 px-5 bg-[#FC6100] hover:bg-[#E55500] text-white font-extrabold rounded-lg transition-colors text-[10px] uppercase tracking-wider cursor-pointer"
