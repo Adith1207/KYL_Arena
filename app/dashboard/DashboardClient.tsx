@@ -152,18 +152,53 @@ export default function DashboardClient({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Helper: compute progress for a challenge using ALL activities (date + sport filtered)
+  const getFullProgressVal = (c: any): number => {
+    const allActs: any[] = profile.all_activities || [];
+    let total = 0;
+    const challengeStart = new Date(c.startDate);
+    const challengeEnd = new Date(c.endDate);
+    challengeStart.setUTCHours(0, 0, 0, 0);
+    challengeEnd.setUTCHours(23, 59, 59, 999);
+    allActs.forEach((act: any) => {
+      const actDate = new Date(act.start_date);
+      const inRange = actDate >= challengeStart && actDate <= challengeEnd;
+      const matchesSport =
+        c.sportType === "Multisport" ||
+        act.sport_type?.toLowerCase() === c.sportType?.toLowerCase() ||
+        (c.sportType === "Ride" && act.sport_type === "VirtualRide");
+      if (inRange && matchesSport) {
+        if (c.goalType === "Distance") total += (act.distance || 0) / 1000;
+        else if (c.goalType === "Elevation") total += (act.total_elevation_gain || 0);
+        else total += (act.moving_time || 0) / 3600;
+      }
+    });
+    return Number(total.toFixed(1));
+  };
+
   // Determine current display State (A, B, C, D, E) based on live database profile data
   let currentState: "A" | "B" | "C" | "D" | "E" = "A";
   if (!profile.strava_connected) {
     currentState = "A";
   } else if (!profile.activities || profile.activities.length === 0) {
     currentState = "B";
-  } else if (activeChallenges.some((c) => c.userJoined && c.completed)) {
-    currentState = "E";
-  } else if (activeChallenges.some((c) => c.userJoined)) {
-    currentState = "D";
   } else {
-    currentState = "C";
+    const joinedActive = activeChallenges.filter(c => c.userJoined && c.status === "active");
+    const joinedAny = activeChallenges.filter(c => c.userJoined);
+    // State E: at least one joined challenge where the goal has been met OR the challenge has ended
+    const hasCompleted = joinedAny.some(c => {
+      const progress = getFullProgressVal(c);
+      const goalMet = progress >= c.goalTarget;
+      const ended = c.endDate ? new Date(c.endDate) < new Date() : false;
+      return goalMet || (ended && c.status !== "active");
+    });
+    if (hasCompleted) {
+      currentState = "E";
+    } else if (joinedActive.length > 0 || joinedAny.length > 0) {
+      currentState = "D";
+    } else {
+      currentState = "C";
+    }
   }
 
   // Handle live activities synchronization
@@ -412,10 +447,144 @@ export default function DashboardClient({
   return (
     <div className="relative min-h-screen bg-zinc-950 text-white selection:bg-lime-400 selection:text-black overflow-hidden flex flex-col justify-between font-sans">
       
-      {/* Premium Gradient Background Blur Glows */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808003_1px,transparent_1px),linear-gradient(to_bottom,#80808003_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
-      <div className="absolute top-0 left-1/4 -translate-x-1/2 w-[550px] h-[550px] bg-lime-500/5 rounded-full blur-[130px] pointer-events-none animate-pulse duration-[10000ms]" />
-      <div className="absolute bottom-10 right-1/4 translate-x-1/2 w-[450px] h-[450px] bg-emerald-500/5 rounded-full blur-[110px] pointer-events-none animate-pulse duration-[8000ms]" />
+      {/* ── Animated Premium Background ── */}
+      <div aria-hidden="true" className="absolute inset-0 pointer-events-none overflow-hidden">
+        {/* Base dark canvas */}
+        <div className="absolute inset-0 bg-zinc-950" />
+
+        {/* Ambient lime orb — top-left, slow drift */}
+        <div
+          className="absolute -top-32 -left-32 w-[700px] h-[700px] rounded-full"
+          style={{
+            background: "radial-gradient(circle, rgba(163,230,53,0.045) 0%, transparent 70%)",
+            animation: "kyl-orb-drift-a 20s ease-in-out infinite alternate",
+            willChange: "transform",
+          }}
+        />
+        {/* Ambient emerald orb — bottom-right */}
+        <div
+          className="absolute -bottom-24 -right-24 w-[600px] h-[600px] rounded-full"
+          style={{
+            background: "radial-gradient(circle, rgba(52,211,153,0.03) 0%, transparent 70%)",
+            animation: "kyl-orb-drift-b 17s ease-in-out infinite alternate",
+            willChange: "transform",
+          }}
+        />
+
+        {/* Topographic / GPS SVG layer */}
+        <svg
+          className="absolute inset-0 w-full h-full"
+          xmlns="http://www.w3.org/2000/svg"
+          preserveAspectRatio="xMidYMid slice"
+        >
+          <defs>
+            {/* Topographic contour gradient */}
+            <linearGradient id="topo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#a3e635" stopOpacity="0" />
+              <stop offset="50%" stopColor="#a3e635" stopOpacity="0.06" />
+              <stop offset="100%" stopColor="#a3e635" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="gps-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#a3e635" stopOpacity="0" />
+              <stop offset="40%" stopColor="#a3e635" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="#a3e635" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="gps-grad-2" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#34d399" stopOpacity="0" />
+              <stop offset="60%" stopColor="#34d399" stopOpacity="0.12" />
+              <stop offset="100%" stopColor="#34d399" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+
+          {/* Topographic contour rings — static, very faint */}
+          <ellipse cx="30%" cy="38%" rx="22%" ry="14%" fill="none" stroke="url(#topo-grad)" strokeWidth="0.8" opacity="0.5" />
+          <ellipse cx="30%" cy="38%" rx="30%" ry="20%" fill="none" stroke="url(#topo-grad)" strokeWidth="0.6" opacity="0.35" />
+          <ellipse cx="30%" cy="38%" rx="38%" ry="26%" fill="none" stroke="url(#topo-grad)" strokeWidth="0.5" opacity="0.2" />
+          <ellipse cx="75%" cy="70%" rx="18%" ry="11%" fill="none" stroke="url(#topo-grad)" strokeWidth="0.7" opacity="0.4" />
+          <ellipse cx="75%" cy="70%" rx="26%" ry="17%" fill="none" stroke="url(#topo-grad)" strokeWidth="0.5" opacity="0.25" />
+          <ellipse cx="60%" cy="20%" rx="14%" ry="9%" fill="none" stroke="url(#topo-grad)" strokeWidth="0.6" opacity="0.3" />
+
+          {/* GPS route trace 1 — animated dash sweep */}
+          <path
+            d="M -5% 62% C 15% 55%, 30% 45%, 50% 48% S 75% 35%, 105% 30%"
+            fill="none"
+            stroke="url(#gps-grad)"
+            strokeWidth="1.2"
+            strokeDasharray="12 6"
+            opacity="0.7"
+            style={{ animation: "kyl-dash-march 18s linear infinite", willChange: "stroke-dashoffset" }}
+          />
+          {/* GPS route trace 2 */}
+          <path
+            d="M -5% 80% C 20% 72%, 38% 60%, 55% 65% S 80% 55%, 105% 50%"
+            fill="none"
+            stroke="url(#gps-grad-2)"
+            strokeWidth="0.9"
+            strokeDasharray="8 10"
+            opacity="0.5"
+            style={{ animation: "kyl-dash-march 22s linear infinite reverse", willChange: "stroke-dashoffset" }}
+          />
+          {/* GPS route trace 3 — upper register */}
+          <path
+            d="M 10% -2% C 18% 15%, 35% 22%, 48% 18% S 70% 8%, 90% 14%"
+            fill="none"
+            stroke="url(#gps-grad)"
+            strokeWidth="0.8"
+            strokeDasharray="6 14"
+            opacity="0.4"
+            style={{ animation: "kyl-dash-march 26s linear infinite", willChange: "stroke-dashoffset" }}
+          />
+
+          {/* Floating particles — rendered as small animated circles */}
+          {[
+            { cx: "18%", cy: "25%", r: 1.5, delay: "0s", dur: "15s" },
+            { cx: "45%", cy: "12%", r: 1.2, delay: "3s", dur: "19s" },
+            { cx: "72%", cy: "40%", r: 1.8, delay: "6s", dur: "16s" },
+            { cx: "85%", cy: "75%", r: 1.1, delay: "1s", dur: "21s" },
+            { cx: "33%", cy: "78%", r: 1.4, delay: "9s", dur: "18s" },
+            { cx: "60%", cy: "55%", r: 1.0, delay: "4s", dur: "14s" },
+            { cx: "10%", cy: "88%", r: 1.6, delay: "7s", dur: "20s" },
+            { cx: "90%", cy: "18%", r: 1.3, delay: "12s", dur: "17s" },
+          ].map((p, i) => (
+            <circle
+              key={i}
+              cx={p.cx}
+              cy={p.cy}
+              r={p.r}
+              fill="#a3e635"
+              opacity="0"
+              style={{
+                animation: `kyl-particle-pulse ${p.dur} ${p.delay} ease-in-out infinite`,
+                willChange: "opacity, transform",
+              }}
+            />
+          ))}
+        </svg>
+
+        {/* Inline keyframe definitions */}
+        <style>{`
+          @keyframes kyl-orb-drift-a {
+            0%   { transform: translate(0px, 0px) scale(1); }
+            100% { transform: translate(60px, 40px) scale(1.08); }
+          }
+          @keyframes kyl-orb-drift-b {
+            0%   { transform: translate(0px, 0px) scale(1); }
+            100% { transform: translate(-50px, -30px) scale(1.06); }
+          }
+          @keyframes kyl-dash-march {
+            from { stroke-dashoffset: 0; }
+            to   { stroke-dashoffset: -200; }
+          }
+          @keyframes kyl-particle-pulse {
+            0%,100% { opacity: 0;    transform: translateY(0px); }
+            30%     { opacity: 0.45; transform: translateY(-6px); }
+            70%     { opacity: 0.25; transform: translateY(-12px); }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            [style*="kyl-"] { animation: none !important; }
+          }
+        `}</style>
+      </div>
 
       {/* Cyberpunk Style Top Bar */}
       <nav className="relative z-20 border-b border-white/5 bg-zinc-950/60 backdrop-blur-md">
@@ -953,21 +1122,9 @@ export default function DashboardClient({
               return diff > 0 ? diff : 0;
             })();
 
-            // Real progress from all_activities
-            const allActs: any[] = profile.all_activities || [];
+            // Real progress: date-filtered all_activities (matches server leaderboard logic)
             const unit = activeChallenge.goalType === "Distance" ? "km" : activeChallenge.goalType === "Elevation" ? "m" : "hrs";
-            const completedVal = (() => {
-              let total = 0;
-              allActs.forEach(a => {
-                const matchesSport = activeChallenge.sportType === "Multisport" || a.sport_type?.toLowerCase() === activeChallenge.sportType?.toLowerCase();
-                if (matchesSport) {
-                  if (activeChallenge.goalType === "Distance") total += Number(a.distance || 0) / 1000;
-                  else if (activeChallenge.goalType === "Elevation") total += Number(a.total_elevation_gain || 0);
-                  else total += Number(a.moving_time || 0) / 3600;
-                }
-              });
-              return activeChallenge.goalType === "Distance" || activeChallenge.goalType === "Elevation" ? Math.round(total * 10) / 10 : Math.round(total * 10) / 10;
-            })();
+            const completedVal = getFullProgressVal(activeChallenge);
             const pct = Math.min(100, Math.round((completedVal / activeChallenge.goalTarget) * 100));
             const circumference = 2 * Math.PI * 46;
 
@@ -1084,23 +1241,14 @@ export default function DashboardClient({
                 {/* Performance Summary */}
                 <div className="max-w-md mx-auto grid grid-cols-3 gap-2 bg-zinc-950/60 p-4 rounded-2xl border border-white/5 font-mono text-left">
                   {(() => {
-                    const completedChallenge = activeChallenges.find(c => c.userJoined && c.completed) || activeChallenges.find(c => c.userJoined);
-                    const allActs: any[] = profile.all_activities || [];
-                    const unit = completedChallenge?.goalType === "Distance" ? "km" : completedChallenge?.goalType === "Elevation" ? "m" : "hrs";
-                    const totalVal = completedChallenge ? (() => {
-                      let total = 0;
-                      allActs.forEach(a => {
-                        const matchesSport = completedChallenge.sportType === "Multisport" || a.sport_type?.toLowerCase() === completedChallenge.sportType?.toLowerCase();
-                        if (matchesSport) {
-                          if (completedChallenge.goalType === "Distance") total += Number(a.distance || 0) / 1000;
-                          else if (completedChallenge.goalType === "Elevation") total += Number(a.total_elevation_gain || 0);
-                          else total += Number(a.moving_time || 0) / 3600;
-                        }
-                      });
-                      return Math.round(total * 10) / 10;
-                    })() : null;
-                    const finalRank = completedChallenge?.userRank ?? null;
-                    const totalParticipants = completedChallenge?.participantsCount ?? null;
+                    const completedChal = activeChallenges.find(c => c.userJoined && (
+                      getFullProgressVal(c) >= c.goalTarget ||
+                      (c.endDate && new Date(c.endDate) < new Date() && c.status !== "active")
+                    )) || activeChallenges.find(c => c.userJoined);
+                    const unit = completedChal?.goalType === "Distance" ? "km" : completedChal?.goalType === "Elevation" ? "m" : "hrs";
+                    const totalVal = completedChal ? getFullProgressVal(completedChal) : null;
+                    const finalRank = completedChal?.userRank ?? null;
+                    const totalParticipants = completedChal?.participantsCount ?? null;
                     const badgeLabel = finalRank === 1 ? "Gold Medal" : finalRank === 2 ? "Silver Medal" : finalRank === 3 ? "Bronze Medal" : finalRank ? "Finisher" : "—";
                     const badgeColour = finalRank === 1 ? "text-amber-400" : finalRank === 2 ? "text-zinc-300" : finalRank === 3 ? "text-amber-600" : "text-lime-400";
                     return (
@@ -1112,7 +1260,7 @@ export default function DashboardClient({
                           </span>
                         </div>
                         <div className="border-l border-white/5 pl-4">
-                          <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Total {completedChallenge?.goalType || "Distance"}</span>
+                          <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Total {completedChal?.goalType || "Distance"}</span>
                           <span className="text-sm font-black text-white">{totalVal !== null ? `${totalVal} ${unit}` : "—"}</span>
                         </div>
                         <div className="border-l border-white/5 pl-4">
