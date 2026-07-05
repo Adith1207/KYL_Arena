@@ -280,7 +280,7 @@ export default function DashboardClient({
     const checkCompletedChallenges = () => {
       const enrolled = activeChallenges.filter(c => c.userJoined);
       enrolled.forEach(c => {
-        const userActivities = profile.activities || [];
+        const userActivities = profile.all_activities || [];
         let completed = 0;
         
         const challengeStart = new Date(c.startDate);
@@ -1310,7 +1310,7 @@ export default function DashboardClient({
   }
 
   function getProgressVal(c: any) {
-    const userActivities = profile.activities || [];
+    const userActivities = profile.all_activities || [];
     let completed = 0;
     
     const challengeStart = new Date(c.startDate);
