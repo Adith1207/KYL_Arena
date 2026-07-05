@@ -957,33 +957,33 @@ export default function DashboardClient({
 
   // Render State-Dependent Hero Section (A, B, C, D, E)
   function renderHeroSection(stateLetter: "A" | "B" | "C" | "D" | "E", idSuffix = "") {
-    return (
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={stateLetter}
-          initial={{ opacity: 0, scale: 0.98, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.98, y: -10 }}
-          transition={{ duration: 0.35, ease: "easeInOut" }}
-          id={`tour-hero-section${idSuffix}`}
-          className="relative rounded-3xl bg-zinc-900/30 backdrop-blur-xl border border-white/5 p-6 sm:p-8 overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.5)] text-left group"
-        >
-          {/* Decorative neon accent strip */}
-          <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/30 to-transparent" />
-          <div className="absolute -bottom-16 -right-16 w-36 h-36 bg-lime-400/5 rounded-full blur-[40px] pointer-events-none group-hover:bg-lime-400/10 transition-all duration-700" />
+    // If not connected, keep the connect CTA but make it look premium
+    if (stateLetter === "A") {
+      return (
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={stateLetter}
+            initial={{ opacity: 0, scale: 0.98, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.98, y: -10 }}
+            transition={{ duration: 0.35, ease: "easeInOut" }}
+            id={`tour-hero-section${idSuffix}`}
+            className="relative rounded-3xl bg-zinc-900/30 backdrop-blur-xl border border-white/5 p-6 sm:p-8 overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.5)] text-left group"
+          >
+            {/* Decorative neon accent strip */}
+            <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/30 to-transparent" />
+            <div className="absolute -bottom-16 -right-16 w-36 h-36 bg-lime-400/5 rounded-full blur-[40px] pointer-events-none group-hover:bg-lime-400/10 transition-all duration-700" />
 
-          {/* STATE A: No Strava Connected */}
-          {stateLetter === "A" && (
             <div className="space-y-6">
               <div className="space-y-2">
-                <div className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-lime-400 border border-lime-400/20 px-2.5 py-0.5 rounded-full bg-lime-400/5 select-none">
+                <div className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-lime-400 border border-lime-400/20 px-2.5 py-0.5 rounded-full bg-lime-400/5 select-none font-mono">
                   <Flame className="h-3 w-3 animate-pulse" /> Unlock the Arena
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-black uppercase italic tracking-tighter text-white leading-tight">
                   Connect Strava <span className="text-lime-400 not-italic font-normal">To Begin</span>
                 </h2>
                 <p className="text-xs text-zinc-400 leading-relaxed max-w-xl font-medium">
-                  Connect your Strava account to start syncing activities.
+                  Connect your Strava account to start syncing activities and participating in challenges.
                 </p>
               </div>
 
@@ -1026,272 +1026,214 @@ export default function DashboardClient({
                 )}
               </Button>
             </div>
-          )}
+          </motion.div>
+        </AnimatePresence>
+      );
+    }
 
-          {/* STATE B: Strava Connected, No Activities */}
-          {stateLetter === "B" && (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <div className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-emerald-400 border border-emerald-400/20 px-2.5 py-0.5 rounded-full bg-emerald-400/5 select-none">
-                  <CheckCircle className="h-3 w-3 animate-ping" /> Connection Established
+    // Determine Greeting and split name
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? "GOOD MORNING" : hour < 17 ? "GOOD AFTERNOON" : "GOOD EVENING";
+    
+    const nameParts = profile.name.split(" ");
+    const firstName = nameParts[0] || "Athlete";
+    const lastName = nameParts.slice(1).join(" ") || "Narayan";
+    const formattedName = `${firstName.toUpperCase()} ${lastName.toUpperCase()}`;
+
+    // Get Active / Completed challenge details
+    const activeChallenge = activeChallenges.find(c => c.userJoined && c.status === "active") || activeChallenges.find(c => c.userJoined);
+    const completedChallenge = activeChallenges.find(c => c.userJoined && (
+      getFullProgressVal(c) >= c.goalTarget ||
+      (c.endDate && new Date(c.endDate) < new Date() && c.status !== "active")
+    ));
+
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={stateLetter}
+          initial={{ opacity: 0, scale: 0.98, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.98, y: -10 }}
+          transition={{ duration: 0.35, ease: "easeInOut" }}
+          id={`tour-hero-section${idSuffix}`}
+          className="relative rounded-3xl bg-zinc-900/30 backdrop-blur-xl border border-white/5 p-6 sm:p-8 overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.5)] text-left group"
+        >
+          {/* Decorative neon accent strip & ambient glow */}
+          <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/40 to-transparent" />
+          <div className="absolute -bottom-16 -right-16 w-48 h-48 bg-lime-400/5 rounded-full blur-[50px] pointer-events-none group-hover:bg-lime-400/10 transition-all duration-700" />
+          
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
+            {/* Left Welcome Segment */}
+            <div className="lg:col-span-8 space-y-4">
+              <div className="space-y-1.5">
+                <div className="inline-flex items-center gap-1.5 text-[8.5px] font-black uppercase tracking-widest text-lime-400 border border-lime-400/20 px-2.5 py-0.5 rounded-full bg-lime-400/5 select-none font-mono">
+                  <Sparkles className="h-3 w-3 text-lime-400 animate-pulse" /> {greeting} ATHLETE
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-black uppercase italic tracking-tighter text-white leading-tight">
-                  Welcome to <span className="text-lime-400 not-italic">KYL Arena</span>
+                <h2 className="text-2xl sm:text-4xl font-black uppercase italic tracking-tighter text-white leading-none">
+                  WELCOME BACK, <span className="text-lime-400 not-italic font-black bg-gradient-to-r from-lime-400 via-emerald-400 to-lime-500 bg-clip-text text-transparent">{formattedName}</span>
                 </h2>
-                <p className="text-xs text-zinc-400 leading-relaxed max-w-xl font-medium">
-                  Your Strava connection is verified. Record your first fitness activity on Strava, and we will sync it automatically to leaderboards here.
+                <p className="text-xs text-zinc-400 leading-relaxed font-semibold max-w-lg">
+                  {stateLetter === "B" && "Welcome to KYL Arena! Record an activity on Strava to begin tracking stats dynamically."}
+                  {stateLetter === "C" && "Fully synchronized! You aren't participating in any active challenges right now. Join one below."}
+                  {stateLetter === "D" && activeChallenge && `You are actively pushing limits in ${activeChallenge.title}. Keep crushing your targets!`}
+                  {stateLetter === "E" && completedChallenge && `Outstanding! You fully cleared the ${completedChallenge.title}! Your digital medal has been issued.`}
                 </p>
               </div>
 
-              {/* Status Box */}
-              <div className="p-5 rounded-2xl bg-zinc-950/50 border border-white/5 text-center flex flex-col items-center justify-center py-6 gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-                  <span className="text-xs text-zinc-500 font-mono">Awaiting activity signals...</span>
-                </div>
-                <p className="text-[10px] text-zinc-450 leading-relaxed max-w-xs">Once you finish a ride, run, or walk and save it to your Strava profile, it automatically pulls into our database.</p>
-              </div>
+              {/* State-specific mini HUD block inside welcome card */}
+              {stateLetter === "D" && activeChallenge && (() => {
+                const daysRemaining = (() => {
+                  if (!activeChallenge.endDate) return null;
+                  const diff = Math.ceil((new Date(activeChallenge.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                  return diff > 0 ? diff : 0;
+                })();
+                const unit = activeChallenge.goalType === "Distance" ? "km" : activeChallenge.goalType === "Elevation" ? "m" : "hrs";
+                const completedVal = getFullProgressVal(activeChallenge);
+                const pct = Math.min(100, Math.round((completedVal / activeChallenge.goalTarget) * 100));
 
-              <Link 
-                href="https://www.strava.com" 
-                target="_blank"
-                className="inline-flex items-center px-6 h-11 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-extrabold rounded-xl transition-all duration-300 gap-2 text-xs uppercase tracking-wider bg-zinc-950/20"
-              >
-                Go to Strava
-              </Link>
-            </div>
-          )}
-
-          {/* STATE C: Activities Present, No Active Challenge */}
-          {stateLetter === "C" && (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <div className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-lime-400 border border-lime-400/20 px-2.5 py-0.5 rounded-full bg-lime-400/5 select-none">
-                  <CheckCircle className="h-3 w-3" /> Synchronized
-                </div>
-                <h2 className="text-2xl sm:text-3xl font-black uppercase italic tracking-tighter text-white leading-tight">
-                  Ready For Your <span className="text-lime-400 not-italic">Next Challenge?</span>
-                </h2>
-                <p className="text-xs text-zinc-400 leading-relaxed max-w-xl font-medium">
-                  We compiled your latest activity logs. But you are not enrolled in any challenge yet. Join a community challenge to compare your limits.
-                </p>
-              </div>
-
-              {/* Stats board */}
-              <div className="grid grid-cols-3 gap-3 bg-zinc-950/50 p-4 rounded-2xl border border-white/5 font-mono">
-                <div className="text-left">
-                  <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Monthly Dist.</span>
-                  <span className="text-lg font-black text-white">{totalDistanceKm} km</span>
-                </div>
-                <div className="text-left border-l border-white/5 pl-4">
-                  <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Activities</span>
-                  <span className="text-lg font-black text-white">{profile.activities_count || 5}</span>
-                </div>
-                <div className="text-left border-l border-white/5 pl-4">
-                  <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Community Rank</span>
-                  <span className="text-lg font-black text-lime-400">
-                     {(() => {
-                       const joined = activeChallenges.find(c => c.userJoined && c.status === "active");
-                       if (!joined) return "—";
-                       return joined.userRank ? `#${joined.userRank}` : "Pending";
-                     })()}
-                   </span>
-                </div>
-              </div>
-
-              <Button
-                onClick={() => {
-                  setActiveTab("challenges");
-                  const suffix = window.innerWidth < 768 ? "-mobile" : "-desktop";
-                  const challengesEl = document.getElementById(`tour-challenges-section${suffix}`);
-                  if (challengesEl) challengesEl.scrollIntoView({ behavior: "smooth" });
-                }}
-                className="w-full sm:w-auto px-6 h-11 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 text-xs uppercase tracking-wider hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
-              >
-                <Trophy className="h-4 w-4" />
-                Explore Challenges
-              </Button>
-            </div>
-          )}
-
-          {stateLetter === "D" && (() => {
-            const activeChallenge = activeChallenges.find(c => c.userJoined && c.status === "active") || activeChallenges.find(c => c.userJoined);
-            if (!activeChallenge) return null;
-
-            // Real days remaining
-            const daysRemaining = (() => {
-              if (!activeChallenge.endDate) return null;
-              const diff = Math.ceil((new Date(activeChallenge.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-              return diff > 0 ? diff : 0;
-            })();
-
-            // Real progress: date-filtered all_activities (matches server leaderboard logic)
-            const unit = activeChallenge.goalType === "Distance" ? "km" : activeChallenge.goalType === "Elevation" ? "m" : "hrs";
-            const completedVal = getFullProgressVal(activeChallenge);
-            const pct = Math.min(100, Math.round((completedVal / activeChallenge.goalTarget) * 100));
-            const circumference = 2 * Math.PI * 46;
-
-            return (
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-white/5 pb-4 gap-3">
-                <div>
-                  <div className="inline-flex items-center gap-1.5 text-[8.5px] font-black uppercase tracking-widest text-lime-400 border border-lime-400/20 px-2.5 py-0.5 rounded-full bg-lime-400/5 select-none mb-1">
-                    <Trophy className="h-3 w-3 animate-bounce" /> Active Challenge
+                return (
+                  <div className="p-4 rounded-2xl bg-zinc-950/40 border border-white/5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase text-zinc-400 tracking-wider font-mono">Active Challenge Progress</span>
+                      <span className="text-[9px] text-lime-400 font-bold font-mono">
+                        {daysRemaining === 0 ? "Last Day!" : `${daysRemaining} Days Left`}
+                      </span>
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-baseline justify-between font-mono text-[10px]">
+                        <span className="text-zinc-550">Target: {completedVal} / {activeChallenge.goalTarget} {unit}</span>
+                        <span className="text-lime-400 font-extrabold">{pct}% Complete</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-zinc-900 border border-white/5 rounded-full overflow-hidden">
+                        <motion.div 
+                          className="h-full bg-lime-400 rounded-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${pct}%` }}
+                          transition={{ duration: 1 }}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <h3 className="text-xl font-bold text-white tracking-tight uppercase">{activeChallenge.title}</h3>
-                </div>
-                <div className="rounded-xl bg-zinc-950/60 px-4 py-2 border border-white/5 text-xs sm:text-right font-mono self-start sm:self-center">
-                  <span className="text-zinc-500 block text-[9px] uppercase tracking-wider font-bold">Days Remaining</span>
-                  <span className="font-semibold text-lime-400 font-bold">
-                    {daysRemaining === null ? "—" : daysRemaining === 0 ? "Last Day!" : `${daysRemaining} Days Left`}
-                  </span>
-                </div>
-              </div>
+                );
+              })()}
 
-              <div className="flex flex-col sm:flex-row items-center gap-6">
-                {/* SVG Progress Ring */}
-                <div className="relative h-28 w-28 shrink-0 flex items-center justify-center">
-                  <svg className="w-full h-full transform -rotate-90">
-                    <circle cx="56" cy="56" r="46" stroke="#18181b" strokeWidth="8" fill="transparent" />
-                    <motion.circle
-                      cx="56"
-                      cy="56"
-                      r="46"
-                      stroke="#a3e635"
-                      strokeWidth="8"
-                      fill="transparent"
-                      strokeDasharray={circumference}
-                      initial={{ strokeDashoffset: circumference }}
-                      animate={{ strokeDashoffset: circumference * (1 - pct / 100) }}
-                      transition={{ duration: 1.5, ease: "easeOut" }}
-                    />
-                  </svg>
-                  <div className="absolute flex flex-col items-center">
-                    <span className="text-xl font-black text-white leading-none">{pct}%</span>
-                    <span className="text-[7.5px] uppercase tracking-widest text-zinc-500 mt-1 font-bold">Complete</span>
+              {stateLetter === "E" && completedChallenge && (() => {
+                const finalRank = completedChallenge.userRank ?? null;
+                const totalParticipants = completedChallenge.participantsCount ?? null;
+                const badgeLabel = finalRank === 1 ? "Gold Medal" : finalRank === 2 ? "Silver Medal" : finalRank === 3 ? "Bronze Medal" : finalRank ? "Finisher" : "—";
+                const badgeColour = finalRank === 1 ? "text-amber-400 border-amber-400/20 bg-amber-400/5" : finalRank === 2 ? "text-zinc-300 border-zinc-300/20 bg-zinc-350/5" : finalRank === 3 ? "text-amber-600 border-amber-700/20 bg-amber-700/5" : "text-lime-400 border-lime-400/20 bg-lime-400/5";
+
+                return (
+                  <div className="p-4 rounded-2xl bg-zinc-950/40 border border-white/5 flex items-center justify-between gap-4">
+                    <div className="text-left space-y-1">
+                      <h4 className="text-[10px] font-black uppercase tracking-wider text-zinc-400 font-mono">Completed Target Verified</h4>
+                      <p className="text-[10px] text-zinc-500 leading-normal font-semibold">You completed the {completedChallenge.title} and cleared the standings.</p>
+                    </div>
+                    <div className={`px-3 py-1.5 rounded-xl border text-[9px] font-black uppercase font-mono tracking-wider text-center shrink-0 ${badgeColour}`}>
+                      🏆 {badgeLabel}
+                    </div>
                   </div>
+                );
+              })()}
+
+              {stateLetter === "B" && (
+                <div className="p-4 rounded-2xl bg-zinc-950/40 border border-white/5 flex items-center gap-3">
+                  <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                  <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-wide">Awaiting activity signals from Strava profile...</span>
                 </div>
+              )}
 
-                {/* Challenge Stats */}
-                <div className="flex-1 w-full grid grid-cols-2 gap-4 text-left font-mono">
-                  <div className="bg-zinc-950/30 p-3 rounded-xl border border-white/5">
-                    <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Total {activeChallenge.goalType}</span>
-                    <span className="text-sm font-black text-white">{completedVal} / {activeChallenge.goalTarget} {unit}</span>
-                  </div>
-                  <div className="bg-zinc-950/30 p-3 rounded-xl border border-white/5">
-                    <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Current Standing</span>
-                    <span className="text-sm font-black text-lime-400">
-                      {activeChallenge.userRank ? `Rank #${activeChallenge.userRank}` : "Rank Pending"}
-                    </span>
-                  </div>
-                  <div className="bg-zinc-950/30 p-3 rounded-xl border border-white/5">
-                    <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Active Athletes</span>
-                    <span className="text-sm font-black text-white">{activeChallenge.participantsCount} Competitor{activeChallenge.participantsCount !== 1 ? "s" : ""}</span>
-                  </div>
-                  <div className="bg-zinc-950/30 p-3 rounded-xl border border-white/5">
-                    <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Category</span>
-                    <span className="text-sm font-black text-white">{activeChallenge.sportType}</span>
-                  </div>
-                </div>
-              </div>
+              {/* Action row */}
+              <div className="flex flex-wrap gap-3 pt-1.5">
+                {stateLetter === "C" && (
+                  <Button
+                    onClick={() => {
+                      setActiveTab("challenges");
+                      const suffix = window.innerWidth < 768 ? "-mobile" : "-desktop";
+                      const challengesEl = document.getElementById(`tour-challenges-section${suffix}`);
+                      if (challengesEl) challengesEl.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="px-5 h-10 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
+                  >
+                    <Trophy className="h-4 w-4" />
+                    Explore Challenges
+                  </Button>
+                )}
 
-              <div className="flex gap-3 pt-2">
-                <Button
-                  onClick={() => {
-                    const suffix = window.innerWidth < 768 ? "-mobile" : "-desktop";
-                    const leaderboardEl = document.getElementById(`tour-leaderboard-section${suffix}`);
-                    if (leaderboardEl) leaderboardEl.scrollIntoView({ behavior: "smooth" });
-                    setActiveTab("leaderboard");
-                  }}
-                  className="flex-1 sm:flex-none px-6 h-10 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
-                >
-                  <Users className="h-4 w-4" />
-                  View Leaderboard
-                </Button>
-              </div>
-            </div>
-            );
-          })()}
+                {stateLetter === "D" && activeChallenge && (
+                  <Button
+                    onClick={() => {
+                      const suffix = window.innerWidth < 768 ? "-mobile" : "-desktop";
+                      const leaderboardEl = document.getElementById(`tour-leaderboard-section${suffix}`);
+                      if (leaderboardEl) leaderboardEl.scrollIntoView({ behavior: "smooth" });
+                      setActiveTab("leaderboard");
+                    }}
+                    className="px-5 h-10 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
+                  >
+                    <Users className="h-4 w-4" />
+                    View Leaderboard
+                  </Button>
+                )}
 
-          {/* STATE E: Challenge Completed Celebration Card */}
-          {stateLetter === "E" && (
-            <div className="space-y-6 relative">
-              {/* Gold light burst back glow */}
-              <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/5 via-zinc-900/0 to-lime-500/5 opacity-80 rounded-3xl" />
-              
-              <div className="text-center space-y-4 py-4 relative z-10">
-                <motion.div 
-                  initial={{ scale: 0, rotate: -20 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ type: "spring", stiffness: 200, delay: 0.15 }}
-                  className="mx-auto h-16 w-16 rounded-full bg-amber-400/10 border border-amber-400/30 flex items-center justify-center text-amber-400 shadow-[0_0_24px_rgba(251,191,36,0.15)] animate-bounce"
-                >
-                  <Award className="h-9 w-9" />
-                </motion.div>
-
-                <div className="space-y-2">
-                  <div className="inline-flex items-center gap-1.5 text-[8.5px] font-black uppercase tracking-widest text-amber-400 border border-amber-400/20 px-2.5 py-0.5 rounded-full bg-amber-400/5 select-none">
-                    <Sparkles className="h-3 w-3" /> Challenge Conquered
-                  </div>
-                  <h2 className="text-2xl sm:text-3xl font-black uppercase italic tracking-tighter text-white leading-tight">
-                    June Century <span className="text-amber-400 not-italic">Club Cleared!</span>
-                  </h2>
-                  <p className="text-xs text-zinc-400 leading-relaxed max-w-md mx-auto font-medium">
-                    Incredible achievement, athlete! You conquered the limits, completed the Century target, and earned your gold medal badge.
-                  </p>
-                </div>
-
-                {/* Performance Summary */}
-                <div className="max-w-md mx-auto grid grid-cols-3 gap-2 bg-zinc-950/60 p-4 rounded-2xl border border-white/5 font-mono text-left">
-                  {(() => {
-                    const completedChal = activeChallenges.find(c => c.userJoined && (
-                      getFullProgressVal(c) >= c.goalTarget ||
-                      (c.endDate && new Date(c.endDate) < new Date() && c.status !== "active")
-                    )) || activeChallenges.find(c => c.userJoined);
-                    const unit = completedChal?.goalType === "Distance" ? "km" : completedChal?.goalType === "Elevation" ? "m" : "hrs";
-                    const totalVal = completedChal ? getFullProgressVal(completedChal) : null;
-                    const finalRank = completedChal?.userRank ?? null;
-                    const totalParticipants = completedChal?.participantsCount ?? null;
-                    const badgeLabel = finalRank === 1 ? "Gold Medal" : finalRank === 2 ? "Silver Medal" : finalRank === 3 ? "Bronze Medal" : finalRank ? "Finisher" : "—";
-                    const badgeColour = finalRank === 1 ? "text-amber-400" : finalRank === 2 ? "text-zinc-300" : finalRank === 3 ? "text-amber-600" : "text-lime-400";
-                    return (
-                      <>
-                        <div>
-                          <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Final Standing</span>
-                          <span className="text-sm font-black text-amber-400">
-                            {finalRank ? `Rank #${finalRank}${totalParticipants ? ` of ${totalParticipants}` : ""}` : "Rank Pending"}
-                          </span>
-                        </div>
-                        <div className="border-l border-white/5 pl-4">
-                          <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Total {completedChal?.goalType || "Distance"}</span>
-                          <span className="text-sm font-black text-white">{totalVal !== null ? `${totalVal} ${unit}` : "—"}</span>
-                        </div>
-                        <div className="border-l border-white/5 pl-4">
-                          <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Badge Issued</span>
-                          <span className={`text-sm font-black font-extrabold uppercase tracking-wide ${badgeColour}`}>{badgeLabel}</span>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-
-                <div className="pt-2">
+                {stateLetter === "E" && (
                   <Button
                     onClick={() => {
                       const suffix = window.innerWidth < 768 ? "-mobile" : "-desktop";
                       const upcomingEl = document.getElementById(`tour-upcoming-challenges-section${suffix}`);
                       if (upcomingEl) upcomingEl.scrollIntoView({ behavior: "smooth" });
                     }}
-                    className="px-6 h-11 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 text-xs uppercase tracking-wider hover:scale-[1.01] active:scale-[0.99] mx-auto cursor-pointer shadow-lg shadow-lime-400/10"
+                    className="px-5 h-10 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
                   >
                     <Trophy className="h-4 w-4" />
                     Join Another Challenge
                   </Button>
-                </div>
+                )}
+
+                {stateLetter === "B" && (
+                  <Link 
+                    href="https://www.strava.com" 
+                    target="_blank"
+                    className="inline-flex items-center px-5 h-10 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-extrabold rounded-xl transition-all gap-1.5 text-[10px] uppercase tracking-wider bg-zinc-950/20"
+                  >
+                    Go to Strava
+                  </Link>
+                )}
               </div>
             </div>
-          )}
 
+            {/* Right Quick-Stats HUD Segment */}
+            <div className="lg:col-span-4 bg-zinc-950/30 border border-white/5 rounded-2xl p-4 flex flex-col justify-between space-y-4">
+              <span className="text-[9px] font-black uppercase text-zinc-500 tracking-wider font-mono border-b border-white/5 pb-2">HUD STATS SUMMARY</span>
+              
+              <div className="space-y-3 font-mono">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-zinc-500">MONTHLY DIST.</span>
+                  <span className="text-white font-extrabold">{totalDistanceKm} km</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-zinc-500">TOTAL WORKOUTS</span>
+                  <span className="text-white font-extrabold">{profile.activities_count || 0} Synced</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-zinc-500">COMMUNITY STANDING</span>
+                  <span className="text-lime-400 font-extrabold">
+                    {(() => {
+                      const joined = activeChallenges.find(c => c.userJoined && c.status === "active");
+                      if (!joined) return "—";
+                      return joined.userRank ? `#${joined.userRank}` : "Pending";
+                    })()}
+                  </span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-white/5 text-[8px] text-zinc-500 font-mono flex items-center justify-between">
+                <span>LAST SYNCED:</span>
+                <span>
+                  {profile.last_synced_at ? formatDate(profile.last_synced_at) : "Awaiting sync"}
+                </span>
+              </div>
+            </div>
+          </div>
         </motion.div>
       </AnimatePresence>
     );
