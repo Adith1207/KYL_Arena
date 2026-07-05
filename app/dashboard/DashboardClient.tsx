@@ -113,6 +113,7 @@ export default function DashboardClient({
   const [isTourOpen, setIsTourOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isChallengePortalOpen, setIsChallengePortalOpen] = useState(false);
   const menuDropdownRef = useRef<HTMLDivElement>(null);
 
 
@@ -941,6 +942,9 @@ export default function DashboardClient({
       {/* Settings Modal Component */}
       {renderSettingsModal()}
 
+      {/* Challenge Portal Modal Component */}
+      {renderChallengePortalModal()}
+
       {/* Onboarding Tour Component */}
       <DashboardTour
         isOpen={isTourOpen}
@@ -1147,12 +1151,7 @@ export default function DashboardClient({
               <div className="flex flex-wrap gap-3 pt-1.5">
                 {stateLetter === "C" && (
                   <Button
-                    onClick={() => {
-                      setActiveTab("challenges");
-                      const suffix = window.innerWidth < 768 ? "-mobile" : "-desktop";
-                      const challengesEl = document.getElementById(`tour-challenges-section${suffix}`);
-                      if (challengesEl) challengesEl.scrollIntoView({ behavior: "smooth" });
-                    }}
+                    onClick={() => setIsChallengePortalOpen(true)}
                     className="px-5 h-10 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
                   >
                     <Trophy className="h-4 w-4" />
@@ -1177,11 +1176,7 @@ export default function DashboardClient({
 
                 {stateLetter === "E" && (
                   <Button
-                    onClick={() => {
-                      const suffix = window.innerWidth < 768 ? "-mobile" : "-desktop";
-                      const upcomingEl = document.getElementById(`tour-upcoming-challenges-section${suffix}`);
-                      if (upcomingEl) upcomingEl.scrollIntoView({ behavior: "smooth" });
-                    }}
+                    onClick={() => setIsChallengePortalOpen(true)}
                     className="px-5 h-10 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
                   >
                     <Trophy className="h-4 w-4" />
@@ -2208,6 +2203,138 @@ export default function DashboardClient({
                 {loadingLogout ? <Loader2 className="h-3 w-3 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
                 Sign Out
               </Button>
+            </div>
+          </motion.div>
+        </div>
+      </AnimatePresence>
+    );
+  }
+
+  function renderChallengePortalModal() {
+    if (!isChallengePortalOpen) return null;
+
+    // Filter to challenges not joined
+    const unjoinedChallenges = activeChallenges.filter(
+      c => !c.userJoined && !justJoinedIds.includes(c.id)
+    );
+
+    return (
+      <AnimatePresence>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsChallengePortalOpen(false)}
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm cursor-pointer"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 15 }}
+            transition={{ type: "spring", stiffness: 220, damping: 22 }}
+            className="relative max-w-xl w-full bg-zinc-950 border border-white/10 rounded-3xl p-6 shadow-[0_20px_50px_rgba(0,0,0,0.9),0_0_30px_rgba(163,230,53,0.02)] z-50 text-left space-y-6 overflow-hidden max-h-[85vh] flex flex-col"
+          >
+            <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/30 to-transparent" />
+            
+            <div className="flex justify-between items-center border-b border-white/5 pb-4 shrink-0">
+              <h3 className="text-sm font-black uppercase text-white tracking-wider flex items-center gap-2 italic font-mono">
+                <Trophy className="h-4.5 w-4.5 text-lime-400 animate-pulse" />
+                CHALLENGE PORTAL TERMINAL
+              </h3>
+              <button
+                onClick={() => setIsChallengePortalOpen(false)}
+                className="text-zinc-500 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto pr-1 flex-1 space-y-4 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+              {unjoinedChallenges.length === 0 ? (
+                <div className="text-center py-12 px-4 space-y-4">
+                  <div className="h-16 w-16 mx-auto rounded-full bg-lime-400/10 border border-lime-400/20 flex items-center justify-center text-lime-400 shadow-[0_0_20px_rgba(163,230,53,0.1)] animate-bounce">
+                    <CheckCircle className="h-8 w-8" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <h4 className="font-extrabold text-sm text-white uppercase tracking-wider">ALL CHALLENGES ENROLLED</h4>
+                    <p className="text-xs text-zinc-500 leading-relaxed max-w-sm mx-auto">
+                      Incredible! You have joined all available community challenges in KYL Arena. Sync your workouts to lead the rankings.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3.5">
+                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider font-mono">AVAILABLE FOR ENROLLMENT</p>
+                  {unjoinedChallenges.map((c) => {
+                    const isRide = c.sportType === "Ride";
+                    const isRun = c.sportType === "Run";
+                    const isWalk = c.sportType === "Walk";
+                    const unit = c.goalType === "Distance" ? "km" : c.goalType === "Elevation" ? "m" : "hrs";
+                    const isJoining = loadingJoinId === c.id;
+
+                    return (
+                      <div
+                        key={c.id}
+                        className="p-4 rounded-2xl bg-zinc-900/30 border border-white/5 space-y-3 hover:border-lime-400/20 transition-all duration-300 relative group/card"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-widest ${
+                              isRide ? "border-lime-400/20 bg-lime-400/5 text-lime-400" :
+                              isRun ? "border-red-400/20 bg-red-400/5 text-red-400" :
+                              "border-blue-400/20 bg-blue-400/5 text-blue-400"
+                            }`}>
+                              {isRide ? <Bike className="h-2.5 w-2.5 shrink-0" /> : 
+                               isRun ? <Flame className="h-2.5 w-2.5 shrink-0" /> :
+                               <Footprints className="h-2.5 w-2.5 shrink-0" />} {c.sportType}
+                            </div>
+                            <h4 className="font-extrabold text-xs text-white uppercase tracking-tight mt-1.5">{c.title}</h4>
+                            <p className="text-[10px] text-zinc-500 leading-relaxed mt-1 font-semibold max-w-sm">{c.description}</p>
+                          </div>
+                          <div className="flex flex-col items-end gap-1 shrink-0 text-right font-mono text-[9px] text-zinc-500 font-bold">
+                            <span>{c.participantsCount} joined</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full border border-lime-400/20 bg-lime-400/5 text-[9px] text-lime-400 font-black">
+                              Target: {c.goalTarget} {unit}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2 pt-1.5 border-t border-white/5">
+                          <Button
+                            onClick={async () => {
+                              await handleJoin(c.id, c.title);
+                            }}
+                            disabled={isJoining}
+                            className="flex-1 h-8 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all duration-300 flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer"
+                          >
+                            {isJoining ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                Enrolling...
+                              </>
+                            ) : (
+                              <>
+                                <Check className="h-3.5 w-3.5" />
+                                QUICK JOIN
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            asChild
+                            variant="outline"
+                            className="h-8 px-3 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-white rounded-xl text-[10px] font-extrabold uppercase tracking-wider cursor-pointer"
+                          >
+                            <Link href={`/challenge/${c.id}`} onClick={() => setIsChallengePortalOpen(false)}>
+                              INFO
+                            </Link>
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </motion.div>
         </div>
