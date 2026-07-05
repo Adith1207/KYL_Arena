@@ -450,7 +450,13 @@ export default function DashboardClient({
                 >
                   <div className="hidden md:block text-right">
                     <p className="text-[10px] font-black text-white uppercase italic leading-none">{profile.name.split(" ")[0]}</p>
-                    <p className="text-[8px] text-lime-400 font-mono mt-0.5 leading-none">Rank #9</p>
+                    <p className="text-[8px] text-lime-400 font-mono mt-0.5 leading-none">
+                      {(() => {
+                        const joined = activeChallenges.find(c => c.userJoined && c.status === "active");
+                        if (!joined) return "Not Participating";
+                        return joined.userRank ? `Rank #${joined.userRank}` : "Rank Pending";
+                      })()}
+                    </p>
                   </div>
                   {profile.avatar ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -479,7 +485,13 @@ export default function DashboardClient({
                         <div className="min-w-0">
                           <p className="text-xs font-black text-white truncate">{profile.name}</p>
                           <p className="text-[9px] text-zinc-500 font-mono truncate">{profile.email}</p>
-                          <span className="inline-block text-[8px] font-mono text-lime-400 bg-lime-400/10 px-1.5 py-0.5 rounded-full mt-1">Rank #9</span>
+                          <span className="inline-block text-[8px] font-mono text-lime-400 bg-lime-400/10 px-1.5 py-0.5 rounded-full mt-1">
+                            {(() => {
+                              const joined = activeChallenges.find(c => c.userJoined && c.status === "active");
+                              if (!joined) return "Not Participating";
+                              return joined.userRank ? `Rank #${joined.userRank}` : "Rank Pending";
+                            })()}
+                          </span>
                         </div>
                       </div>
 
@@ -905,7 +917,13 @@ export default function DashboardClient({
                 </div>
                 <div className="text-left border-l border-white/5 pl-4">
                   <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Community Rank</span>
-                  <span className="text-lg font-black text-lime-400">#9</span>
+                  <span className="text-lg font-black text-lime-400">
+                     {(() => {
+                       const joined = activeChallenges.find(c => c.userJoined && c.status === "active");
+                       if (!joined) return "—";
+                       return joined.userRank ? `#${joined.userRank}` : "Pending";
+                     })()}
+                   </span>
                 </div>
               </div>
 
@@ -924,43 +942,72 @@ export default function DashboardClient({
             </div>
           )}
 
-          {/* STATE D: Enrolled Active Challenge Card */}
-          {stateLetter === "D" && (
+          {stateLetter === "D" && (() => {
+            const activeChallenge = activeChallenges.find(c => c.userJoined && c.status === "active") || activeChallenges.find(c => c.userJoined);
+            if (!activeChallenge) return null;
+
+            // Real days remaining
+            const daysRemaining = (() => {
+              if (!activeChallenge.endDate) return null;
+              const diff = Math.ceil((new Date(activeChallenge.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+              return diff > 0 ? diff : 0;
+            })();
+
+            // Real progress from all_activities
+            const allActs: any[] = profile.all_activities || [];
+            const unit = activeChallenge.goalType === "Distance" ? "km" : activeChallenge.goalType === "Elevation" ? "m" : "hrs";
+            const completedVal = (() => {
+              let total = 0;
+              allActs.forEach(a => {
+                const matchesSport = activeChallenge.sportType === "Multisport" || a.sport_type?.toLowerCase() === activeChallenge.sportType?.toLowerCase();
+                if (matchesSport) {
+                  if (activeChallenge.goalType === "Distance") total += Number(a.distance || 0) / 1000;
+                  else if (activeChallenge.goalType === "Elevation") total += Number(a.total_elevation_gain || 0);
+                  else total += Number(a.moving_time || 0) / 3600;
+                }
+              });
+              return activeChallenge.goalType === "Distance" || activeChallenge.goalType === "Elevation" ? Math.round(total * 10) / 10 : Math.round(total * 10) / 10;
+            })();
+            const pct = Math.min(100, Math.round((completedVal / activeChallenge.goalTarget) * 100));
+            const circumference = 2 * Math.PI * 46;
+
+            return (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-white/5 pb-4 gap-3">
                 <div>
                   <div className="inline-flex items-center gap-1.5 text-[8.5px] font-black uppercase tracking-widest text-lime-400 border border-lime-400/20 px-2.5 py-0.5 rounded-full bg-lime-400/5 select-none mb-1">
                     <Trophy className="h-3 w-3 animate-bounce" /> Active Challenge
                   </div>
-                  <h3 className="text-xl font-bold text-white tracking-tight uppercase">June Century Club</h3>
+                  <h3 className="text-xl font-bold text-white tracking-tight uppercase">{activeChallenge.title}</h3>
                 </div>
                 <div className="rounded-xl bg-zinc-950/60 px-4 py-2 border border-white/5 text-xs sm:text-right font-mono self-start sm:self-center">
                   <span className="text-zinc-500 block text-[9px] uppercase tracking-wider font-bold">Days Remaining</span>
-                  <span className="font-semibold text-lime-400 font-bold">15 Days Left</span>
+                  <span className="font-semibold text-lime-400 font-bold">
+                    {daysRemaining === null ? "—" : daysRemaining === 0 ? "Last Day!" : `${daysRemaining} Days Left`}
+                  </span>
                 </div>
               </div>
 
               <div className="flex flex-col sm:flex-row items-center gap-6">
-                
                 {/* SVG Progress Ring */}
                 <div className="relative h-28 w-28 shrink-0 flex items-center justify-center">
                   <svg className="w-full h-full transform -rotate-90">
                     <circle cx="56" cy="56" r="46" stroke="#18181b" strokeWidth="8" fill="transparent" />
-                    <motion.circle 
-                      cx="56" 
-                      cy="56" 
-                      r="46" 
-                      stroke="#a3e635" 
-                      strokeWidth="8" 
-                      fill="transparent" 
-                      strokeDasharray={2 * Math.PI * 46}
-                      initial={{ strokeDashoffset: 2 * Math.PI * 46 }}
-                      animate={{ strokeDashoffset: 2 * Math.PI * 46 * (1 - 0.65) }}
+                    <motion.circle
+                      cx="56"
+                      cy="56"
+                      r="46"
+                      stroke="#a3e635"
+                      strokeWidth="8"
+                      fill="transparent"
+                      strokeDasharray={circumference}
+                      initial={{ strokeDashoffset: circumference }}
+                      animate={{ strokeDashoffset: circumference * (1 - pct / 100) }}
                       transition={{ duration: 1.5, ease: "easeOut" }}
                     />
                   </svg>
                   <div className="absolute flex flex-col items-center">
-                    <span className="text-xl font-black text-white leading-none">65%</span>
+                    <span className="text-xl font-black text-white leading-none">{pct}%</span>
                     <span className="text-[7.5px] uppercase tracking-widest text-zinc-500 mt-1 font-bold">Complete</span>
                   </div>
                 </div>
@@ -968,26 +1015,26 @@ export default function DashboardClient({
                 {/* Challenge Stats */}
                 <div className="flex-1 w-full grid grid-cols-2 gap-4 text-left font-mono">
                   <div className="bg-zinc-950/30 p-3 rounded-xl border border-white/5">
-                    <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Total Distance</span>
-                    <span className="text-sm font-black text-white">324.5 / 500 km</span>
+                    <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Total {activeChallenge.goalType}</span>
+                    <span className="text-sm font-black text-white">{completedVal} / {activeChallenge.goalTarget} {unit}</span>
                   </div>
                   <div className="bg-zinc-950/30 p-3 rounded-xl border border-white/5">
                     <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Current Standing</span>
-                    <span className="text-sm font-black text-lime-400">Rank #8</span>
+                    <span className="text-sm font-black text-lime-400">
+                      {activeChallenge.userRank ? `Rank #${activeChallenge.userRank}` : "Rank Pending"}
+                    </span>
                   </div>
                   <div className="bg-zinc-950/30 p-3 rounded-xl border border-white/5">
                     <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Active Athletes</span>
-                    <span className="text-sm font-black text-white">42 Competitors</span>
+                    <span className="text-sm font-black text-white">{activeChallenge.participantsCount} Competitor{activeChallenge.participantsCount !== 1 ? "s" : ""}</span>
                   </div>
                   <div className="bg-zinc-950/30 p-3 rounded-xl border border-white/5">
                     <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Category</span>
-                    <span className="text-sm font-black text-white">Cycling</span>
+                    <span className="text-sm font-black text-white">{activeChallenge.sportType}</span>
                   </div>
                 </div>
-
               </div>
 
-              {/* Progress and simulation bar */}
               <div className="flex gap-3 pt-2">
                 <Button
                   onClick={() => {
@@ -996,16 +1043,15 @@ export default function DashboardClient({
                     if (leaderboardEl) leaderboardEl.scrollIntoView({ behavior: "smooth" });
                     setActiveTab("leaderboard");
                   }}
-                  className="flex-1 sm:flex-none px-6 h-10 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-extrabold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer"
+                  className="flex-1 sm:flex-none px-6 h-10 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
                 >
                   <Users className="h-4 w-4" />
                   View Leaderboard
                 </Button>
-
               </div>
-
             </div>
-          )}
+            );
+          })()}
 
           {/* STATE E: Challenge Completed Celebration Card */}
           {stateLetter === "E" && (
@@ -1037,18 +1083,45 @@ export default function DashboardClient({
 
                 {/* Performance Summary */}
                 <div className="max-w-md mx-auto grid grid-cols-3 gap-2 bg-zinc-950/60 p-4 rounded-2xl border border-white/5 font-mono text-left">
-                  <div>
-                    <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Final Standing</span>
-                    <span className="text-sm font-black text-amber-400">Rank #4</span>
-                  </div>
-                  <div className="border-l border-white/5 pl-4">
-                    <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Total Distance</span>
-                    <span className="text-sm font-black text-white">612.4 km</span>
-                  </div>
-                  <div className="border-l border-white/5 pl-4">
-                    <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Badge Issued</span>
-                    <span className="text-sm font-black text-lime-400 font-extrabold uppercase tracking-wide">Gold Medal</span>
-                  </div>
+                  {(() => {
+                    const completedChallenge = activeChallenges.find(c => c.userJoined && c.completed) || activeChallenges.find(c => c.userJoined);
+                    const allActs: any[] = profile.all_activities || [];
+                    const unit = completedChallenge?.goalType === "Distance" ? "km" : completedChallenge?.goalType === "Elevation" ? "m" : "hrs";
+                    const totalVal = completedChallenge ? (() => {
+                      let total = 0;
+                      allActs.forEach(a => {
+                        const matchesSport = completedChallenge.sportType === "Multisport" || a.sport_type?.toLowerCase() === completedChallenge.sportType?.toLowerCase();
+                        if (matchesSport) {
+                          if (completedChallenge.goalType === "Distance") total += Number(a.distance || 0) / 1000;
+                          else if (completedChallenge.goalType === "Elevation") total += Number(a.total_elevation_gain || 0);
+                          else total += Number(a.moving_time || 0) / 3600;
+                        }
+                      });
+                      return Math.round(total * 10) / 10;
+                    })() : null;
+                    const finalRank = completedChallenge?.userRank ?? null;
+                    const totalParticipants = completedChallenge?.participantsCount ?? null;
+                    const badgeLabel = finalRank === 1 ? "Gold Medal" : finalRank === 2 ? "Silver Medal" : finalRank === 3 ? "Bronze Medal" : finalRank ? "Finisher" : "—";
+                    const badgeColour = finalRank === 1 ? "text-amber-400" : finalRank === 2 ? "text-zinc-300" : finalRank === 3 ? "text-amber-600" : "text-lime-400";
+                    return (
+                      <>
+                        <div>
+                          <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Final Standing</span>
+                          <span className="text-sm font-black text-amber-400">
+                            {finalRank ? `Rank #${finalRank}${totalParticipants ? ` of ${totalParticipants}` : ""}` : "Rank Pending"}
+                          </span>
+                        </div>
+                        <div className="border-l border-white/5 pl-4">
+                          <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Total {completedChallenge?.goalType || "Distance"}</span>
+                          <span className="text-sm font-black text-white">{totalVal !== null ? `${totalVal} ${unit}` : "—"}</span>
+                        </div>
+                        <div className="border-l border-white/5 pl-4">
+                          <span className="text-[8px] text-zinc-500 uppercase tracking-widest block font-bold">Badge Issued</span>
+                          <span className={`text-sm font-black font-extrabold uppercase tracking-wide ${badgeColour}`}>{badgeLabel}</span>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 <div className="pt-2">
@@ -1931,7 +2004,13 @@ export default function DashboardClient({
               <div>
                 <h4 className="font-extrabold text-white text-xs uppercase tracking-wide">{profile.name}</h4>
                 <p className="text-[10px] text-zinc-500 font-mono mt-0.5">{profile.email}</p>
-                <span className="inline-block text-[8px] font-bold text-lime-400 bg-lime-400/10 px-2 py-0.5 rounded-full mt-1.5 uppercase font-mono tracking-wider">Rank #9 Athlete</span>
+                <span className="inline-block text-[8px] font-bold text-lime-400 bg-lime-400/10 px-2 py-0.5 rounded-full mt-1.5 uppercase font-mono tracking-wider">
+                    {(() => {
+                      const joined = activeChallenges.find(c => c.userJoined && c.status === "active");
+                      if (!joined) return "Not Participating";
+                      return joined.userRank ? `Rank #${joined.userRank} Athlete` : "Rank Pending";
+                    })()}
+                  </span>
               </div>
             </div>
 
