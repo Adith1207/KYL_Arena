@@ -164,9 +164,9 @@ Updated automatically from Strava activities.
 
 ### Phase 3
 
-- [ ] Challenge Creation
-- [ ] Challenge Joining
-- [ ] Leaderboards
+- ✅ Challenge Creation
+- ✅ Challenge Joining
+- ✅ Leaderboards
 
 ### Phase 4
 
