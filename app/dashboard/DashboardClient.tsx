@@ -106,6 +106,9 @@ export default function DashboardClient({
   // Track IDs that have been joined during this session to avoid latency gaps
   const [justJoinedIds, setJustJoinedIds] = useState<string[]>([]);
 
+  // Selected challenge leaderboard to view
+  const [selectedLeaderboardId, setSelectedLeaderboardId] = useState<string | null>(null);
+
   // Onboarding & Preferences Settings Menu States
   const [isTourOpen, setIsTourOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -1964,6 +1967,7 @@ export default function DashboardClient({
   // Render Community Leaderboard Preview (Top 5)
   function renderLeaderboardSection(idSuffix = "") {
     const selectedChallenge = 
+      activeChallenges.find(c => c.id === selectedLeaderboardId) || 
       activeChallenges.find(c => c.userJoined) || 
       activeChallenges[0];
 
@@ -1985,12 +1989,29 @@ export default function DashboardClient({
         <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/10 to-transparent" />
         
         <div className="flex items-center justify-between border-b border-white/5 pb-3">
-          <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 font-mono">
             COMMUNITY LEADERBOARD
           </h3>
-          <span className="text-[9px] text-lime-400 font-bold uppercase tracking-wider bg-lime-400/10 px-2 py-0.5 rounded-full select-none font-mono truncate max-w-[120px]" title={selectedChallenge.title}>
-            {selectedChallenge.title}
-          </span>
+          {activeChallenges.length > 1 ? (
+            <select
+              value={selectedChallenge.id}
+              onChange={(e) => setSelectedLeaderboardId(e.target.value)}
+              className="text-[9px] text-lime-400 font-bold uppercase tracking-wider bg-lime-400/10 hover:bg-lime-400/20 px-2.5 py-0.5 rounded-full font-mono cursor-pointer border border-lime-400/20 outline-none focus:ring-1 focus:ring-lime-400 max-w-[130px] appearance-none text-center"
+              style={{
+                textAlignLast: "center",
+              }}
+            >
+              {activeChallenges.map((c) => (
+                <option key={c.id} value={c.id} className="bg-zinc-900 text-white font-mono uppercase text-[9px]">
+                  {c.title.length > 18 ? `${c.title.substring(0, 18)}...` : c.title}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-[9px] text-lime-400 font-bold uppercase tracking-wider bg-lime-400/10 px-2 py-0.5 rounded-full select-none font-mono truncate max-w-[120px]" title={selectedChallenge.title}>
+              {selectedChallenge.title}
+            </span>
+          )}
         </div>
 
         <div className="space-y-2 font-mono">
@@ -2037,7 +2058,7 @@ export default function DashboardClient({
           asChild
           className="w-full h-9 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-white rounded-xl transition-all flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider font-extrabold cursor-pointer"
         >
-          <Link href={`/arena-admin/challenges/${selectedChallenge.slug}`}>
+          <Link href={`/challenge/${selectedChallenge.id}`}>
             <span>View Full Leaderboard</span>
             <ChevronRight className="h-3.5 w-3.5" />
           </Link>
