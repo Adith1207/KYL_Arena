@@ -319,6 +319,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       console.error("Failed to compile active challenges on server:", e);
     }
 
+    // Fetch community feed items from Supabase
+    let communityFeed: any[] = [];
+    try {
+      console.log("Loading Community Feed...");
+      const { data, error: feedError } = await supabaseAdmin
+        .from("community_feed")
+        .select("*")
+        .order("created_at", { ascending: false });
+      console.log("Finished Community Feed");
+      if (!feedError && data) {
+        communityFeed = data;
+      }
+    } catch (e) {
+      console.error("Failed to query community feed on server:", e);
+    }
+
     const combinedProfile = {
       ...profile,
       strava_connection: stravaConnection,
@@ -348,6 +364,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         infoParam={info}
         diagnostics={diagnostics}
         activeChallenges={activeChallenges}
+        communityFeed={communityFeed}
       />
     );
   } catch (e: any) {

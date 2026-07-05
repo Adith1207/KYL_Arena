@@ -66,6 +66,7 @@ interface DashboardClientProps {
     profileLookupResult: string;
   };
   activeChallenges: any[];
+  communityFeed?: any[];
 }
 
 // Helper function to format date consistently on server and client to prevent hydration mismatches
@@ -81,7 +82,8 @@ export default function DashboardClient({
   errorParam, 
   infoParam, 
   diagnostics,
-  activeChallenges
+  activeChallenges,
+  communityFeed = []
 }: DashboardClientProps) {
   const router = useRouter();
   const { addToast } = useToast();
@@ -1594,7 +1596,7 @@ export default function DashboardClient({
       body: string;
       timestamp: string;
       meta?: string;
-    }[] = [
+    }[] = (communityFeed && communityFeed.length > 0) ? communityFeed : [
       {
         id: "cf_1",
         type: "announcement",
