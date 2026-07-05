@@ -893,12 +893,7 @@ export default function DashboardClient({
             {/* 7. Upcoming Challenges */}
             {renderUpcomingChallengesSection("-desktop")}
           </div>
-
         </div>
-
-        {/* Diagnostics console drawer at the bottom */}
-        {diagnostics && renderDiagnosticsConsole()}
-
       </main>
 
       {/* MOBILE STICKY BOTTOM NAVIGATION BAR */}
@@ -2007,64 +2002,7 @@ export default function DashboardClient({
   }
 
   // Render Diagnostics Console Accordion Drawer
-  function renderDiagnosticsConsole() {
-    if (!diagnostics) return null;
-    return (
-      <div className="bg-zinc-900/20 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden mt-8 animate-in fade-in duration-300">
-        <details className="group">
-          <summary className="flex items-center justify-between p-4 text-xs font-black uppercase tracking-wider text-zinc-400 hover:text-white cursor-pointer select-none">
-            <span className="flex items-center gap-2">
-              <Activity className="h-4 w-4 text-lime-400" />
-              Session Diagnostics Console
-            </span>
-            <span className="text-[10px] text-zinc-500 group-open:rotate-180 transition-transform duration-200">
-              ▼
-            </span>
-          </summary>
-          
-          <div className="p-4 border-t border-white/5 bg-zinc-950/90 text-left font-mono text-[10px] text-zinc-455 space-y-3.5 overflow-x-auto leading-relaxed">
-            <div className="space-y-1">
-              <p className="text-zinc-500 uppercase tracking-widest text-[9px] font-bold">1. Current Supabase User</p>
-              <div className="pl-3 border-l border-lime-500/20 space-y-0.5">
-                <p><span className="text-zinc-500">ID:</span> {diagnostics.supabaseUser.id}</p>
-                <p><span className="text-zinc-500">Email:</span> {diagnostics.supabaseUser.email}</p>
-                <p><span className="text-zinc-500">Auth Provider:</span> <span className="text-lime-400">{diagnostics.supabaseUser.provider}</span></p>
-                <p><span className="text-zinc-500">Last Sign-In:</span> {diagnostics.supabaseUser.lastSignIn}</p>
-              </div>
-            </div>
 
-            <div className="space-y-1">
-              <p className="text-zinc-500 uppercase tracking-widest text-[9px] font-bold">2. Linked Athlete Connection</p>
-              <div className="pl-3 border-l border-lime-500/20 space-y-0.5">
-                <p><span className="text-zinc-500">Athlete ID:</span> {profile.strava_athlete_id || "None connected"}</p>
-                <p><span className="text-zinc-500">Database Connection Count:</span> {currentConnectionCount ?? 0}</p>
-                
-                {profile.strava_connected && (
-                  <div className="flex gap-2 mt-2">
-                    <Button
-                      onClick={handleDisconnectStrava}
-                      disabled={loadingDisconnect}
-                      className="h-6 px-2 text-[9px] font-black uppercase tracking-wider text-red-400 hover:text-red-300 hover:bg-red-950/20 rounded border border-red-500/10 cursor-pointer bg-zinc-950"
-                    >
-                      {loadingDisconnect ? "Disconnecting..." : "Disconnect Strava"}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <p className="text-zinc-500 uppercase tracking-widest text-[9px] font-bold">3. Authentication Callback Logs</p>
-              <div className="pl-3 border-l border-lime-500/20 space-y-0.5">
-                <p><span className="text-zinc-500">Callback Result:</span> <span className={diagnostics.oauthCallbackResult.includes("Error") ? "text-red-400" : "text-emerald-400"}>{diagnostics.oauthCallbackResult}</span></p>
-                <p><span className="text-zinc-500">Profile Lookup Result:</span> {diagnostics.profileLookupResult}</p>
-              </div>
-            </div>
-          </div>
-        </details>
-      </div>
-    );
-  }
 
   // Render User Settings & Onboarding Preferences Modal
   function renderSettingsModal() {
