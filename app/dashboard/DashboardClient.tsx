@@ -10,7 +10,7 @@ import {
   Award, Bike, Footprints, Flame, Trophy, 
   ChevronRight, TrendingUp, Sparkles, Clock, Target, 
   Dumbbell, Home, Users, HelpCircle, X, Shield, Settings,
-  Lock, Check, Bell, AlertCircle
+  Check, Bell, AlertCircle, Megaphone, Star, Zap, Pin, PartyPopper
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence, Variants } from "framer-motion";
@@ -689,8 +689,8 @@ export default function DashboardClient({
               {/* 5. Community Rank */}
               {renderLeaderboardSection("-mobile")}
               
-              {/* 6. Achievements */}
-              {renderAchievementsSection("-mobile")}
+              {/* 6. Community Feed */}
+              {renderCommunityFeedSection("-mobile")}
               
               {/* 7. Upcoming Challenges */}
               {renderUpcomingChallengesSection("-mobile")}
@@ -728,13 +728,13 @@ export default function DashboardClient({
             {renderRecentActivities("-desktop")}
           </div>
 
-          {/* RIGHT COLUMN: Community rank, achievements, upcoming challenges */}
+          {/* RIGHT COLUMN: Community rank, community feed, upcoming challenges */}
           <div className="md:col-span-5 lg:col-span-4 space-y-8 lg:space-y-10">
             {/* 5. Community Rank */}
             {renderLeaderboardSection("-desktop")}
             
-            {/* 6. Achievements */}
-            {renderAchievementsSection("-desktop")}
+            {/* 6. Community Feed */}
+            {renderCommunityFeedSection("-desktop")}
             
             {/* 7. Upcoming Challenges */}
             {renderUpcomingChallengesSection("-desktop")}
@@ -1551,91 +1551,169 @@ export default function DashboardClient({
     );
   }
 
-  // Render Achievements Section
-  function renderAchievementsSection(idSuffix = "") {
-    const userActs = profile.activities || [];
-    const totalDistance = userActs.reduce((sum: number, act: any) => sum + Number(act.distance || 0), 0) / 1000;
-    const totalElevation = userActs.reduce((sum: number, act: any) => sum + Number(act.total_elevation_gain || 0), 0);
-    const activeStreak = profile.active_streak || (userActs.length > 0 ? 3 : 0);
+  // Render Community Feed Section
+  // TODO: Replace mock data below with a live fetch from the `community_feed` Supabase table.
+  function renderCommunityFeedSection(idSuffix = "") {
+    type FeedType = "announcement" | "event" | "milestone" | "notice" | "deadline" | "shoutout";
 
-    const achievementsList = [
+    const feedItems: {
+      id: string;
+      type: FeedType;
+      title: string;
+      body: string;
+      timestamp: string;
+      meta?: string;
+    }[] = [
       {
-        id: "century_club",
-        title: "Century Club",
-        description: "Ride 100 km in a single session or accumulate 100 km in total.",
-        unlocked: totalDistance >= 100 || userActs.some(a => (a.distance || 0) >= 100000),
-        metric: `${Math.round(totalDistance)} / 100 km`
+        id: "cf_1",
+        type: "announcement",
+        title: "🚴 July Century Ride — Now Live!",
+        body: "The July Century Ride challenge is officially open. Log your first 100 km before July 31st and earn the Century Club badge.",
+        timestamp: "Just now",
+        meta: "Challenge",
       },
       {
-        id: "streak_starter",
-        title: "Streak Starter",
-        description: "Log consecutive workouts to build a 3-day active streak.",
-        unlocked: activeStreak >= 3,
-        metric: `${activeStreak} / 3 Days`
+        id: "cf_2",
+        type: "shoutout",
+        title: "🏅 Shout-out: Riya Menon",
+        body: "Riya crushed the 50 km milestone in a single ride this morning. Incredible effort — the community is watching! 🔥",
+        timestamp: "2 hrs ago",
+        meta: "Athlete",
       },
       {
-        id: "summit_seeker",
-        title: "Summit Seeker",
-        description: "Scale heights and log at least 1,000 meters of vertical climb.",
-        unlocked: totalElevation >= 1000,
-        metric: `${Math.round(totalElevation)} / 1,000 m`
+        id: "cf_3",
+        type: "deadline",
+        title: "⏰ Deadline Approaching: Monsoon Miles",
+        body: "You have 3 days left to hit your target for the Monsoon Miles challenge. Push it to the finish line!",
+        timestamp: "5 hrs ago",
+        meta: "Deadline",
       },
       {
-        id: "fit_consistent",
-        title: "Consistency King",
-        description: "Log and sync at least 5 activities in the database.",
-        unlocked: userActs.length >= 5,
-        metric: `${userActs.length} / 5 Workouts`
-      }
+        id: "cf_4",
+        type: "milestone",
+        title: "🎉 Community Hit 10,000 km!",
+        body: "Together, KYL Arena athletes have logged a cumulative 10,000 km this month. That's the distance from Mumbai to London. Epic.",
+        timestamp: "Yesterday",
+        meta: "Milestone",
+      },
+      {
+        id: "cf_5",
+        type: "event",
+        title: "📅 Virtual Group Ride — July 12",
+        body: "Join the Saturday virtual group ride at 6:30 AM IST. Register via Strava and link your activity to the arena. All levels welcome.",
+        timestamp: "Yesterday",
+        meta: "Event",
+      },
+      {
+        id: "cf_6",
+        type: "notice",
+        title: "📌 Admin: Leaderboard Refresh",
+        body: "Leaderboards are refreshed every Sunday at midnight IST. Manual re-sync is available in your dashboard settings if needed.",
+        timestamp: "2 days ago",
+        meta: "Admin",
+      },
     ];
 
+    const typeConfig = {
+      announcement: {
+        icon: <Megaphone className="h-3.5 w-3.5" />,
+        accent: "border-lime-400/20 bg-lime-400/5",
+        badge: "bg-lime-400/10 text-lime-400 border-lime-400/20",
+        dot: "bg-lime-400",
+      },
+      shoutout: {
+        icon: <Star className="h-3.5 w-3.5" />,
+        accent: "border-amber-400/20 bg-amber-400/5",
+        badge: "bg-amber-400/10 text-amber-400 border-amber-400/20",
+        dot: "bg-amber-400",
+      },
+      deadline: {
+        icon: <Clock className="h-3.5 w-3.5" />,
+        accent: "border-red-400/20 bg-red-400/5",
+        badge: "bg-red-400/10 text-red-400 border-red-400/20",
+        dot: "bg-red-400",
+      },
+      milestone: {
+        icon: <PartyPopper className="h-3.5 w-3.5" />,
+        accent: "border-purple-400/20 bg-purple-400/5",
+        badge: "bg-purple-400/10 text-purple-400 border-purple-400/20",
+        dot: "bg-purple-400",
+      },
+      event: {
+        icon: <Zap className="h-3.5 w-3.5" />,
+        accent: "border-sky-400/20 bg-sky-400/5",
+        badge: "bg-sky-400/10 text-sky-400 border-sky-400/20",
+        dot: "bg-sky-400",
+      },
+      notice: {
+        icon: <Pin className="h-3.5 w-3.5" />,
+        accent: "border-zinc-600/30 bg-zinc-800/20",
+        badge: "bg-zinc-700/30 text-zinc-400 border-zinc-600/30",
+        dot: "bg-zinc-500",
+      },
+    };
+
     return (
-      <div id={`tour-achievements-section${idSuffix}`} className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-5 text-left relative overflow-hidden group">
+      <div id={`tour-community-feed-section${idSuffix}`} className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-4 text-left relative overflow-hidden group">
         <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/10 to-transparent" />
-        
+
+        {/* Header */}
         <div className="flex items-center justify-between border-b border-white/5 pb-3">
-          <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 font-mono">
-            ATHLETE ACHIEVEMENTS
-          </h3>
-          <span className="text-[9px] text-zinc-500 font-mono">
-            {achievementsList.filter(a => a.unlocked).length} / {achievementsList.length} Unlocked
-          </span>
+          <div className="flex items-center gap-2">
+            <div className="h-5 w-5 rounded-lg bg-lime-400/10 border border-lime-400/15 flex items-center justify-center text-lime-400">
+              <Megaphone className="h-3 w-3" />
+            </div>
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 font-mono">
+              Community Feed
+            </h3>
+          </div>
+          <span className="text-[9px] text-zinc-600 font-mono">{feedItems.length} posts</span>
         </div>
 
-        <div className="grid grid-cols-1 gap-3">
-          {achievementsList.map((a) => (
-            <div 
-              key={a.id} 
-              className={`p-3.5 rounded-2xl border transition-all duration-300 relative overflow-hidden ${
-                a.unlocked 
-                  ? "bg-lime-400/5 border-lime-400/20 shadow-[0_4px_20px_rgba(163,230,53,0.02)]" 
-                  : "bg-zinc-950/25 border-white/5"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="space-y-1 min-w-0">
-                  <h4 className={`text-xs font-bold uppercase tracking-tight ${a.unlocked ? "text-lime-400" : "text-zinc-400"}`}>
-                    {a.title}
-                  </h4>
-                  <p className="text-[10px] text-zinc-500 leading-normal font-medium">{a.description}</p>
+        {/* Feed Items */}
+        <div className="space-y-3">
+          {feedItems.map((item, idx) => {
+            const cfg = typeConfig[item.type];
+            return (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.06, duration: 0.3 }}
+                className={`p-3.5 rounded-2xl border transition-all duration-300 relative overflow-hidden group/item cursor-default ${
+                  cfg.accent
+                }`}
+              >
+                {/* Type badge + timestamp row */}
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className={`inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border font-mono ${cfg.badge}`}>
+                    {cfg.icon}
+                    {item.meta}
+                  </span>
+                  <span className="text-[9px] text-zinc-600 font-mono shrink-0">{item.timestamp}</span>
                 </div>
-                <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 border ${
-                  a.unlocked 
-                    ? "bg-lime-400/15 border-lime-400/20 text-lime-400" 
-                    : "bg-zinc-900 border-white/5 text-zinc-655"
-                }`}>
-                  {a.unlocked ? <Award className="h-4.5 w-4.5" /> : <Lock className="h-4.5 w-4.5" />}
-                </div>
-              </div>
-              <div className="flex justify-between items-center mt-3 pt-2 border-t border-white/5 text-[9px] font-mono text-zinc-500">
-                <span>Status:</span>
-                <span className={a.unlocked ? "text-lime-400 font-bold" : "text-zinc-550"}>
-                  {a.unlocked ? "UNLOCKED ✓" : "LOCKED"} ({a.metric})
-                </span>
-              </div>
-            </div>
-          ))}
+
+                {/* Title */}
+                <h4 className="text-[11px] font-extrabold text-white leading-snug tracking-tight mb-1">
+                  {item.title}
+                </h4>
+
+                {/* Body */}
+                <p className="text-[10px] text-zinc-500 leading-relaxed font-medium">
+                  {item.body}
+                </p>
+
+                {/* Subtle hover shimmer line */}
+                <div className={`absolute bottom-0 left-0 right-0 h-px opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 bg-gradient-to-r from-transparent via-current to-transparent ${cfg.dot === 'bg-lime-400' ? 'text-lime-400/30' : cfg.dot === 'bg-amber-400' ? 'text-amber-400/30' : cfg.dot === 'bg-red-400' ? 'text-red-400/30' : cfg.dot === 'bg-purple-400' ? 'text-purple-400/30' : cfg.dot === 'bg-sky-400' ? 'text-sky-400/30' : 'text-zinc-600/30'}`} />
+              </motion.div>
+            );
+          })}
         </div>
+
+        {/* Footer hint */}
+        <p className="text-[9px] text-zinc-700 font-mono text-center pt-1">
+          Powered by <span className="text-zinc-500">community_feed</span> · Updates live
+        </p>
       </div>
     );
   }
