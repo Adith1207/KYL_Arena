@@ -7,11 +7,11 @@ import { useToast } from "@/components/Toast";
 import { usePageLoader } from "@/components/PageLoader";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  Cpu, Trophy, UserCheck, Users, Activity, Layers, Award, Compass, 
-  BarChart3, Download, Settings, Bell, LogOut, Menu, Calendar, X, 
-  Search, ArrowRight, CheckCircle, RefreshCw, AlertTriangle, AlertCircle, 
-  Sparkles, ShieldCheck, Flame, ChevronRight, Send, Check, ShieldAlert,
-  ArrowLeft, Clock, HelpCircle, Loader2, Play, Milestone
+  Trophy, Users, Activity, Settings, Bell, LogOut, Menu, X, 
+  Search, ArrowRight, CheckCircle, AlertTriangle, AlertCircle, 
+  ShieldCheck, Flame, ChevronRight, FileText, LayoutDashboard,
+  Clock, Download, RefreshCw, Mail, Calendar, MapPin, Milestone, ShieldAlert, Target, Award,
+  Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -102,8 +102,7 @@ export default function AthletesClient({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [loadingLogout, setLoadingLogout] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState("all"); // all, connected, disconnected, active_week, cyclist, runner, walker
-  const [activeSort, setActiveSort] = useState("distance"); // distance, activities, rank, active
+  const [activeFilter, setActiveFilter] = useState("All Athletes");
   const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(null);
 
   // Notifications dropdown menu state
@@ -317,67 +316,44 @@ export default function AthletesClient({
     return parsed;
   }, [initialProfiles, initialStravaConns, initialChallenges, initialParticipations, initialActivities]);
 
-  // Sidebar Links
-  const sidebarLinks = [
-    { title: "Dashboard", icon: Cpu, active: false, href: "/arena-admin" },
-    { title: "Challenges", icon: Trophy, active: false, href: "/arena-admin" },
-    { title: "Participants", icon: UserCheck, active: false, href: "/arena-admin" },
-    { title: "Athletes", icon: Users, active: true, href: "/arena-admin/athletes" },
-    { title: "Activities", icon: Activity, active: false, href: "/arena-admin" },
-    { title: "Leaderboard", icon: Layers, active: false, href: "/arena-admin" },
-    { title: "Achievements", icon: Award, active: false, href: "/arena-admin" },
-    { title: "Community", icon: Compass, active: false, href: "/arena-admin" },
-    { title: "Performance", icon: BarChart3, active: false, href: "/arena-admin" },
-    { title: "Reports", icon: Download, active: false, href: "/arena-admin" },
-    { title: "Sync Health", icon: RefreshCw, active: false, href: "/arena-admin" },
-    { title: "Integrations", icon: Settings, active: false, href: "/arena-admin" },
-  ];
 
-  // Filters & Sorting logic
+
+  // --- NEW FILTERS ---
+  const [drawerTab, setDrawerTab] = useState("overview");
+
   const filteredAthletes = useMemo(() => {
     return athletes
       .filter((ath) => {
-        // Search query check
+        const q = searchQuery.toLowerCase();
         const matchQuery = 
-          ath.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          ath.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          ath.athleteId.toLowerCase().includes(searchQuery.toLowerCase());
+          ath.name.toLowerCase().includes(q) ||
+          ath.email.toLowerCase().includes(q) ||
+          ath.athleteId.toLowerCase().includes(q) ||
+          ath.enrolledChallenges.some(c => c.title.toLowerCase().includes(q));
         
         if (!matchQuery) return false;
 
-        // Filter state check
-        if (activeFilter === "connected") return ath.stravaConnected;
-        if (activeFilter === "disconnected") return !ath.stravaConnected;
-        if (activeFilter === "active_week") {
-          if (!ath.latestActivityDate) return false;
-          const activityTime = new Date(ath.latestActivityDate).getTime();
-          return (Date.now() - activityTime) <= 7 * 24 * 3600 * 1000;
-        }
-        if (activeFilter === "cyclist") return ath.sportType === "Cyclist";
-        if (activeFilter === "runner") return ath.sportType === "Runner";
-        if (activeFilter === "walker") return ath.sportType === "Walker";
-        
+        const syncTime = ath.rawLastSyncTime ? new Date(ath.rawLastSyncTime).getTime() : 0;
+        const daysSinceSync = (Date.now() - syncTime) / (1000 * 60 * 60 * 24);
+        const inactiveDays = ath.latestActivityDate ? (Date.now() - new Date(ath.latestActivityDate).getTime()) / (1000 * 60 * 60 * 24) : 999;
+
+        if (activeFilter === "Needs Attention") return !ath.stravaConnected || daysSinceSync > 7 || inactiveDays > 14;
+        if (activeFilter === "Recently Synced") return daysSinceSync <= 1;
+        if (activeFilter === "Inactive") return inactiveDays > 30;
+        if (activeFilter === "Top Performers") return ath.currentRank <= 5 && ath.currentRank > 0;
+        if (activeFilter === "Challenge Winners") return ath.enrolledChallenges.some(c => c.progress >= c.goalTarget);
+        if (activeFilter === "Sync Failed") return !ath.stravaConnected;
+
         return true;
       })
-      .sort((a, b) => {
-        if (activeSort === "distance") return b.totalDistance - a.totalDistance;
-        if (activeSort === "activities") return b.totalActivities - a.totalActivities;
-        if (activeSort === "rank") return a.currentRank - b.currentRank;
-        if (activeSort === "active") {
-          if (!a.latestActivityDate) return 1;
-          if (!b.latestActivityDate) return -1;
-          return new Date(b.latestActivityDate).getTime() - new Date(a.latestActivityDate).getTime();
-        }
-        return 0;
-      });
-  }, [athletes, searchQuery, activeFilter, activeSort]);
+      .sort((a, b) => b.totalDistance - a.totalDistance);
+  }, [athletes, searchQuery, activeFilter]);
 
   // Selected athlete detail
   const selectedAthlete = useMemo(() => {
     if (!selectedAthleteId) return null;
     return athletes.find(a => a.id === selectedAthleteId) || null;
   }, [athletes, selectedAthleteId]);
-
   // Force Sync selected athlete
   const handleForceSync = async (userId: string) => {
     if (!selectedAthlete) return;
@@ -454,808 +430,512 @@ export default function AthletesClient({
     return `${hrs}h ${mins}m`;
   };
 
+  // Sidebar navigation
+  const navigationGroups = [
+    {
+      label: "WORKSPACE",
+      links: [
+        { title: "Dashboard", icon: LayoutDashboard, active: false, route: "/arena-admin" },
+        { title: "Challenges", icon: Trophy, active: false, route: "/arena-admin/challenges" },
+        { title: "Athletes", icon: Users, active: true, route: "/arena-admin/athletes" },
+        { title: "Activities", icon: Activity, active: false, route: "/arena-admin/activities" },
+        { title: "Reports", icon: FileText, active: false, route: "/arena-admin/reports" },
+      ]
+    }
+  ];
+
+  const filterOptions = ["All Athletes", "Needs Attention", "Recently Synced", "Inactive", "Top Performers", "Challenge Winners", "Sync Failed"];
+
   return (
-    <div className="flex min-h-screen bg-zinc-950 text-white font-sans overflow-hidden selection:bg-lime-400 selection:text-black">
+    <div className="flex h-screen bg-[#09090b] text-zinc-300 font-sans overflow-hidden">
       
-      {/* Background Ambient Glows */}
-      <div className="fixed inset-0 bg-[linear-gradient(to_right,#80808003_1px,transparent_1px),linear-gradient(to_bottom,#80808003_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none z-0" />
-      <div className="fixed bottom-10 left-1/4 -translate-x-1/2 w-[500px] h-[500px] bg-emerald-500/5 rounded-full blur-[120px] pointer-events-none z-0 animate-pulse" />
-
-
-
-      {/* SIDEBAR NAVIGATION (Desktop) */}
-      <aside className="hidden lg:flex w-64 flex-col border-r border-white/5 bg-zinc-950 shrink-0 relative z-20">
-        <div className="p-6 border-b border-white/5 flex items-center gap-3">
-          <svg className="h-7 w-7 transition-transform duration-500 hover:rotate-12" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <g fill="#22c55e"><circle cx="48" cy="20" r="7" /><path d="M 28 69 C 14 78, 12 79, 10 80 Z" /></g>
-          </svg>
-          <div className="flex flex-col text-left">
-            <span className="text-sm font-black tracking-wider text-white leading-none">
+      {/* SIDEBAR (Desktop) */}
+      <aside className="hidden lg:flex w-[240px] flex-col border-r border-[#ffffff0f] bg-[#0C0C0E] shrink-0 h-full">
+        <div className="h-16 flex items-center px-6 border-b border-[#ffffff0f] shrink-0 gap-3">
+          <div className="relative shrink-0 flex items-center justify-center h-9 w-9">
+            <svg className="h-8 w-8 relative z-10" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <g fill="#22c55e"><circle cx="48" cy="20" r="7" /><path d="M 28 69 C 14 78, 12 79, 10 80 C 15 78, 25 65, 32 50 C 37 40, 48 30, 60 22 Z" /></g>
+              <g fill="#ef4444"><circle cx="78" cy="32" r="7" /><path d="M 46 48 C 58 40, 68 35, 75 42 Z" /></g>
+              <g fill="#3b82f6"><circle cx="53" cy="68" r="7" /><path d="M 6 81 C 12 83, 25 75, 35 68 Z" /></g>
+            </svg>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-sm font-black text-white tracking-wider leading-none">
               KYL <span className="text-lime-400">ARENA</span>
             </span>
-            <span className="text-[7.5px] font-bold text-zinc-500 uppercase tracking-widest mt-0.5">
-              ADMIN CONSOLE
-            </span>
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-0.5">Admin Console</span>
           </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1.5 scrollbar-thin">
-          <span className="text-[8px] uppercase tracking-widest text-zinc-650 font-black px-3 block mb-2">Navigation</span>
-          {sidebarLinks.map((link) => (
-            <button
-              key={link.title}
-              onClick={() => {
-                if (link.href && link.title !== "Athletes") {
-                  router.push(link.href);
-                }
-              }}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-[11px] uppercase font-bold tracking-wide transition-all group ${
-                link.active 
-                  ? "bg-lime-400/10 text-lime-400 border border-lime-400/20" 
-                  : "text-zinc-400 hover:text-white hover:bg-zinc-900 border border-transparent"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <link.icon className={`h-4 w-4 shrink-0 transition-transform ${link.active ? "text-lime-400" : "text-zinc-500 group-hover:text-white"}`} />
-                <span>{link.title}</span>
-              </div>
-            </button>
-          ))}
-        </nav>
-      </aside>
-
-      {/* MOBILE HEADER SIDEBAR */}
-      <AnimatePresence>
-        {isSidebarOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsSidebarOpen(false)}
-              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
-            />
-            <motion.aside
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed top-0 bottom-0 left-0 w-64 z-50 bg-zinc-950 border-r border-white/5 flex flex-col justify-between lg:hidden"
-            >
-              <div className="p-6 border-b border-white/5 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <svg className="h-6 w-6" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <g fill="#22c55e"><circle cx="48" cy="20" r="7" /><path d="M 28 69 C 14 78, 12 79, 10 80 Z" /></g>
-                  </svg>
-                  <div className="flex flex-col text-left">
-                    <span className="text-sm font-black tracking-wider text-white leading-none">
-                      KYL <span className="text-lime-400">ARENA</span>
-                    </span>
-                    <span className="text-[7.5px] font-bold text-zinc-500 uppercase tracking-widest mt-0.5">
-                      ADMIN CONSOLE
-                    </span>
-                  </div>
-                </div>
-                <button onClick={() => setIsSidebarOpen(false)} className="text-zinc-405 hover:text-white">
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1.5 scrollbar-thin">
-                {sidebarLinks.map((link) => (
+        <nav className="flex-1 flex flex-col px-4 py-6 space-y-6 overflow-y-auto">
+          {navigationGroups.map((group) => (
+            <div key={group.label} className="space-y-3">
+              <h3 className="text-[10px] font-bold text-zinc-500/80 uppercase tracking-wider px-3">{group.label}</h3>
+              <div className="space-y-1">
+                {group.links.map((link) => (
                   <button
                     key={link.title}
-                    onClick={() => {
-                      setIsSidebarOpen(false);
-                      if (link.href && link.title !== "Athletes") {
-                        router.push(link.href);
-                      }
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-[11px] uppercase font-bold tracking-wide transition-all ${
+                    onClick={() => router.push(link.route)}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-150 group border-l-2 ${
                       link.active 
-                        ? "bg-lime-400/10 text-lime-400 border border-lime-400/20" 
-                        : "text-zinc-400 hover:text-white hover:bg-zinc-900 border border-transparent"
+                        ? "bg-lime-500/10 text-white font-medium border-lime-500" 
+                        : "text-zinc-400 hover:text-white hover:bg-white/5 border-transparent font-normal hover:translate-x-1 hover:brightness-110"
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <link.icon className="h-4 w-4 shrink-0" />
+                      <link.icon className={`h-4 w-4 ${link.active ? "text-lime-400" : "text-zinc-500 group-hover:text-zinc-300"}`} />
                       <span>{link.title}</span>
                     </div>
                   </button>
                 ))}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        <div className="px-4 py-4 border-t border-[#ffffff0f] shrink-0">
+          <div className="space-y-3">
+            <h3 className="text-[10px] font-bold text-zinc-500/80 uppercase tracking-wider px-3">ADMINISTRATION</h3>
+            <button 
+              onClick={() => router.push("/arena-admin/settings")}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-400 hover:text-white hover:bg-white/5 transition-all duration-150 font-normal hover:translate-x-1 group border-l-2 border-transparent"
+            >
+              <Settings className="h-4 w-4 text-zinc-500 group-hover:text-zinc-300" />
+              <span>Settings</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* MOBILE SIDEBAR */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setIsSidebarOpen(false)}
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+            />
+            <motion.aside
+              initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 left-0 w-[240px] z-50 bg-[#0C0C0E] border-r border-[#ffffff0f] flex flex-col lg:hidden"
+            >
+              <div className="h-16 flex items-center px-6 border-b border-[#ffffff0f] gap-3 shrink-0">
+                <div className="relative shrink-0 flex items-center justify-center h-8 w-8">
+                  <svg className="h-7 w-7 relative z-10" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g fill="#22c55e"><circle cx="48" cy="20" r="7" /><path d="M 28 69 C 14 78, 12 79, 10 80 C 15 78, 25 65, 32 50 C 37 40, 48 30, 60 22 Z" /></g>
+                    <g fill="#ef4444"><circle cx="78" cy="32" r="7" /><path d="M 46 48 C 58 40, 68 35, 75 42 Z" /></g>
+                    <g fill="#3b82f6"><circle cx="53" cy="68" r="7" /><path d="M 6 81 C 12 83, 25 75, 35 68 Z" /></g>
+                  </svg>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-black text-white tracking-wider leading-none">
+                    KYL <span className="text-lime-400">ARENA</span>
+                  </span>
+                </div>
+                <button onClick={() => setIsSidebarOpen(false)} className="ml-auto text-zinc-500 hover:text-white">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <nav className="flex-1 flex flex-col px-4 py-6 space-y-6 overflow-y-auto">
+                {navigationGroups.map((group) => (
+                  <div key={group.label} className="space-y-3">
+                    <h3 className="text-[10px] font-bold text-zinc-500/80 uppercase tracking-wider px-3">{group.label}</h3>
+                    <div className="space-y-1">
+                      {group.links.map((link) => (
+                        <button
+                          key={link.title}
+                          onClick={() => { setIsSidebarOpen(false); router.push(link.route); }}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-150 group border-l-2 ${
+                            link.active ? "bg-lime-500/10 text-white font-medium border-lime-500" : "text-zinc-400 hover:text-white hover:bg-white/5 border-transparent font-normal hover:translate-x-1"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <link.icon className={`h-4 w-4 ${link.active ? "text-lime-400" : "text-zinc-500"}`} />
+                            <span>{link.title}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </nav>
+              <div className="px-4 py-4 border-t border-[#ffffff0f] shrink-0">
+                <div className="space-y-3">
+                  <h3 className="text-[10px] font-bold text-zinc-500/80 uppercase tracking-wider px-3">ADMINISTRATION</h3>
+                  <button 
+                    onClick={() => { setIsSidebarOpen(false); router.push("/arena-admin/settings"); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-400 hover:text-white hover:bg-white/5 transition-all duration-150 font-normal hover:translate-x-1 group border-l-2 border-transparent"
+                  >
+                    <Settings className="h-4 w-4 text-zinc-500 group-hover:text-zinc-300" />
+                    <span>Settings</span>
+                  </button>
+                </div>
+              </div>
             </motion.aside>
           </>
         )}
       </AnimatePresence>
 
-      {/* MAIN CONTAINER */}
-      <div className="flex-1 flex flex-col min-h-screen overflow-y-auto z-10 relative">
-        
-        {/* TOP STATUS UTILITY BAR (Polished Header controls top-right permanently) */}
-        <header className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8 border-b border-white/5 bg-zinc-950/60 backdrop-blur-md sticky top-0 z-30">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-zinc-450 hover:text-white hover:bg-zinc-900 rounded-lg">
+      {/* MAIN CONTENT AREA */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+        {/* HEADER */}
+        <header className="h-16 flex items-center px-6 border-b border-white/5 bg-[#09090b] shrink-0 gap-6 z-30 justify-between">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden text-zinc-400 hover:text-white">
               <Menu className="h-5 w-5" />
             </button>
-            <div className="hidden lg:flex flex-col text-left">
-              <h1 className="text-sm font-black uppercase tracking-wider text-white">Athlete Intelligence Center</h1>
-              <p className="text-[9px] text-zinc-400 font-medium font-mono">OPERATIONAL INTELLIGENCE & SYNC PIPELINE</p>
-            </div>
-            <div className="lg:hidden flex flex-col text-left">
-              <span className="text-xs font-black uppercase tracking-wider text-white">KYL <span className="text-lime-400">ARENA</span></span>
-            </div>
+            <h1 className="text-lg font-bold text-white tracking-tight hidden sm:block">Athlete Management</h1>
           </div>
-
-          {/* Accounts Controls */}
-          <div className="flex items-center gap-3">
-            
-            {/* Switch to Athlete View */}
-            <Link 
-              href="/dashboard"
-              className="hidden sm:inline-flex h-9 px-3.5 border border-zinc-800 hover:border-zinc-700 bg-zinc-900/50 hover:bg-zinc-900 text-zinc-300 hover:text-white font-extrabold rounded-xl transition-all items-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer"
-            >
-              Switch to Athlete View
-            </Link>
-
-            {/* Notifications Dropdown */}
-            <div className="relative">
-              <button 
-                onClick={() => setIsNotificationsMenuOpen(!isNotificationsMenuOpen)}
-                className={`p-2.5 text-zinc-450 hover:text-white bg-zinc-900/50 hover:bg-zinc-900 border border-white/5 rounded-xl transition-all relative ${isNotificationsMenuOpen ? "border-lime-400/30 text-white" : ""}`}
-              >
-                <Bell className="h-4 w-4" />
-                <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-lime-400 shadow-[0_0_8px_rgba(163,230,53,0.8)]" />
+          
+          {/* SEARCH HERO */}
+          <div className="relative w-full max-w-[500px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+            <input
+              type="text"
+              placeholder="Search by name, email, Strava ID, or challenge..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-9 bg-zinc-900 border border-white/10 rounded-lg pl-9 pr-4 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-lime-500/50 focus:ring-1 focus:ring-lime-500/50 transition-all"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white">
+                <X className="h-3 w-3" />
               </button>
-
-              <AnimatePresence>
-                {isNotificationsMenuOpen && (
-                  <>
-                    <div className="fixed inset-0 z-30" onClick={() => setIsNotificationsMenuOpen(false)} />
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute right-0 mt-2 w-72 bg-zinc-950 border border-white/10 rounded-2xl p-4 shadow-[0_15px_45px_rgba(0,0,0,0.8)] z-40 text-left"
-                    >
-                      <h3 className="text-[10px] uppercase font-black tracking-widest text-zinc-400 mb-3 font-mono flex items-center justify-between">
-                        <span>System Notifications</span>
-                        <span className="px-1.5 py-0.5 rounded bg-lime-400/10 text-lime-400 text-[8px] font-bold border border-lime-400/20">Active</span>
-                      </h3>
-                      <div className="space-y-2.5 max-h-[220px] overflow-y-auto scrollbar-thin">
-                        <div className="p-2 bg-zinc-900/40 rounded-lg border border-white/5">
-                          <p className="text-[10px] font-bold text-white uppercase font-mono">Sync Pipeline Stable</p>
-                          <p className="text-[9px] text-zinc-400 mt-0.5 leading-normal">All Strava sync instances completed without fatal errors today.</p>
-                          <span className="text-[8px] text-zinc-550 font-mono mt-1 block">1 hour ago</span>
-                        </div>
-                        <div className="p-2 bg-zinc-900/40 rounded-lg border border-white/5">
-                          <p className="text-[10px] font-bold text-white uppercase font-mono">New Athlete Connected</p>
-                          <p className="text-[9px] text-zinc-400 mt-0.5 leading-normal">A new profile was configured and verified with Strava auth token.</p>
-                          <span className="text-[8px] text-zinc-550 font-mono mt-1 block">4 hours ago</span>
-                        </div>
-                      </div>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Profile badge (avatar, name, role) */}
-            <div className="flex items-center gap-2.5 bg-zinc-900/40 border border-white/5 px-3 py-1.5 rounded-xl backdrop-blur-sm">
-              {profile.avatar ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={profile.avatar} alt={profile.name || ""} className="h-6 w-6 rounded-full object-cover ring-1 ring-lime-400/30 shrink-0" />
-              ) : (
-                <div className="h-6 w-6 rounded-full bg-zinc-800 text-[9px] font-black flex items-center justify-center text-lime-400 shrink-0">{getInitials(profile.name)}</div>
-              )}
-              <div className="text-left hidden md:block">
-                <p className="text-[10px] font-black text-white uppercase italic leading-none">{profile.name}</p>
-                <p className="text-[8px] text-lime-400 font-mono mt-0.5 leading-none">{userRole.replace("_", " ").toUpperCase()}</p>
-              </div>
-            </div>
-
-            {/* Sign Out */}
-            <button 
-              onClick={handleLogout} 
-              disabled={loadingLogout} 
-              className="p-2.5 text-zinc-450 hover:text-red-400 bg-zinc-900/50 hover:bg-zinc-900 border border-white/5 hover:border-red-950 rounded-xl transition-all cursor-pointer shrink-0" 
-              title="Sign Out"
-            >
-              {loadingLogout ? <Loader2 className="h-4 w-4 animate-spin text-zinc-400" /> : <LogOut className="h-4 w-4" />}
-            </button>
-
+            )}
           </div>
         </header>
 
-        {/* MASTER-DETAIL CONTENT FRAME */}
-        <main className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-[calc(100vh-4rem)]">
+        {/* WORKSPACE */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden relative flex">
+          
+          <main className="flex-1 min-w-0 p-6 flex flex-col gap-6">
+            {/* QUICK FILTERS */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none shrink-0">
+              {filterOptions.map(f => (
+                <button
+                  key={f}
+                  onClick={() => setActiveFilter(f)}
+                  className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                    activeFilter === f 
+                      ? "bg-zinc-100 text-zinc-900 border-zinc-100" 
+                      : "bg-zinc-900 text-zinc-400 border-white/5 hover:border-white/20 hover:text-white"
+                  }`}
+                >
+                  {f} {f === "All Athletes" && `(${athletes.length})`}
+                </button>
+              ))}
+            </div>
 
-          {/* LEFT PANEL: ATHLETE DIRECTORY */}
-          <section className="w-full lg:w-[48%] border-r border-white/5 bg-zinc-950/20 flex flex-col max-h-none lg:max-h-[calc(100vh-4rem)] overflow-y-auto scrollbar-thin">
-            <div className="p-4 sm:p-6 space-y-4">
-              
-              {/* Directory Title */}
-              <div className="flex items-center justify-between">
-                <h2 className="text-xs font-black uppercase tracking-widest text-zinc-400 font-mono">Athlete Directory</h2>
-                <span className="text-[9px] px-2 py-0.5 rounded bg-zinc-900 border border-white/5 font-mono text-zinc-500 font-bold">
-                  {filteredAthletes.length} / {athletes.length} Athletes
-                </span>
-              </div>
-
-              {/* Global Athlete Search */}
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Filter by name, email, or Strava Athlete ID..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-10 pl-10 pr-4 bg-zinc-900/60 border border-white/5 rounded-xl text-xs text-white outline-none focus:border-lime-400 focus:ring-1 focus:ring-lime-400/20 transition-all placeholder:text-zinc-600 font-mono"
-                />
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-              </div>
-
-              {/* Filters */}
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {[
-                  { id: "all", label: "All Athletes" },
-                  { id: "connected", label: "Connected" },
-                  { id: "disconnected", label: "Not Connected" },
-                  { id: "active_week", label: "Active This Week" },
-                  { id: "cyclist", label: "Cyclists" },
-                  { id: "runner", label: "Runners" },
-                  { id: "walker", label: "Walkers" },
-                ].map((f) => (
-                  <button
-                    key={f.id}
-                    onClick={() => setActiveFilter(f.id)}
-                    className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${
-                      activeFilter === f.id
-                        ? "bg-lime-400/10 text-lime-400 border-lime-400/25 shadow-[0_0_12px_rgba(163,230,53,0.05)]"
-                        : "bg-zinc-900/20 text-zinc-450 border-white/5 hover:text-white hover:bg-zinc-900"
-                    }`}
+            {/* ATHLETE DIRECTORY */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 auto-rows-max pb-12">
+              {filteredAthletes.map(ath => {
+                const health = getSyncHealthStatus(ath);
+                return (
+                  <div
+                    key={ath.id}
+                    onClick={() => { setSelectedAthleteId(ath.id); setDrawerTab("overview"); }}
+                    className={`group bg-zinc-900 border ${selectedAthleteId === ath.id ? 'border-lime-500/50 bg-lime-500/5' : 'border-white/5'} hover:border-white/15 rounded-xl p-4 cursor-pointer transition-all duration-200 hover:shadow-lg flex flex-col gap-4`}
                   >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Sort Controls */}
-              <div className="flex items-center justify-between border-t border-white/5 pt-3">
-                <span className="text-[9px] uppercase font-black tracking-wider text-zinc-550 font-mono">Sort controls:</span>
-                <div className="flex items-center gap-1.5">
-                  {[
-                    { id: "distance", label: "Distance" },
-                    { id: "activities", label: "Activities" },
-                    { id: "rank", label: "Rank" },
-                    { id: "active", label: "Recently Active" },
-                  ].map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => setActiveSort(s.id)}
-                      className={`px-2 py-0.5 rounded text-[8.5px] font-bold uppercase transition-all font-mono ${
-                        activeSort === s.id
-                          ? "text-white underline decoration-lime-400 underline-offset-4"
-                          : "text-zinc-505 hover:text-zinc-300"
-                      }`}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Directory Grid / Table list */}
-              <div className="space-y-2 pt-2">
-                {filteredAthletes.length === 0 ? (
-                  <div className="p-12 text-center text-zinc-600 font-mono text-xs border border-dashed border-white/5 rounded-2xl bg-zinc-900/10">
-                    No athletes matched search parameters.
+                    <div className="flex items-start gap-4">
+                      <div className="h-12 w-12 rounded-full bg-zinc-800 shrink-0 overflow-hidden relative">
+                        {ath.avatar ? (
+                          <img src={ath.avatar} alt={ath.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center text-sm font-bold text-zinc-500">
+                            {getInitials(ath.name)}
+                          </div>
+                        )}
+                        {!ath.stravaConnected && (
+                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                            <ShieldAlert className="h-4 w-4 text-red-500" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start">
+                          <h3 className="font-bold text-white truncate pr-2 group-hover:text-lime-400 transition-colors">{ath.name}</h3>
+                          <div className={`shrink-0 h-2 w-2 rounded-full mt-1.5 ${health.color === 'green' ? 'bg-lime-500 shadow-[0_0_8px_rgba(132,204,22,0.6)]' : health.color === 'yellow' ? 'bg-yellow-500' : 'bg-red-500'}`} />
+                        </div>
+                        <p className="text-xs text-zinc-500 truncate">{ath.email}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 mt-auto">
+                      <div className="bg-black/20 rounded-lg p-2">
+                        <span className="text-[10px] text-zinc-500 uppercase font-bold block mb-0.5">Rank</span>
+                        <div className="flex items-center gap-1.5">
+                          <Trophy className="h-3.5 w-3.5 text-zinc-400" />
+                          <span className="text-sm font-semibold text-white">{ath.currentRank > 0 ? `#${ath.currentRank}` : '-'}</span>
+                        </div>
+                      </div>
+                      <div className="bg-black/20 rounded-lg p-2">
+                        <span className="text-[10px] text-zinc-500 uppercase font-bold block mb-0.5">Active</span>
+                        <div className="flex items-center gap-1.5">
+                          <Activity className="h-3.5 w-3.5 text-zinc-400" />
+                          <span className="text-sm font-semibold text-white">{ath.enrolledChallenges.length} Chals</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  filteredAthletes.map((ath) => {
-                    const health = getSyncHealthStatus(ath);
-                    const isSelected = selectedAthleteId === ath.id;
-                    return (
+                );
+              })}
+              {filteredAthletes.length === 0 && (
+                <div className="col-span-full py-20 flex flex-col items-center justify-center border border-dashed border-white/10 rounded-xl bg-white/[0.02]">
+                  <Search className="h-8 w-8 text-zinc-600 mb-3" />
+                  <p className="text-zinc-400 text-sm">No athletes found matching the current filters.</p>
+                </div>
+              )}
+            </div>
+          </main>
+
+          {/* INSPECTOR DRAWER */}
+          <AnimatePresence>
+            {selectedAthlete && (
+              <motion.div
+                initial={{ x: "100%", opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: "100%", opacity: 0 }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                className="absolute inset-y-0 right-0 w-full sm:w-[450px] bg-[#0C0C0E] border-l border-[#ffffff0f] shadow-2xl z-40 flex flex-col"
+              >
+                {/* Drawer Header */}
+                <div className="p-6 border-b border-[#ffffff0f] shrink-0 bg-zinc-900/50">
+                  <div className="flex items-start justify-between mb-6">
+                    <div className="flex items-center gap-4">
+                      <div className="h-16 w-16 rounded-full bg-zinc-800 overflow-hidden ring-2 ring-white/10">
+                        {selectedAthlete.avatar ? (
+                          <img src={selectedAthlete.avatar} alt={selectedAthlete.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center text-lg font-bold text-zinc-500">
+                            {getInitials(selectedAthlete.name)}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-white leading-tight">{selectedAthlete.name}</h2>
+                        <p className="text-sm text-zinc-400">{selectedAthlete.email}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className={`h-1.5 w-1.5 rounded-full ${selectedAthlete.stravaConnected ? 'bg-lime-500' : 'bg-red-500'}`} />
+                          <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
+                            {selectedAthlete.stravaConnected ? 'Strava Linked' : 'No Connection'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <button onClick={() => setSelectedAthleteId(null)} className="h-8 w-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {/* Drawer Tabs */}
+                  <div className="flex items-center gap-6 overflow-x-auto scrollbar-none border-b border-white/5 pb-[1px]">
+                    {["overview", "challenges", "activities", "badges", "history"].map(tab => (
                       <button
-                        key={ath.id}
-                        onClick={() => setSelectedAthleteId(ath.id)}
-                        className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition-all text-left group ${
-                          isSelected
-                            ? "bg-lime-400/5 border-lime-400/30 shadow-[0_4px_25px_rgba(163,230,53,0.03)]"
-                            : "bg-zinc-900/30 border-white/5 hover:border-white/10 hover:bg-zinc-900/50"
+                        key={tab}
+                        onClick={() => setDrawerTab(tab)}
+                        className={`pb-3 text-xs font-bold uppercase tracking-wider transition-colors relative ${
+                          drawerTab === tab ? "text-lime-400" : "text-zinc-500 hover:text-zinc-300"
                         }`}
                       >
-                        {/* Athlete info */}
-                        <div className="flex items-center gap-3 min-w-0">
-                          
-                          {/* Avatar */}
-                          {ath.avatar ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={ath.avatar} alt={ath.name} className="h-9 w-9 rounded-full object-cover shrink-0 ring-1 ring-white/10" />
-                          ) : (
-                            <div className="h-9 w-9 rounded-full bg-zinc-900 text-xs font-black flex items-center justify-center text-lime-450 shrink-0 border border-white/10">{getInitials(ath.name)}</div>
-                          )}
-
-                          <div className="min-w-0">
-                            <p className={`font-black text-xs uppercase italic truncate ${isSelected ? "text-lime-400" : "text-white group-hover:text-lime-400"}`}>
-                              {ath.name}
-                            </p>
-                            <p className="text-[9px] text-zinc-500 font-mono truncate">{ath.email}</p>
-                            
-                            {/* Sport Type Badge */}
-                            <span className="inline-block px-1.5 py-0.5 rounded bg-zinc-950 border border-white/5 text-[7.5px] font-mono font-bold text-zinc-400 uppercase mt-1">
-                              {ath.sportType}
-                            </span>
-                          </div>
-
-                        </div>
-
-                        {/* Athlete stats metrics summary */}
-                        <div className="flex items-center gap-4 shrink-0 text-right font-mono text-[10px]">
-                          <div className="space-y-0.5">
-                            <span className="block font-black text-white">{ath.totalDistance.toLocaleString()} km</span>
-                            <span className="block text-[8px] text-zinc-550 uppercase">Distance</span>
-                          </div>
-
-                          <div className="space-y-0.5">
-                            <span className="block font-black text-lime-400">Rank #{ath.currentRank}</span>
-                            <span className="block text-[8px] text-zinc-550 uppercase">Current</span>
-                          </div>
-
-                          {/* Sync status indicator */}
-                          <div className="flex flex-col items-center">
-                            <span className={`h-2 w-2 rounded-full ${
-                              health.color === "green" ? "bg-lime-400 shadow-[0_0_8px_rgba(163,230,53,0.5)]" :
-                              health.color === "yellow" ? "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]" :
-                              "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
-                            }`} title={health.label} />
-                            <span className="text-[7.5px] text-zinc-600 uppercase font-mono mt-1 leading-none">{health.label.split(" ")[0]}</span>
-                          </div>
-                        </div>
-
+                        {tab}
+                        {drawerTab === tab && (
+                          <motion.div layoutId="drawer-tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-lime-400 rounded-t-full" />
+                        )}
                       </button>
-                    );
-                  })
-                )}
-              </div>
-
-            </div>
-          </section>
-
-          {/* RIGHT PANEL: ATHLETE INSPECTOR */}
-          <section className="flex-1 bg-zinc-950/40 max-h-none lg:max-h-[calc(100vh-4rem)] overflow-y-auto scrollbar-thin flex flex-col justify-between border-t lg:border-t-0 border-white/5">
-            <AnimatePresence mode="wait">
-              {!selectedAthlete ? (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="flex-1 flex flex-col items-center justify-center p-12 text-center my-auto min-h-[300px]"
-                >
-                  <div className="h-16 w-16 rounded-full border border-dashed border-white/10 flex items-center justify-center text-zinc-600 mb-4 animate-pulse">
-                    <Users className="h-8 w-8" />
+                    ))}
                   </div>
-                  <h3 className="text-xs uppercase font-black tracking-widest text-zinc-400 font-mono">No Athlete Selected</h3>
-                  <p className="text-[10px] text-zinc-550 mt-1 max-w-xs font-mono">
-                    Scan or select an active athlete from the directory to inspect synchronized Strava stats, enrolled challenge status, and sync logs.
-                  </p>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key={selectedAthlete.id}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.2 }}
-                  className="p-4 sm:p-6 lg:p-8 space-y-6 text-left"
-                >
-                  
-                  {/* PROFILE HEADER PANEL */}
-                  <div className="flex flex-col sm:flex-row justify-between items-start gap-4 p-5 rounded-3xl bg-zinc-900/30 border border-white/5 relative overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.4)]">
-                    <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/25 to-transparent" />
-                    
-                    <div className="flex items-center gap-4 min-w-0">
-                      {selectedAthlete.avatar ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={selectedAthlete.avatar} alt={selectedAthlete.name} className="h-14 w-14 rounded-full object-cover ring-2 ring-lime-400/20 shrink-0" />
-                      ) : (
-                        <div className="h-14 w-14 rounded-full bg-zinc-900 border border-white/10 text-lg font-black flex items-center justify-center text-lime-400 shrink-0">{getInitials(selectedAthlete.name)}</div>
-                      )}
-                      <div className="min-w-0 space-y-1">
-                        <h2 className="text-lg sm:text-xl font-black uppercase italic leading-none text-white tracking-tight flex items-center gap-2">
-                          {selectedAthlete.name}
-                          {selectedAthlete.stravaConnected && (
-                            <span className="inline-flex h-1.5 w-1.5 rounded-full bg-lime-450" />
-                          )}
-                        </h2>
-                        <p className="text-[10px] text-zinc-400 font-mono tracking-wide">{selectedAthlete.email}</p>
-                        
-                        <div className="flex flex-wrap items-center gap-2 pt-1 font-mono text-[8.5px]">
-                          <span className="px-2 py-0.5 rounded bg-zinc-950 border border-white/5 text-zinc-500">
-                            STRAVA ID: <span className="text-white font-bold">{selectedAthlete.athleteId}</span>
-                          </span>
-                          <span className="px-2 py-0.5 rounded bg-zinc-950 border border-white/5 text-zinc-500">
-                            JOINED: <span className="text-white font-bold">{selectedAthlete.joinedAt}</span>
-                          </span>
+                </div>
+
+                {/* Drawer Content */}
+                <div className="flex-1 overflow-y-auto p-6 scrollbar-none">
+                  {drawerTab === "overview" && (
+                    <div className="space-y-8">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-zinc-900 border border-white/5 rounded-xl p-4">
+                          <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider block mb-1">Rank</span>
+                          <div className="text-2xl font-black text-white">{selectedAthlete.currentRank > 0 ? `#${selectedAthlete.currentRank}` : '-'}</div>
+                        </div>
+                        <div className="bg-zinc-900 border border-white/5 rounded-xl p-4">
+                          <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider block mb-1">Distance</span>
+                          <div className="text-2xl font-black text-white">{selectedAthlete.totalDistance}<span className="text-sm font-normal text-zinc-500 ml-1">km</span></div>
+                        </div>
+                        <div className="bg-zinc-900 border border-white/5 rounded-xl p-4">
+                          <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider block mb-1">Activities</span>
+                          <div className="text-2xl font-black text-white">{selectedAthlete.totalActivities}</div>
+                        </div>
+                        <div className="bg-zinc-900 border border-white/5 rounded-xl p-4">
+                          <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider block mb-1">Streak</span>
+                          <div className="flex items-center gap-1.5">
+                            <Flame className={`h-5 w-5 ${selectedAthlete.activeStreak > 0 ? 'text-orange-500' : 'text-zinc-600'}`} />
+                            <div className="text-2xl font-black text-white">{selectedAthlete.activeStreak}</div>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Connection Status Badge */}
-                    <div className="shrink-0 self-start sm:self-center">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border font-mono text-[9px] font-extrabold uppercase tracking-widest ${
-                        selectedAthlete.stravaConnected
-                          ? "bg-lime-400/5 text-lime-400 border-lime-400/20 shadow-[0_0_12px_rgba(163,230,53,0.05)]"
-                          : "bg-red-500/5 text-red-400 border-red-500/20"
-                      }`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${selectedAthlete.stravaConnected ? "bg-lime-400 animate-pulse" : "bg-red-500"}`} />
-                        {selectedAthlete.stravaConnected ? "Strava Linked" : "Not Linked"}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* PERFORMANCE STATS SECTION */}
-                  <div className="space-y-2.5">
-                    <h3 className="text-[10px] uppercase font-black tracking-widest text-zinc-500 font-mono">Performance Stats</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                      {[
-                        { label: "Total Distance", value: `${selectedAthlete.totalDistance.toLocaleString()} km`, sub: "Logged activities distance", icon: Milestone },
-                        { label: "Synced Workouts", value: `${selectedAthlete.totalActivities}`, sub: "Activities imported", icon: Activity },
-                        { label: "Current Rank", value: `#${selectedAthlete.currentRank}`, sub: "Leaderboard status", icon: Trophy },
-                        { label: "Elevation Gain", value: `${selectedAthlete.elevationGain.toLocaleString()} m`, sub: "Vertical climb", icon: Layers },
-                        { label: "Active Streak", value: `${selectedAthlete.activeStreak} Days`, sub: "Consecutive active days", icon: Flame, color: selectedAthlete.activeStreak > 0 ? "text-lime-450" : "" },
-                      ].map((stat) => {
-                        const Icon = stat.icon;
-                        return (
-                          <div key={stat.label} className="p-4 bg-zinc-900/30 border border-white/5 rounded-2xl hover:border-lime-400/10 transition-all font-mono">
-                            <span className="block text-[8px] uppercase tracking-wider text-zinc-500">{stat.label}</span>
-                            <div className="my-1.5 flex items-baseline gap-1">
-                              <span className={`text-lg font-black tracking-tight text-white ${stat.color || ""}`}>{stat.value}</span>
-                            </div>
-                            <span className="block text-[7px] text-zinc-650 truncate">{stat.sub}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* CHALLENGE PARTICIPATION SECTION */}
-                  <div className="space-y-3">
-                    <h3 className="text-[10px] uppercase font-black tracking-widest text-zinc-500 font-mono">Challenge Enrollment</h3>
-                    {selectedAthlete.enrolledChallenges.length === 0 ? (
-                      <div className="p-8 text-center text-zinc-600 font-mono text-xs border border-dashed border-white/5 rounded-2xl bg-zinc-900/10">
-                        Athlete is not enrolled in any ongoing challenges.
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {selectedAthlete.enrolledChallenges.map((ec) => {
-                          const unit = ec.goalMetric === "Distance" ? "km" : ec.goalMetric === "Elevation" ? "m" : "h";
-                          return (
-                            <div key={ec.id} className="p-4.5 bg-zinc-900/20 border border-white/5 rounded-2xl hover:border-lime-400/15 transition-all space-y-3">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-black uppercase text-white tracking-wide truncate pr-4">{ec.title}</span>
-                                <span className="text-[8.5px] px-2 py-0.5 font-mono font-bold bg-lime-400/10 text-lime-400 rounded border border-lime-400/20 uppercase shrink-0">
-                                  Rank #{ec.rank}
-                                </span>
-                              </div>
-
-                              {/* Progress bar */}
-                              <div className="space-y-1 font-mono text-[9px]">
-                                <div className="flex justify-between text-zinc-400 font-bold">
-                                  <span>Progress: {ec.progress} / {ec.goalTarget} {unit}</span>
-                                  <span>{ec.percentage}%</span>
-                                </div>
-                                <div className="w-full h-1.5 bg-zinc-950 border border-white/5 rounded-full overflow-hidden">
-                                  <div 
-                                    className="h-full bg-lime-400 transition-all duration-500" 
-                                    style={{ width: `${ec.percentage}%` }}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* RECENT ACTIVITY TIMELINE */}
-                  <div className="space-y-3">
-                    <h3 className="text-[10px] uppercase font-black tracking-widest text-zinc-500 font-mono">Recent Activity History</h3>
-                    {selectedAthlete.recentActivities.length === 0 ? (
-                      <div className="p-8 text-center text-zinc-600 font-mono text-xs border border-dashed border-white/5 rounded-2xl bg-zinc-900/10">
-                        No activity metrics logged.
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {selectedAthlete.recentActivities.map((act) => (
-                          <div 
-                            key={act.id} 
-                            className="flex items-center justify-between p-3 bg-zinc-900/10 border border-white/5 rounded-xl hover:border-white/10 transition-all"
+                      <div className="space-y-3">
+                        <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Admin Actions</h3>
+                        <div className="flex flex-col gap-2">
+                          <button 
+                            onClick={() => handleForceSync(selectedAthlete.id)}
+                            disabled={!selectedAthlete.stravaConnected || syncingAthlete}
+                            className="w-full flex items-center justify-between p-3 rounded-lg bg-zinc-900 border border-white/5 hover:border-lime-500/30 hover:bg-lime-500/5 transition-colors group disabled:opacity-50 disabled:pointer-events-none"
                           >
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="h-7 w-7 rounded-lg bg-zinc-900 border border-white/5 flex items-center justify-center text-zinc-400 shrink-0">
+                            <div className="flex items-center gap-3">
+                              <RefreshCw className={`h-4 w-4 text-zinc-400 group-hover:text-lime-400 ${syncingAthlete ? 'animate-spin text-lime-400' : ''}`} />
+                              <span className="text-sm font-medium text-white">Sync Strava Data</span>
+                            </div>
+                            <ArrowRight className="h-4 w-4 text-zinc-600 group-hover:text-lime-400" />
+                          </button>
+                          
+                          <button 
+                            onClick={() => handleExportAthleteReport(selectedAthlete)}
+                            className="w-full flex items-center justify-between p-3 rounded-lg bg-zinc-900 border border-white/5 hover:border-white/20 transition-colors group"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Download className="h-4 w-4 text-zinc-400 group-hover:text-white" />
+                              <span className="text-sm font-medium text-white">Export CSV Report</span>
+                            </div>
+                            <ArrowRight className="h-4 w-4 text-zinc-600 group-hover:text-white" />
+                          </button>
+
+                          <a 
+                            href={`https://www.strava.com/athletes/${selectedAthlete.athleteId}`} 
+                            target="_blank" rel="noreferrer"
+                            className="w-full flex items-center justify-between p-3 rounded-lg bg-zinc-900 border border-white/5 hover:border-[#FC4C02]/30 hover:bg-[#FC4C02]/5 transition-colors group disabled:opacity-50"
+                            style={{ pointerEvents: selectedAthlete.stravaConnected ? 'auto' : 'none', opacity: selectedAthlete.stravaConnected ? 1 : 0.5 }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <svg className="h-4 w-4 text-zinc-400 group-hover:text-[#FC4C02]" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
+                              </svg>
+                              <span className="text-sm font-medium text-white">View Strava Profile</span>
+                            </div>
+                            <ArrowRight className="h-4 w-4 text-zinc-600 group-hover:text-[#FC4C02]" />
+                          </a>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Danger Zone</h3>
+                        <button className="w-full flex items-center justify-between p-3 rounded-lg bg-red-500/10 border border-red-500/20 hover:border-red-500/50 transition-colors group">
+                          <div className="flex items-center gap-3">
+                            <ShieldAlert className="h-4 w-4 text-red-500" />
+                            <span className="text-sm font-medium text-red-500">Suspend User</span>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {drawerTab === "challenges" && (
+                    <div className="space-y-4">
+                      {selectedAthlete.enrolledChallenges.length > 0 ? (
+                        selectedAthlete.enrolledChallenges.map(c => (
+                          <div key={c.id} className="bg-zinc-900 border border-white/5 rounded-xl p-4">
+                            <div className="flex justify-between items-start mb-3">
+                              <div>
+                                <h4 className="font-bold text-white text-sm">{c.title}</h4>
+                                <span className="text-xs text-zinc-500">{c.status}</span>
+                              </div>
+                              <div className="bg-white/5 rounded px-2 py-1 flex items-center gap-1.5">
+                                <Trophy className="h-3 w-3 text-zinc-400" />
+                                <span className="text-xs font-bold text-white">#{c.rank}</span>
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-xs">
+                                <span className="text-lime-400 font-bold">{c.progress} / {c.goalTarget} {c.goalMetric === 'Distance' ? 'km' : ''}</span>
+                                <span className="text-zinc-500">{c.percentage}%</span>
+                              </div>
+                              <div className="h-2 w-full bg-black/40 rounded-full overflow-hidden">
+                                <motion.div 
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${c.percentage}%` }}
+                                  transition={{ duration: 1, ease: "easeOut" }}
+                                  className="h-full bg-lime-500"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-10">
+                          <Target className="h-8 w-8 text-zinc-700 mx-auto mb-3" />
+                          <p className="text-sm text-zinc-500">No active challenges.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {drawerTab === "activities" && (
+                    <div className="space-y-3">
+                      {selectedAthlete.recentActivities.length > 0 ? (
+                        selectedAthlete.recentActivities.map(act => (
+                          <div key={act.id} className="bg-zinc-900 border border-white/5 rounded-xl p-3 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 rounded-lg bg-white/5 flex items-center justify-center text-zinc-400">
                                 <Activity className="h-4 w-4" />
                               </div>
-                              <div className="text-left min-w-0">
-                                <p className="text-[11px] font-extrabold text-white truncate leading-none">{act.name}</p>
-                                <span className="text-[8px] text-zinc-500 font-mono uppercase tracking-wide mt-1 block">
-                                  Type: {act.sportType} • {act.startDate}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="text-right font-mono text-[10px] shrink-0">
-                              <span className="block font-black text-white">{act.distance} km</span>
-                              <span className="block text-[8px] text-zinc-500">{formatTime(act.movingTime)}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* SYNC HEALTH PANEL & ADMIN ACTIONS */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-white/5">
-                    
-                    {/* SYNC HEALTH */}
-                    <div className="space-y-3">
-                      <h3 className="text-[10px] uppercase font-black tracking-widest text-zinc-500 font-mono">Sync Health Diagnostics</h3>
-                      <div className="p-5 bg-zinc-900/20 border border-white/5 rounded-2xl space-y-4">
-                        
-                        {/* Health status header */}
-                        {(() => {
-                          const health = getSyncHealthStatus(selectedAthlete);
-                          return (
-                            <div className="flex items-start gap-3 text-left">
-                              <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 border ${
-                                health.color === "green" ? "bg-lime-400/10 text-lime-400 border-lime-400/20" :
-                                health.color === "yellow" ? "bg-amber-400/10 text-amber-400 border-amber-400/20" :
-                                "bg-red-500/10 text-red-500 border-red-500/20"
-                              }`}>
-                                {health.color === "green" ? <ShieldCheck className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
-                              </div>
                               <div>
-                                <span className="block text-[8px] uppercase tracking-wider text-zinc-500 font-mono">Pipeline Status</span>
-                                <span className={`text-xs font-black uppercase tracking-wider ${
-                                  health.color === "green" ? "text-lime-400" :
-                                  health.color === "yellow" ? "text-amber-400" :
-                                  "text-red-500"
-                                }`}>
-                                  {health.label}
-                                </span>
-                                <p className="text-[9px] text-zinc-400 mt-1 leading-relaxed">{health.text}</p>
+                                <h4 className="text-sm font-bold text-white max-w-[200px] truncate">{act.name}</h4>
+                                <div className="flex items-center gap-2 text-xs text-zinc-500 mt-0.5">
+                                  <span>{act.sportType}</span>
+                                  <span>&bull;</span>
+                                  <span>{act.distance} km</span>
+                                </div>
                               </div>
                             </div>
-                          );
-                        })()}
-
-                        {/* Health stats block */}
-                        <div className="grid grid-cols-2 gap-3 border-t border-white/5 pt-3 font-mono text-[9px]">
-                          <div>
-                            <span className="block text-zinc-550 uppercase text-[7.5px]">Last Synchronization</span>
-                            <span className="block text-white font-bold mt-0.5">{selectedAthlete.lastSyncTime}</span>
+                            <span className="text-xs font-medium text-zinc-400">{act.startDate}</span>
                           </div>
-                          <div>
-                            <span className="block text-zinc-550 uppercase text-[7.5px]">Token Authentication</span>
-                            <span className="block text-white font-bold mt-0.5">{selectedAthlete.stravaConnected ? "VALID / EXPIRES ON WEEKLY BASIS" : "EXPIRED / DISCONNECTED"}</span>
-                          </div>
-                          <div>
-                            <span className="block text-zinc-550 uppercase text-[7.5px]">API Error Log</span>
-                            <span className="block text-white font-bold mt-0.5">{selectedAthlete.stravaConnected ? "NO CRITICAL ERRORS" : "CONNECTION AUTH ERROR"}</span>
-                          </div>
-                          <div>
-                            <span className="block text-zinc-550 uppercase text-[7.5px]">Database Records Imported</span>
-                            <span className="block text-white font-bold mt-0.5">{selectedAthlete.totalActivities} Workouts synced</span>
-                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-10">
+                          <Activity className="h-8 w-8 text-zinc-700 mx-auto mb-3" />
+                          <p className="text-sm text-zinc-500">No recent activities.</p>
                         </div>
-
-                      </div>
+                      )}
                     </div>
+                  )}
 
-                    {/* ADMIN ACTIONS */}
-                    <div className="space-y-3">
-                      <h3 className="text-[10px] uppercase font-black tracking-widest text-zinc-500 font-mono">Admin Operations Panel</h3>
-                      <div className="p-5 bg-zinc-900/20 border border-white/5 rounded-2xl space-y-3 flex flex-col justify-center">
-                        
-                        {/* Primary actions */}
-                        <div className="grid grid-cols-2 gap-2.5">
-                          <Button
-                            onClick={() => handleForceSync(selectedAthlete.id)}
-                            disabled={syncingAthlete || !selectedAthlete.stravaConnected}
-                            className="h-10 border border-lime-400/20 hover:border-lime-400 bg-lime-400/5 hover:bg-lime-400/10 text-lime-400 font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 text-[9px] uppercase tracking-wider cursor-pointer"
-                          >
-                            {syncingAthlete ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                            <span>Force Sync</span>
-                          </Button>
-
-                          <Button
-                            onClick={() => handleExportAthleteReport(selectedAthlete)}
-                            className="h-10 border border-white/5 hover:border-white/10 bg-zinc-900 hover:bg-zinc-850 text-white font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 text-[9px] uppercase tracking-wider cursor-pointer"
-                          >
-                            <Download className="h-3.5 w-3.5 text-zinc-400" />
-                            <span>Export Report</span>
-                          </Button>
-                        </div>
-
-                        {/* Secondary actions */}
-                        <div className="grid grid-cols-2 gap-2.5">
-                          <Button
-                            onClick={() => setIsHistoryModalOpen(true)}
-                            className="h-10 border border-white/5 hover:border-white/10 bg-zinc-900/50 hover:bg-zinc-900 text-zinc-300 hover:text-white font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 text-[9px] uppercase tracking-wider cursor-pointer"
-                          >
-                            <Trophy className="h-3.5 w-3.5 text-zinc-500" />
-                            <span>View History</span>
-                          </Button>
-
-                          <Button
-                            onClick={() => setIsNotificationModalOpen(true)}
-                            className="h-10 border border-white/5 hover:border-white/10 bg-zinc-900/50 hover:bg-zinc-900 text-zinc-300 hover:text-white font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 text-[9px] uppercase tracking-wider cursor-pointer"
-                          >
-                            <Send className="h-3.5 w-3.5 text-zinc-500" />
-                            <span>Send Alert</span>
-                          </Button>
-                        </div>
-
-                        <span className="block text-[8px] text-zinc-600 font-mono mt-1 text-center">
-                          AUTHORIZED ADMIN ROLES ONLY • SECURE AUDITED EVENTS
-                        </span>
-                      </div>
+                  {drawerTab === "badges" && (
+                    <div className="text-center py-12">
+                      <Award className="h-12 w-12 text-zinc-700 mx-auto mb-4" />
+                      <h3 className="text-white font-bold mb-1">No Badges Earned</h3>
+                      <p className="text-sm text-zinc-500">Badges are awarded upon completing challenges.</p>
                     </div>
+                  )}
 
-                  </div>
-
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </section>
-
-        </main>
-
+                  {drawerTab === "history" && (
+                    <div className="space-y-6 pl-2">
+                      <div className="relative pl-6 border-l-2 border-white/10 pb-6">
+                        <div className="absolute -left-[5px] top-0 h-2 w-2 rounded-full bg-lime-500 shadow-[0_0_8px_rgba(132,204,22,0.8)]" />
+                        <h4 className="text-sm font-bold text-white">Joined KYL Arena</h4>
+                        <p className="text-xs text-zinc-500 mt-1">{selectedAthlete.joinedAt}</p>
+                      </div>
+                      {selectedAthlete.stravaConnected && (
+                        <div className="relative pl-6 border-l-2 border-white/10 pb-6">
+                          <div className="absolute -left-[5px] top-0 h-2 w-2 rounded-full bg-white/30" />
+                          <h4 className="text-sm font-bold text-white">Connected Strava</h4>
+                          <p className="text-xs text-zinc-500 mt-1">Profile successfully linked</p>
+                        </div>
+                      )}
+                      {selectedAthlete.rawLastSyncTime && (
+                        <div className="relative pl-6 border-l-2 border-transparent">
+                          <div className="absolute -left-[5px] top-0 h-2 w-2 rounded-full bg-white/30" />
+                          <h4 className="text-sm font-bold text-white">Last Activity Sync</h4>
+                          <p className="text-xs text-zinc-500 mt-1">{selectedAthlete.lastSyncTime}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
-
-      {/* SEND NOTIFICATION MODAL */}
-      <AnimatePresence>
-        {isNotificationModalOpen && selectedAthlete && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsNotificationModalOpen(false)}
-              className="absolute inset-0 bg-black/70 backdrop-blur-md"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-md bg-zinc-900 border border-white/10 rounded-3xl p-6 sm:p-8 overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.8)] z-10 text-left space-y-4"
-            >
-              <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                <h3 className="text-xs uppercase font-black tracking-widest text-zinc-400 font-mono flex items-center gap-2">
-                  <Send className="h-4 w-4 text-lime-400" /> Dispatch System Alert
-                </h3>
-                <button onClick={() => setIsNotificationModalOpen(false)} className="text-zinc-500 hover:text-white transition-colors">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="space-y-1.5 text-left">
-                <span className="text-[8px] uppercase font-black text-zinc-500 tracking-wider font-mono">Recipient athlete:</span>
-                <p className="text-xs font-bold text-white uppercase italic">{selectedAthlete.name} ({selectedAthlete.email})</p>
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-[8px] uppercase font-black text-zinc-500 tracking-wider font-mono">Notification content:</label>
-                <textarea
-                  placeholder="Draft system message or sync alerts for this athlete..."
-                  value={notificationText}
-                  onChange={(e) => setNotificationText(e.target.value)}
-                  rows={4}
-                  className="w-full bg-zinc-950 border border-white/5 rounded-xl p-3 text-xs text-white placeholder:text-zinc-650 focus:border-lime-400 focus:outline-none font-mono"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <Button
-                  onClick={() => setIsNotificationModalOpen(false)}
-                  className="flex-1 h-10 border border-zinc-800 hover:border-zinc-700 bg-zinc-900/50 hover:bg-zinc-900 text-zinc-300 rounded-xl transition-all text-[10px] uppercase font-extrabold tracking-wider cursor-pointer"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSendNotificationSubmit}
-                  disabled={sendingNotification || !notificationText.trim()}
-                  className="flex-1 h-10 border border-lime-400/20 hover:border-lime-400 bg-lime-400/5 hover:bg-lime-400/15 text-lime-400 rounded-xl transition-all text-[10px] uppercase font-extrabold tracking-wider cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  {sendingNotification ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                  <span>Dispatch Alert</span>
-                </Button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* VIEW CHALLENGE HISTORY MODAL */}
-      <AnimatePresence>
-        {isHistoryModalOpen && selectedAthlete && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsHistoryModalOpen(false)}
-              className="absolute inset-0 bg-black/70 backdrop-blur-md"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-2xl bg-zinc-900 border border-white/10 rounded-3xl p-6 sm:p-8 overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.8)] z-10 text-left space-y-4"
-            >
-              <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                <h3 className="text-xs uppercase font-black tracking-widest text-zinc-400 font-mono flex items-center gap-2">
-                  <Trophy className="h-4 w-4 text-lime-400 animate-pulse" /> Challenge History Audit
-                </h3>
-                <button onClick={() => setIsHistoryModalOpen(false)} className="text-zinc-500 hover:text-white transition-colors">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="space-y-1.5 text-left pb-2">
-                <span className="text-[8px] uppercase font-black text-zinc-500 tracking-wider font-mono">Athlete:</span>
-                <p className="text-xs font-bold text-white uppercase italic">{selectedAthlete.name} ({selectedAthlete.email})</p>
-              </div>
-
-              <div className="space-y-3 max-h-[300px] overflow-y-auto scrollbar-thin">
-                {selectedAthlete.enrolledChallenges.length === 0 ? (
-                  <div className="p-8 text-center text-zinc-600 font-mono text-xs border border-dashed border-white/5 rounded-xl bg-zinc-950/40">
-                    No active or archived challenge participations recorded in operations ledger.
-                  </div>
-                ) : (
-                  <div className="space-y-2.5">
-                    {selectedAthlete.enrolledChallenges.map((ec) => {
-                      const unit = ec.goalMetric === "Distance" ? "km" : ec.goalMetric === "Elevation" ? "m" : "h";
-                      return (
-                        <div key={ec.id} className="p-4 bg-zinc-950/60 border border-white/5 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                          <div className="text-left space-y-1">
-                            <span className="block text-xs font-black uppercase text-white tracking-wide">{ec.title}</span>
-                            <span className="block font-mono text-[8px] text-zinc-500 uppercase">STATUS: {ec.status}</span>
-                          </div>
-
-                          <div className="flex items-center gap-4 text-right font-mono text-[10px] shrink-0">
-                            <div className="space-y-0.5">
-                              <span className="block font-black text-white">{ec.progress} / {ec.goalTarget} {unit}</span>
-                              <span className="block text-[8px] text-zinc-550 uppercase">Progress</span>
-                            </div>
-                            <div className="space-y-0.5">
-                              <span className="block font-black text-lime-400">{ec.percentage}%</span>
-                              <span className="block text-[8px] text-zinc-550 uppercase">Completion</span>
-                            </div>
-                            <div className="space-y-0.5">
-                              <span className="block font-black text-white">Rank #{ec.rank}</span>
-                              <span className="block text-[8px] text-zinc-550 uppercase">Standing</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-2 text-right">
-                <Button
-                  onClick={() => setIsHistoryModalOpen(false)}
-                  className="h-10 px-6 border border-zinc-800 hover:border-zinc-700 bg-zinc-900/50 hover:bg-zinc-900 text-zinc-300 rounded-xl transition-all text-[10px] uppercase font-extrabold tracking-wider cursor-pointer"
-                >
-                  Close Audit
-                </Button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
     </div>
   );
 }

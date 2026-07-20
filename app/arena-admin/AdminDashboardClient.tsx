@@ -311,7 +311,11 @@ export default function AdminDashboardClient({
                   <button
                     key={link.title}
                     onClick={() => {
-                      if (link.title === "Athletes") router.push("/arena-admin/athletes");
+                      if (link.title === "Dashboard") router.push("/arena-admin");
+                      else if (link.title === "Challenges") router.push("/arena-admin/challenges");
+                      else if (link.title === "Athletes") router.push("/arena-admin/athletes");
+                      else if (link.title === "Activities") router.push("/arena-admin/activities");
+                      else if (link.title === "Reports") router.push("/arena-admin/reports");
                     }}
                     className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-150 group border-l-2 ${
                       link.active 
@@ -341,7 +345,10 @@ export default function AdminDashboardClient({
         <div className="px-4 py-4 border-t border-[#ffffff0f] shrink-0">
           <div className="space-y-3">
             <h3 className="text-[10px] font-bold text-zinc-500/80 uppercase tracking-wider px-3">ADMINISTRATION</h3>
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-400 hover:text-white hover:bg-white/5 transition-all duration-150 font-normal hover:translate-x-1 group border-l-2 border-transparent">
+            <button 
+              onClick={() => router.push("/arena-admin/settings")}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-400 hover:text-white hover:bg-white/5 transition-all duration-150 font-normal hover:translate-x-1 group border-l-2 border-transparent"
+            >
               <Settings className="h-4 w-4 text-zinc-500 group-hover:text-zinc-300" />
               <span>Settings</span>
             </button>
@@ -390,7 +397,11 @@ export default function AdminDashboardClient({
                           key={link.title}
                           onClick={() => {
                             setIsSidebarOpen(false);
-                            if (link.title === "Athletes") router.push("/arena-admin/athletes");
+                            if (link.title === "Dashboard") router.push("/arena-admin");
+                            else if (link.title === "Challenges") router.push("/arena-admin/challenges");
+                            else if (link.title === "Athletes") router.push("/arena-admin/athletes");
+                            else if (link.title === "Activities") router.push("/arena-admin/activities");
+                            else if (link.title === "Reports") router.push("/arena-admin/reports");
                           }}
                           className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-150 group border-l-2 ${
                             link.active 
@@ -418,7 +429,10 @@ export default function AdminDashboardClient({
               <div className="px-4 py-4 border-t border-[#ffffff0f] shrink-0">
                 <div className="space-y-3">
                   <h3 className="text-[10px] font-bold text-zinc-500/80 uppercase tracking-wider px-3">ADMINISTRATION</h3>
-                  <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-400 hover:text-white hover:bg-white/5 transition-all duration-150 font-normal hover:translate-x-1 group border-l-2 border-transparent">
+                  <button 
+                    onClick={() => { setIsSidebarOpen(false); router.push("/arena-admin/settings"); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-400 hover:text-white hover:bg-white/5 transition-all duration-150 font-normal hover:translate-x-1 group border-l-2 border-transparent"
+                  >
                     <Settings className="h-4 w-4 text-zinc-500 group-hover:text-zinc-300" />
                     <span>Settings</span>
                   </button>
