@@ -453,143 +453,22 @@ export default function DashboardClient({
   return (
     <div className="relative min-h-screen bg-zinc-950 text-white selection:bg-lime-400 selection:text-black overflow-hidden flex flex-col justify-between font-sans">
       
-      {/* ── Animated Premium Background ── */}
-      <div aria-hidden="true" className="absolute inset-0 pointer-events-none overflow-hidden">
-        {/* Base dark canvas */}
+      {/* ── Topographic Background ── */}
+      <div aria-hidden="true" className="absolute inset-0 pointer-events-none overflow-hidden z-0">
         <div className="absolute inset-0 bg-zinc-950" />
+        
+        {/* Ambient glow orbs */}
+        <div className="absolute -top-32 -left-32 w-[700px] h-[700px] rounded-full" style={{ background: "radial-gradient(circle, rgba(163,230,53,0.03) 0%, transparent 70%)" }} />
+        <div className="absolute top-1/2 -right-32 w-[600px] h-[600px] rounded-full" style={{ background: "radial-gradient(circle, rgba(52,211,153,0.02) 0%, transparent 70%)" }} />
 
-        {/* Ambient lime orb — top-left, slow drift */}
-        <div
-          className="absolute -top-32 -left-32 w-[700px] h-[700px] rounded-full"
+        {/* Topographic pattern */}
+        <div 
+          className="absolute inset-0 opacity-[0.025]"
           style={{
-            background: "radial-gradient(circle, rgba(163,230,53,0.045) 0%, transparent 70%)",
-            animation: "kyl-orb-drift-a 20s ease-in-out infinite alternate",
-            willChange: "transform",
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10 0C10 5.52285 5.52285 10 0 10V12C6.62742 12 12 6.62742 12 0H10ZM0 100C5.52285 100 10 95.5228 10 90H12C12 96.6274 6.62742 100 0 100V100ZM100 10C94.4772 10 90 5.52285 90 0H88C88 6.62742 93.3726 12 100 12V10ZM90 100C90 94.4772 94.4772 90 100 90V88C93.3726 88 88 93.3726 88 100H90ZM20 0C20 11.0457 11.0457 20 0 20V22C12.1503 22 22 12.1503 22 0H20ZM0 100C11.0457 100 20 91.0457 20 80H22C22 92.1503 12.1503 100 0 100V100ZM100 20C88.9543 20 80 11.0457 80 0H78C78 12.1503 87.8497 22 100 22V20ZM80 100C80 91.0457 88.9543 80 100 80V78C87.8497 78 78 92.1503 78 100H80ZM30 0C30 16.5685 16.5685 30 0 30V32C17.6731 32 32 17.6731 32 0H30ZM0 100C16.5685 100 30 86.5685 30 70H32C32 87.6731 17.6731 100 0 100V100ZM100 30C83.4315 30 70 16.5685 70 0H68C68 17.6731 82.3269 32 100 32V30ZM70 100C70 86.5685 83.4315 70 100 70V68C82.3269 68 68 87.6731 68 100H70ZM40 0C40 22.0914 22.0914 40 0 40V42C23.196 42 42 23.196 42 0H40ZM0 100C22.0914 100 40 82.0914 40 60H42C42 83.196 23.196 100 0 100V100ZM100 40C77.9086 40 60 22.0914 60 0H58C58 23.196 76.804 42 100 42V40ZM60 100C60 82.0914 77.9086 60 100 60V58C76.804 58 58 83.196 58 100H60ZM50 0C50 27.6142 27.6142 50 0 50V52C28.7188 52 52 28.7188 52 0H50ZM0 100C27.6142 100 50 77.6142 50 50H52C52 78.7188 28.7188 100 0 100V100ZM100 50C72.3858 50 50 27.6142 50 0H48C48 28.7188 71.2812 52 100 52V50ZM50 100C50 77.6142 72.3858 50 100 50V48C71.2812 48 48 78.7188 48 100H50Z' fill='%23a3e635' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+            backgroundSize: '800px 800px'
           }}
         />
-        {/* Ambient emerald orb — bottom-right */}
-        <div
-          className="absolute -bottom-24 -right-24 w-[600px] h-[600px] rounded-full"
-          style={{
-            background: "radial-gradient(circle, rgba(52,211,153,0.03) 0%, transparent 70%)",
-            animation: "kyl-orb-drift-b 17s ease-in-out infinite alternate",
-            willChange: "transform",
-          }}
-        />
-
-        {/* Topographic / GPS SVG layer */}
-        <svg
-          className="absolute inset-0 w-full h-full"
-          xmlns="http://www.w3.org/2000/svg"
-          preserveAspectRatio="xMidYMid slice"
-        >
-          <defs>
-            {/* Topographic contour gradient */}
-            <linearGradient id="topo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#a3e635" stopOpacity="0" />
-              <stop offset="50%" stopColor="#a3e635" stopOpacity="0.06" />
-              <stop offset="100%" stopColor="#a3e635" stopOpacity="0" />
-            </linearGradient>
-            <linearGradient id="gps-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#a3e635" stopOpacity="0" />
-              <stop offset="40%" stopColor="#a3e635" stopOpacity="0.18" />
-              <stop offset="100%" stopColor="#a3e635" stopOpacity="0" />
-            </linearGradient>
-            <linearGradient id="gps-grad-2" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#34d399" stopOpacity="0" />
-              <stop offset="60%" stopColor="#34d399" stopOpacity="0.12" />
-              <stop offset="100%" stopColor="#34d399" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-
-          {/* Topographic contour rings — static, very faint */}
-          <ellipse cx="30%" cy="38%" rx="22%" ry="14%" fill="none" stroke="url(#topo-grad)" strokeWidth="0.8" opacity="0.5" />
-          <ellipse cx="30%" cy="38%" rx="30%" ry="20%" fill="none" stroke="url(#topo-grad)" strokeWidth="0.6" opacity="0.35" />
-          <ellipse cx="30%" cy="38%" rx="38%" ry="26%" fill="none" stroke="url(#topo-grad)" strokeWidth="0.5" opacity="0.2" />
-          <ellipse cx="75%" cy="70%" rx="18%" ry="11%" fill="none" stroke="url(#topo-grad)" strokeWidth="0.7" opacity="0.4" />
-          <ellipse cx="75%" cy="70%" rx="26%" ry="17%" fill="none" stroke="url(#topo-grad)" strokeWidth="0.5" opacity="0.25" />
-          <ellipse cx="60%" cy="20%" rx="14%" ry="9%" fill="none" stroke="url(#topo-grad)" strokeWidth="0.6" opacity="0.3" />
-
-          {/* GPS route trace 1 — animated dash sweep */}
-          <path
-            d="M -5% 62% C 15% 55%, 30% 45%, 50% 48% S 75% 35%, 105% 30%"
-            fill="none"
-            stroke="url(#gps-grad)"
-            strokeWidth="1.2"
-            strokeDasharray="12 6"
-            opacity="0.7"
-            style={{ animation: "kyl-dash-march 18s linear infinite", willChange: "stroke-dashoffset" }}
-          />
-          {/* GPS route trace 2 */}
-          <path
-            d="M -5% 80% C 20% 72%, 38% 60%, 55% 65% S 80% 55%, 105% 50%"
-            fill="none"
-            stroke="url(#gps-grad-2)"
-            strokeWidth="0.9"
-            strokeDasharray="8 10"
-            opacity="0.5"
-            style={{ animation: "kyl-dash-march 22s linear infinite reverse", willChange: "stroke-dashoffset" }}
-          />
-          {/* GPS route trace 3 — upper register */}
-          <path
-            d="M 10% -2% C 18% 15%, 35% 22%, 48% 18% S 70% 8%, 90% 14%"
-            fill="none"
-            stroke="url(#gps-grad)"
-            strokeWidth="0.8"
-            strokeDasharray="6 14"
-            opacity="0.4"
-            style={{ animation: "kyl-dash-march 26s linear infinite", willChange: "stroke-dashoffset" }}
-          />
-
-          {/* Floating particles — rendered as small animated circles */}
-          {[
-            { cx: "18%", cy: "25%", r: 1.5, delay: "0s", dur: "15s" },
-            { cx: "45%", cy: "12%", r: 1.2, delay: "3s", dur: "19s" },
-            { cx: "72%", cy: "40%", r: 1.8, delay: "6s", dur: "16s" },
-            { cx: "85%", cy: "75%", r: 1.1, delay: "1s", dur: "21s" },
-            { cx: "33%", cy: "78%", r: 1.4, delay: "9s", dur: "18s" },
-            { cx: "60%", cy: "55%", r: 1.0, delay: "4s", dur: "14s" },
-            { cx: "10%", cy: "88%", r: 1.6, delay: "7s", dur: "20s" },
-            { cx: "90%", cy: "18%", r: 1.3, delay: "12s", dur: "17s" },
-          ].map((p, i) => (
-            <circle
-              key={i}
-              cx={p.cx}
-              cy={p.cy}
-              r={p.r}
-              fill="#a3e635"
-              opacity="0"
-              style={{
-                animation: `kyl-particle-pulse ${p.dur} ${p.delay} ease-in-out infinite`,
-                willChange: "opacity, transform",
-              }}
-            />
-          ))}
-        </svg>
-
-        {/* Inline keyframe definitions */}
-        <style>{`
-          @keyframes kyl-orb-drift-a {
-            0%   { transform: translate(0px, 0px) scale(1); }
-            100% { transform: translate(60px, 40px) scale(1.08); }
-          }
-          @keyframes kyl-orb-drift-b {
-            0%   { transform: translate(0px, 0px) scale(1); }
-            100% { transform: translate(-50px, -30px) scale(1.06); }
-          }
-          @keyframes kyl-dash-march {
-            from { stroke-dashoffset: 0; }
-            to   { stroke-dashoffset: -200; }
-          }
-          @keyframes kyl-particle-pulse {
-            0%,100% { opacity: 0;    transform: translateY(0px); }
-            30%     { opacity: 0.45; transform: translateY(-6px); }
-            70%     { opacity: 0.25; transform: translateY(-12px); }
-          }
-          @media (prefers-reduced-motion: reduce) {
-            [style*="kyl-"] { animation: none !important; }
-          }
-        `}</style>
       </div>
 
       {/* Cyberpunk Style Top Bar */}
@@ -621,24 +500,21 @@ export default function DashboardClient({
                 <div 
                   id="tour-profile-section" 
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  className="flex items-center gap-2.5 md:gap-3 bg-zinc-900/40 border border-white/5 pl-2.5 pr-2.5 md:pl-3.5 md:pr-4 py-1.5 rounded-full backdrop-blur-sm cursor-pointer hover:border-lime-400/35 hover:bg-zinc-900/60 transition-all select-none"
+                  className="flex items-center gap-2.5 md:gap-3 bg-zinc-900/40 border border-white/5 p-1.5 pr-3 md:pr-4 rounded-full backdrop-blur-sm cursor-pointer hover:border-lime-400/35 hover:bg-zinc-900/60 transition-all select-none"
                 >
-                  <div className="hidden md:block text-right">
-                    <p className="text-[10px] font-black text-white uppercase italic leading-none">{profile.name.split(" ")[0]}</p>
-                    <p className="text-[8px] text-lime-400 font-mono mt-0.5 leading-none">
-                      {(() => {
-                        const joined = activeChallenges.find(c => c.userJoined && c.status === "active");
-                        if (!joined) return "Not Participating";
-                        return joined.userRank ? `Rank #${joined.userRank}` : "Rank Pending";
-                      })()}
-                    </p>
-                  </div>
                   {profile.avatar ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={profile.avatar} alt={profile.name} className="h-6 w-6 rounded-full object-cover ring-1 ring-lime-400/30" />
+                    <img src={profile.avatar} alt={profile.name} className="h-7 w-7 rounded-full object-cover ring-1 ring-lime-400/30" />
                   ) : (
-                    <div className="h-6 w-6 rounded-full bg-zinc-800 text-[9px] font-black flex items-center justify-center text-lime-400">{getInitials(profile.name)}</div>
+                    <div className="h-7 w-7 rounded-full bg-zinc-800 text-[9px] font-black flex items-center justify-center text-lime-400">{getInitials(profile.name)}</div>
                   )}
+                  <div className="hidden md:block text-left">
+                    <p className="text-[10px] font-black text-white uppercase italic leading-none">{profile.name.split(" ")[0]}</p>
+                    <p className="text-[8px] text-zinc-500 font-mono mt-0.5 leading-none">
+                      Athlete Account
+                    </p>
+                  </div>
+                  <ChevronRight className={`h-3 w-3 text-zinc-500 ml-1 transition-transform ${isMenuOpen ? "rotate-90" : ""}`} />
                 </div>
 
                 <AnimatePresence>
@@ -647,113 +523,109 @@ export default function DashboardClient({
                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute right-0 mt-2.5 w-56 rounded-2xl bg-zinc-950/95 border border-white/5 shadow-[0_10px_40px_rgba(0,0,0,0.85),0_0_20px_rgba(163,230,53,0.02)] backdrop-blur-xl py-2.5 z-55 text-left overflow-hidden"
+                      className="absolute right-0 mt-2.5 w-64 rounded-2xl bg-zinc-950/95 border border-white/5 shadow-[0_10px_40px_rgba(0,0,0,0.85),0_0_20px_rgba(163,230,53,0.02)] backdrop-blur-xl py-2.5 z-55 text-left overflow-hidden"
                     >
                       {/* Menu Header with User details */}
-                      <div className="px-4 py-2 flex items-center gap-3 border-b border-white/5 pb-3 mb-2">
-                        {profile.avatar ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={profile.avatar} alt={profile.name} className="h-9 w-9 rounded-full object-cover ring-1 ring-lime-400/30" />
-                        ) : (
-                          <div className="h-9 w-9 rounded-full bg-zinc-850 text-xs font-black flex items-center justify-center text-lime-400">{getInitials(profile.name)}</div>
-                        )}
-                        <div className="min-w-0">
-                          <p className="text-xs font-black text-white truncate">{profile.name}</p>
-                          <p className="text-[9px] text-zinc-500 font-mono truncate">{profile.email}</p>
-                          <span className="inline-block text-[8px] font-mono text-lime-400 bg-lime-400/10 px-1.5 py-0.5 rounded-full mt-1">
-                            {(() => {
-                              const joined = activeChallenges.find(c => c.userJoined && c.status === "active");
-                              if (!joined) return "Not Participating";
-                              return joined.userRank ? `Rank #${joined.userRank}` : "Rank Pending";
-                            })()}
-                          </span>
+                      <div className="px-4 py-3 flex flex-col gap-3 border-b border-white/5 pb-4 mb-2">
+                        <div className="flex items-center gap-3">
+                          {profile.avatar ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={profile.avatar} alt={profile.name} className="h-10 w-10 rounded-full object-cover ring-1 ring-lime-400/30" />
+                          ) : (
+                            <div className="h-10 w-10 rounded-full bg-zinc-850 text-xs font-black flex items-center justify-center text-lime-400">{getInitials(profile.name)}</div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-black text-white truncate">{profile.name}</p>
+                            <p className="text-[10px] text-zinc-500 font-mono truncate">{profile.email}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2 mt-1">
+                          <div className="bg-zinc-900/50 rounded-lg p-2 flex flex-col">
+                            <span className="text-[8px] text-zinc-500 font-mono uppercase">Strava Sync</span>
+                            <span className={`text-[9px] font-bold mt-0.5 flex items-center gap-1 ${profile.strava_connected ? 'text-emerald-400' : 'text-zinc-400'}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${profile.strava_connected ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
+                              {profile.strava_connected ? 'Connected' : 'Unlinked'}
+                            </span>
+                          </div>
+                          <div className="bg-zinc-900/50 rounded-lg p-2 flex flex-col">
+                            <span className="text-[8px] text-zinc-500 font-mono uppercase">Member Since</span>
+                            <span className="text-[9px] font-bold text-zinc-300 mt-0.5">2026</span>
+                          </div>
                         </div>
                       </div>
 
                       {/* Dropdown Options */}
-                      <div className="space-y-0.5 px-1.5">
+                      <div className="space-y-0.5 px-1.5 overflow-y-auto max-h-[60vh] custom-scrollbar">
                         
-                        {/* Profile Settings */}
                         <button
-                          onClick={() => {
-                            setIsMenuOpen(false);
-                            setIsSettingsOpen(true);
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-xl transition-all cursor-pointer"
+                          onClick={() => { setIsMenuOpen(false); setIsSettingsOpen(true); }}
+                          className="w-full flex items-center justify-between px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-xl transition-all cursor-pointer group"
                         >
-                          <Settings className="h-4 w-4 text-zinc-500" />
-                          <span>Profile Settings</span>
+                          <div className="flex items-center gap-2.5"><Settings className="h-4 w-4 text-zinc-500 group-hover:text-white transition-colors" /> Profile Settings</div>
                         </button>
 
-                        {/* Admin Panel switcher (if authorized) */}
+                        <button
+                          onClick={() => setIsMenuOpen(false)}
+                          className="w-full flex items-center justify-between px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-xl transition-all cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-2.5"><Bike className="h-4 w-4 text-zinc-500 group-hover:text-white transition-colors" /> Connected Devices</div>
+                        </button>
+
+                        <button
+                          onClick={() => setIsMenuOpen(false)}
+                          className="w-full flex items-center justify-between px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-xl transition-all cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-2.5"><Bell className="h-4 w-4 text-zinc-500 group-hover:text-white transition-colors" /> Notifications</div>
+                        </button>
+
                         {(profile.role === "super_admin" || profile.role === "challenge_admin") && (
                           <Link
                             href="/arena-admin"
                             onClick={() => setIsMenuOpen(false)}
-                            className="flex items-center gap-2.5 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-lime-400 hover:bg-lime-950/20 rounded-xl transition-all cursor-pointer"
+                            className="w-full flex items-center justify-between px-3 py-2.5 text-[10px] font-black uppercase tracking-wider text-lime-400 hover:bg-lime-950/20 rounded-xl transition-all cursor-pointer group"
                           >
-                            <Shield className="h-4 w-4 text-lime-400" />
-                            <span>Admin Console</span>
+                            <div className="flex items-center gap-2.5"><Shield className="h-4 w-4 text-lime-400" /> Admin Console</div>
                           </Link>
                         )}
 
-                        {/* Restart Tour */}
+                        <div className="h-px bg-white/5 my-1.5 mx-2" />
+
                         <button
-                          onClick={() => {
-                            setIsMenuOpen(false);
-                            setIsTourOpen(true);
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-xl transition-all cursor-pointer"
+                          onClick={() => { setIsMenuOpen(false); setIsTourOpen(true); }}
+                          className="w-full flex items-center justify-between px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-xl transition-all cursor-pointer group"
                         >
-                          <Sparkles className="h-4 w-4 text-zinc-500" />
-                          <span>Restart Tour</span>
+                          <div className="flex items-center gap-2.5"><Sparkles className="h-4 w-4 text-zinc-500 group-hover:text-white transition-colors" /> Restart Tour</div>
                         </button>
 
-                        {/* Help FAQs */}
-                        <a 
-                          href="#tour-challenges-section" 
-                          onClick={(e) => { 
-                            e.preventDefault(); 
-                            setIsMenuOpen(false); 
-                            setActiveTab("challenges"); 
-                            const suffix = window.innerWidth < 768 ? "-mobile" : "-desktop"; 
-                            const el = document.getElementById(`tour-challenges-section${suffix}`); 
-                            if (el) el.scrollIntoView({ behavior: "smooth" }); 
-                          }} 
-                          className="flex items-center gap-2.5 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-xl transition-all cursor-pointer"
+                        <button
+                          onClick={() => setIsMenuOpen(false)}
+                          className="w-full flex items-center justify-between px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-xl transition-all cursor-pointer group"
                         >
-                          <HelpCircle className="h-4 w-4 text-zinc-500" />
-                          <span>FAQs & Support</span>
-                        </a>
+                          <div className="flex items-center gap-2.5"><HelpCircle className="h-4 w-4 text-zinc-500 group-hover:text-white transition-colors" /> Help & Support</div>
+                        </button>
 
-                        {/* Community Rules */}
-                        <a 
-                          href="#tour-leaderboard-section" 
-                          onClick={(e) => { 
-                            e.preventDefault(); 
-                            setIsMenuOpen(false); 
-                            setActiveTab("leaderboard"); 
-                            const suffix = window.innerWidth < 768 ? "-mobile" : "-desktop"; 
-                            const el = document.getElementById(`tour-leaderboard-section${suffix}`); 
-                            if (el) el.scrollIntoView({ behavior: "smooth" }); 
-                          }} 
-                          className="flex items-center gap-2.5 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-xl transition-all cursor-pointer"
+                        <button
+                          onClick={() => setIsMenuOpen(false)}
+                          className="w-full flex items-center justify-between px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-xl transition-all cursor-pointer group"
                         >
-                          <Users className="h-4 w-4 text-zinc-500" />
-                          <span>Community Rules</span>
-                        </a>
+                          <div className="flex items-center gap-2.5"><Users className="h-4 w-4 text-zinc-500 group-hover:text-white transition-colors" /> Community Rules</div>
+                        </button>
 
-                        {/* Divider */}
-                        <div className="h-px bg-white/5 my-1 mx-2" />
+                        <button
+                          onClick={() => setIsMenuOpen(false)}
+                          className="w-full flex items-center justify-between px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-xl transition-all cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-2.5"><Shield className="h-4 w-4 text-zinc-500 group-hover:text-white transition-colors" /> Privacy</div>
+                        </button>
+
+                        <div className="h-px bg-white/5 my-1.5 mx-2" />
 
                         {/* Sign Out */}
                         <button
-                          onClick={() => {
-                            setIsMenuOpen(false);
-                            handleLogout();
-                          }}
+                          onClick={() => { setIsMenuOpen(false); handleLogout(); }}
                           disabled={loadingLogout}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-red-400 hover:bg-red-950/20 hover:text-red-300 rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                          className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-wider text-red-400 hover:bg-red-950/20 hover:text-red-300 rounded-xl transition-all cursor-pointer disabled:opacity-50"
                         >
                           {loadingLogout ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4 text-red-400" />}
                           <span>Sign Out</span>
@@ -831,11 +703,11 @@ export default function DashboardClient({
             <div className="space-y-8">
               {renderHeroSection(currentState, "-mobile")}
               
-              {/* 2. Current Challenges */}
-              {renderCurrentChallengesSection("-mobile")}
+              {/* 2. Today's Goal */}
+              {renderTodaysGoalSection("-mobile")}
               
-              {/* 3. Today's / Weekly Progress */}
-              {renderStatsGrid("-mobile")}
+              {/* 3. Current Challenges */}
+              {renderCurrentChallengesSection("-mobile")}
               
               {/* 4. Recent Activities */}
               {renderRecentActivities("-mobile")}
@@ -872,11 +744,11 @@ export default function DashboardClient({
           <div className="md:col-span-7 lg:col-span-8 space-y-8 lg:space-y-10">
             {renderHeroSection(currentState, "-desktop")}
             
-            {/* 2. Current Challenges */}
-            {renderCurrentChallengesSection("-desktop")}
+            {/* 2. Today's Goal */}
+            {renderTodaysGoalSection("-desktop")}
             
-            {/* 3. Today's / Weekly Progress */}
-            {renderStatsGrid("-desktop")}
+            {/* 3. Current Challenges */}
+            {renderCurrentChallengesSection("-desktop")}
             
             {/* 4. Recent Activities */}
             {renderRecentActivities("-desktop")}
@@ -1071,13 +943,13 @@ export default function DashboardClient({
                   <Sparkles className="h-3 w-3 text-lime-400 animate-pulse" /> {greeting} ATHLETE
                 </div>
                 <h2 className="text-2xl sm:text-4xl font-black uppercase italic tracking-tighter text-white leading-none">
-                  WELCOME BACK, <span className="text-lime-400 not-italic font-black bg-gradient-to-r from-lime-400 via-emerald-400 to-lime-500 bg-clip-text text-transparent">{formattedName}</span>
+                  {stateLetter === "E" ? "CONGRATULATIONS," : "WELCOME BACK,"} <span className="text-lime-400 not-italic font-black bg-gradient-to-r from-lime-400 via-emerald-400 to-lime-500 bg-clip-text text-transparent">{formattedName}</span>
                 </h2>
-                <p className="text-xs text-zinc-400 leading-relaxed font-semibold max-w-lg">
-                  {stateLetter === "B" && "Welcome to KYL Arena! Record an activity on Strava to begin tracking stats dynamically."}
-                  {stateLetter === "C" && "Fully synchronized! You aren't participating in any active challenges right now. Join one below."}
-                  {stateLetter === "D" && activeChallenge && `You are actively pushing limits in ${activeChallenge.title}. Keep crushing your targets!`}
-                  {stateLetter === "E" && completedChallenge && `Outstanding! You fully cleared the ${completedChallenge.title}! Your digital medal has been issued.`}
+                <p className="text-xs text-zinc-400 leading-relaxed font-semibold max-w-lg mt-2">
+                  {stateLetter === "B" && "Every champion was once a beginner. Record your first activity today on Strava to ignite your journey."}
+                  {stateLetter === "C" && "Great work syncing your activities! The arena is waiting. Join a community challenge to push your limits."}
+                  {stateLetter === "D" && activeChallenge && `You're crushing it! Keep the momentum going. Every kilometer counts towards ${activeChallenge.title}.`}
+                  {stateLetter === "E" && completedChallenge && `Outstanding performance! You pushed past your limits and conquered the ${completedChallenge.title}.`}
                 </p>
               </div>
 
@@ -1145,14 +1017,14 @@ export default function DashboardClient({
               )}
 
               {/* Action row */}
-              <div className="flex flex-wrap gap-3 pt-1.5">
+              <div className="flex flex-wrap gap-3 pt-3">
                 {stateLetter === "C" && (
                   <Button
                     onClick={() => setIsChallengePortalOpen(true)}
-                    className="px-5 h-10 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
+                    className="px-6 h-10 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer shadow-lg hover:shadow-lime-400/20 hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <Trophy className="h-4 w-4" />
-                    Explore Challenges
+                    Join A Challenge
                   </Button>
                 )}
 
@@ -1164,17 +1036,17 @@ export default function DashboardClient({
                       if (leaderboardEl) leaderboardEl.scrollIntoView({ behavior: "smooth" });
                       setActiveTab("leaderboard");
                     }}
-                    className="px-5 h-10 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
+                    className="px-6 h-10 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer shadow-lg hover:shadow-lime-400/20 hover:scale-[1.02] active:scale-[0.98]"
                   >
-                    <Users className="h-4 w-4" />
-                    View Leaderboard
+                    <Flame className="h-4 w-4" />
+                    Continue Challenge
                   </Button>
                 )}
 
                 {stateLetter === "E" && (
                   <Button
                     onClick={() => setIsChallengePortalOpen(true)}
-                    className="px-5 h-10 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
+                    className="px-6 h-10 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer shadow-lg hover:shadow-lime-400/20 hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <Trophy className="h-4 w-4" />
                     Join Another Challenge
@@ -1185,44 +1057,35 @@ export default function DashboardClient({
                   <Link 
                     href="https://www.strava.com" 
                     target="_blank"
-                    className="inline-flex items-center px-5 h-10 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-extrabold rounded-xl transition-all gap-1.5 text-[10px] uppercase tracking-wider bg-zinc-950/20"
+                    className="inline-flex items-center justify-center px-6 h-10 bg-lime-400 hover:bg-lime-500 text-black font-extrabold rounded-xl transition-all gap-1.5 text-[10px] uppercase tracking-wider shadow-lg hover:shadow-lime-400/20 hover:scale-[1.02] active:scale-[0.98]"
                   >
-                    Go to Strava
+                    <Zap className="h-4 w-4" /> Go to Strava
                   </Link>
                 )}
               </div>
             </div>
 
-            {/* Right Quick-Stats HUD Segment */}
-            <div className="lg:col-span-4 bg-zinc-950/30 border border-white/5 rounded-2xl p-4 flex flex-col justify-between space-y-4">
-              <span className="text-[9px] font-black uppercase text-zinc-500 tracking-wider font-mono border-b border-white/5 pb-2">HUD STATS SUMMARY</span>
+            {/* Right Today's Goal Snapshot Segment */}
+            <div className="lg:col-span-4 bg-zinc-950/40 border border-white/5 rounded-2xl p-5 flex flex-col justify-center space-y-4 backdrop-blur-sm">
+              <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest font-mono flex items-center gap-2">
+                <Target className="h-3.5 w-3.5" /> TODAY'S GOAL
+              </span>
               
-              <div className="space-y-3 font-mono">
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-zinc-500">MONTHLY DIST.</span>
-                  <span className="text-white font-extrabold">{totalDistanceKm} km</span>
-                </div>
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-zinc-500">TOTAL WORKOUTS</span>
-                  <span className="text-white font-extrabold">{profile.activities_count || 0} Synced</span>
-                </div>
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-zinc-500">COMMUNITY STANDING</span>
-                  <span className="text-lime-400 font-extrabold">
-                    {(() => {
-                      const joined = activeChallenges.find(c => c.userJoined && c.status === "active");
-                      if (!joined) return "—";
-                      return joined.userRank ? `#${joined.userRank}` : "Pending";
-                    })()}
+              <div className="space-y-1">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-black text-white tracking-tighter">
+                    {Math.max(0, 5.0 - (displayActivities.filter(a => new Date(a.start_date).toDateString() === new Date().toDateString()).reduce((sum, a) => sum + (a.distance / 1000), 0))).toFixed(1)}
                   </span>
+                  <span className="text-xs font-bold text-zinc-400 font-mono">KM</span>
                 </div>
+                <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Remaining Today</span>
               </div>
 
-              <div className="pt-2 border-t border-white/5 text-[8px] text-zinc-500 font-mono flex items-center justify-between">
-                <span>LAST SYNCED:</span>
-                <span>
-                  {profile.last_synced_at ? formatDate(profile.last_synced_at) : "Awaiting sync"}
-                </span>
+              <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-white/5">
+                <div 
+                  className="bg-lime-400 h-full rounded-full transition-all duration-1000"
+                  style={{ width: `${Math.min(100, Math.round((displayActivities.filter(a => new Date(a.start_date).toDateString() === new Date().toDateString()).reduce((sum, a) => sum + (a.distance / 1000), 0) / 5.0) * 100))}%` }}
+                />
               </div>
             </div>
           </div>
@@ -1231,81 +1094,70 @@ export default function DashboardClient({
     );
   }
 
-  // Render Athlete Performance Grid (Distance, Completed activities, Elevation, Streak)
-  function renderStatsGrid(idSuffix = "") {
+  // Render Today's Goal Section
+  function renderTodaysGoalSection(idSuffix = "") {
+    const today = new Date();
+    const todaysActivities = displayActivities.filter(act => {
+      const actDate = new Date(act.start_date);
+      return actDate.getDate() === today.getDate() && 
+             actDate.getMonth() === today.getMonth() && 
+             actDate.getFullYear() === today.getFullYear();
+    });
+    const todayDistance = todaysActivities.reduce((acc, act) => acc + (act.distance / 1000), 0);
+    const dailyTarget = 5.0; // 5 KM daily target
+    const remaining = Math.max(0, dailyTarget - todayDistance).toFixed(1);
+    const pct = Math.min(100, Math.round((todayDistance / dailyTarget) * 100));
+    const estimatedMins = Math.round((Number(remaining) * 6)); // Rough estimate 6 mins/km
+
     return (
-      <motion.div 
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        id={`tour-stats-section${idSuffix}`}
-        className="grid grid-cols-2 lg:grid-cols-4 gap-4"
-      >
-        {/* Stat Card 1: Distance */}
-        <motion.div 
-          variants={itemVariants}
-          className="bg-zinc-900/30 backdrop-blur-md border border-white/5 rounded-2xl p-4 flex flex-col justify-between hover:border-lime-400/25 transition-all duration-300 shadow-lg relative group"
-        >
-          <div className="absolute top-0 right-0 p-3 opacity-5 text-white"><Bike className="h-8 w-8" /></div>
-          <p className="text-[9px] font-black uppercase text-zinc-500 tracking-wider">Total Distance</p>
-          <div className="my-2 text-left">
-            <span className="text-2xl font-black text-white tracking-tight">{totalDistanceKm}</span>
-            <span className="text-[10px] text-zinc-400 font-bold ml-1 font-mono">KM</span>
-          </div>
-          <p className="text-[9px] text-lime-400 font-bold flex items-center gap-1 leading-none">
-            <TrendingUp className="h-3 w-3" /> +12.4% from last week
-          </p>
-        </motion.div>
+      <div id={`tour-stats-section${idSuffix}`} className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-5 text-left relative overflow-hidden group">
+        <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/10 to-transparent" />
+        
+        <div className="flex items-center justify-between border-b border-white/5 pb-3">
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-lime-400 font-mono flex items-center gap-2">
+            <Target className="h-4 w-4" /> TODAY'S GOAL
+          </h3>
+          <Button
+            onClick={handleSyncActivities}
+            disabled={isSyncing}
+            variant="ghost"
+            className="h-7 px-3 text-[9px] font-bold uppercase tracking-wider bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300 rounded-lg cursor-pointer"
+          >
+            {isSyncing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Zap className="h-3 w-3 mr-1" />}
+            {isSyncing ? "Syncing" : "Quick Sync"}
+          </Button>
+        </div>
 
-        {/* Stat Card 2: Completed activities */}
-        <motion.div 
-          variants={itemVariants}
-          className="bg-zinc-900/30 backdrop-blur-md border border-white/5 rounded-2xl p-4 flex flex-col justify-between hover:border-lime-400/25 transition-all duration-300 shadow-lg relative group"
-        >
-          <div className="absolute top-0 right-0 p-3 opacity-5 text-white"><Dumbbell className="h-8 w-8" /></div>
-          <p className="text-[9px] font-black uppercase text-zinc-500 tracking-wider">Activities</p>
-          <div className="my-2 text-left">
-            <span className="text-2xl font-black text-white tracking-tight">{profile.activities_count || displayActivities.length}</span>
-            <span className="text-[10px] text-zinc-400 font-bold ml-1 uppercase">Synced</span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
+          <div className="space-y-1">
+            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Remaining Distance</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-4xl font-black text-white tracking-tighter">{remaining}</span>
+              <span className="text-sm font-bold text-zinc-400 font-mono">KM</span>
+            </div>
+            {Number(remaining) === 0 ? (
+              <p className="text-[10px] text-lime-400 font-bold mt-1">Goal Completed! 🎉</p>
+            ) : (
+              <p className="text-[10px] text-zinc-500 font-medium mt-1">~{estimatedMins} mins of running</p>
+            )}
           </div>
-          <p className="text-[9px] text-zinc-500 font-medium leading-none">
-            Avg. {(parseFloat(totalDistanceKm) / Math.max(1, profile.activities_count || displayActivities.length)).toFixed(1)} km / workout
-          </p>
-        </motion.div>
-
-        {/* Stat Card 3: Elevation gain */}
-        <motion.div 
-          variants={itemVariants}
-          className="bg-zinc-900/30 backdrop-blur-md border border-white/5 rounded-2xl p-4 flex flex-col justify-between hover:border-lime-400/25 transition-all duration-300 shadow-lg relative group"
-        >
-          <div className="absolute top-0 right-0 p-3 opacity-5 text-white"><Target className="h-8 w-8" /></div>
-          <p className="text-[9px] font-black uppercase text-zinc-500 tracking-wider">Elevation Gain</p>
-          <div className="my-2 text-left">
-            <span className="text-2xl font-black text-white tracking-tight">{totalElevationGain}</span>
-            <span className="text-[10px] text-zinc-400 font-bold ml-1 font-mono">M</span>
+          
+          <div className="space-y-3 bg-zinc-950/40 p-4 rounded-2xl border border-white/5">
+            <div className="flex justify-between text-[10px] font-mono">
+              <span className="text-zinc-400">Target: {dailyTarget} KM</span>
+              <span className="text-lime-400 font-extrabold">{pct}% Complete</span>
+            </div>
+            <div className="w-full bg-zinc-900 h-3 rounded-full overflow-hidden border border-white/5">
+              <motion.div 
+                className="bg-lime-400 h-full rounded-full" 
+                initial={{ width: 0 }}
+                animate={{ width: `${pct}%` }}
+                transition={{ duration: 1, ease: "easeOut" }}
+              />
+            </div>
           </div>
-          <p className="text-[9px] text-zinc-550 font-medium leading-none">
-            Equivalent to {Math.round(totalElevationGain / 340)} hills
-          </p>
-        </motion.div>
-
-        {/* Stat Card 4: Streak */}
-        <motion.div 
-          variants={itemVariants}
-          className="bg-zinc-900/30 backdrop-blur-md border border-white/5 rounded-2xl p-4 flex flex-col justify-between hover:border-lime-400/25 transition-all duration-300 shadow-lg relative group"
-        >
-          <div className="absolute top-0 right-0 p-3 opacity-5 text-lime-400"><Flame className="h-8 w-8" /></div>
-          <p className="text-[9px] font-black uppercase text-zinc-500 tracking-wider">Active Streak</p>
-          <div className="my-2 text-left flex items-baseline gap-1">
-            <span className="text-2xl font-black text-lime-400 tracking-tight">{displayActivities.length > 0 ? "5" : "0"}</span>
-            <span className="text-[10px] text-zinc-400 font-bold">DAYS</span>
-            <Flame className="h-4.5 w-4.5 text-lime-400 shrink-0 self-center animate-pulse" />
-          </div>
-          <p className="text-[9px] text-zinc-500 font-medium leading-none">
-            Keep it up! Sync weekly.
-          </p>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
     );
   }
 
@@ -1383,6 +1235,9 @@ export default function DashboardClient({
   function renderCurrentChallengesSection(idSuffix = "") {
     const enrolled = activeChallenges.filter(c => c.userJoined || justJoinedIds.includes(c.id));
 
+    const expandedChallenge = enrolled.length > 0 ? [...enrolled].sort((a,b) => b.goalTarget - a.goalTarget)[0] : null;
+    const compactChallenges = expandedChallenge ? enrolled.filter(c => c.id !== expandedChallenge.id) : [];
+
     return (
       <div id={`tour-challenges-section${idSuffix}`} className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-5 text-left relative overflow-hidden group">
         <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/10 to-transparent" />
@@ -1396,70 +1251,96 @@ export default function DashboardClient({
           </span>
         </div>
 
-        {enrolled.length > 0 ? (
-          <div className="space-y-3.5">
-            {enrolled.map((c) => {
-              const completedVal = getProgressVal(c);
-              const pct = Math.min(100, Math.round((completedVal / c.goalTarget) * 100));
-              const unit = c.goalType === "Distance" ? "km" : c.goalType === "Elevation" ? "m" : "hrs";
+        {enrolled.length > 0 && expandedChallenge ? (
+          <div className="space-y-4">
+            {/* Expanded Hero Card */}
+            <div className="p-4 rounded-2xl bg-zinc-900/40 backdrop-blur-md border border-lime-400/20 space-y-4 relative overflow-hidden shadow-lg shadow-lime-400/5">
+              <div className="absolute top-0 right-0 p-4 opacity-10">
+                <Trophy className="h-16 w-16 text-lime-400" />
+              </div>
+              <div className="flex items-center justify-between gap-3 relative z-10">
+                <span className="text-sm font-black text-white uppercase tracking-tight">{expandedChallenge.title}</span>
+                <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-full text-lime-400 bg-lime-400/10">
+                  {Math.min(100, Math.round((getProgressVal(expandedChallenge) / expandedChallenge.goalTarget) * 100))}% COMPLETE
+                </span>
+              </div>
               
-              return (
-                <div key={c.id} className="p-4 rounded-2xl bg-zinc-900/20 backdrop-blur-md border border-white/5 space-y-3 relative overflow-hidden group/card hover:border-lime-400/20 transition-all duration-300">
-                  <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/20 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity duration-500" />
-                  
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs font-bold text-white uppercase tracking-tight">{c.title}</span>
-                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                      pct >= 100 ? "text-lime-400 bg-lime-400/10" : "text-emerald-400 bg-emerald-400/10"
-                    }`}>
-                      {pct}% COMPLETE
-                    </span>
-                  </div>
-
-                  {/* Progress bar */}
-                  <div className="space-y-1">
-                    <div className="w-full bg-zinc-900 h-2.5 rounded-full overflow-hidden border border-white/5">
-                      <div 
-                        className="bg-lime-400 h-full rounded-full transition-all duration-1000" 
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between text-[9px] text-zinc-500 font-mono">
-                      <span>{completedVal} {unit} completed</span>
-                      <span>{c.goalTarget} {unit} target</span>
-                    </div>
-                  </div>
-
-                  {/* Standing overview */}
-                  <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[10px]">
-                    <div className="flex items-center gap-1 text-zinc-400">
-                      <Users className="h-3.5 w-3.5" />
-                      <span>Rank {c.userRank ? `#${c.userRank}` : "-"} of {c.participantsCount}</span>
-                    </div>
-                    
-                    <Link 
-                      href={`/challenge/${c.id}`}
-                      className="text-[9px] font-extrabold uppercase text-lime-400 hover:text-lime-500 transition-colors"
-                    >
-                      Know More
-                    </Link>
-                  </div>
+              <div className="space-y-2 relative z-10">
+                <div className="w-full bg-zinc-950 h-3 rounded-full overflow-hidden border border-white/5">
+                  <div 
+                    className="bg-lime-400 h-full rounded-full transition-all duration-1000" 
+                    style={{ width: `${Math.min(100, Math.round((getProgressVal(expandedChallenge) / expandedChallenge.goalTarget) * 100))}%` }}
+                  />
                 </div>
-              );
-            })}
+                <div className="flex items-center justify-between text-[10px] text-zinc-400 font-mono">
+                  <span>{getProgressVal(expandedChallenge)} / {expandedChallenge.goalTarget} {expandedChallenge.goalType === "Distance" ? "km" : "m"}</span>
+                  <span>
+                    {(() => {
+                      if (!expandedChallenge.endDate) return "";
+                      const days = Math.ceil((new Date(expandedChallenge.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                      return days > 0 ? `${days} Days Left` : "Ends Today";
+                    })()}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-white/5 relative z-10">
+                <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 font-mono">
+                  <Users className="h-3.5 w-3.5" /> Rank {expandedChallenge.userRank ? `#${expandedChallenge.userRank}` : "-"}
+                </div>
+                <Link href={`/challenge/${expandedChallenge.id}`} className="text-[10px] font-extrabold uppercase text-lime-400 hover:text-lime-500 transition-colors flex items-center gap-1">
+                  View Details <ChevronRight className="h-3 w-3" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Compact Rows */}
+            {compactChallenges.length > 0 && (
+              <div className="space-y-2">
+                {compactChallenges.map(c => {
+                  const pct = Math.min(100, Math.round((getProgressVal(c) / c.goalTarget) * 100));
+                  const daysLeft = c.endDate ? Math.ceil((new Date(c.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
+                  
+                  return (
+                    <Link href={`/challenge/${c.id}`} key={c.id} className="block p-3 rounded-xl bg-zinc-900/20 border border-white/5 hover:border-lime-400/20 transition-all group/row">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-[11px] font-bold text-white uppercase truncate">{c.title}</h4>
+                          <div className="flex items-center gap-3 text-[9px] text-zinc-500 font-mono mt-1">
+                            <span>{pct}%</span>
+                            <span className="w-16 h-1 bg-zinc-800 rounded-full overflow-hidden">
+                              <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${pct}%` }} />
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="block text-[10px] font-bold text-zinc-400">{daysLeft > 0 ? `${daysLeft}d left` : "Last Day"}</span>
+                          <span className="block text-[9px] text-zinc-600 font-mono">Rank {c.userRank ? `#${c.userRank}` : "-"}</span>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ) : (
-          /* Premium Empty State: Explore Community Challenges */
           <div className="flex flex-col items-center justify-center text-center p-6 border border-dashed border-white/5 bg-zinc-950/20 rounded-2xl gap-3">
             <div className="p-3 rounded-full bg-zinc-900 border border-white/5 text-zinc-650">
               <Trophy className="h-6 w-6" />
             </div>
-            <div className="space-y-1">
-              <h4 className="font-extrabold text-xs text-white uppercase tracking-wider">Explore Community Challenges</h4>
+            <div className="space-y-2">
+              <h4 className="font-extrabold text-xs text-white uppercase tracking-wider">Find your next challenge</h4>
               <p className="text-[10px] text-zinc-500 leading-relaxed max-w-xs mx-auto">
-                You are not currently enrolled in any active challenges. Join a community challenge below to compare your progress!
+                You aren't enrolled in any active challenges right now. Compete with the community to push your limits.
               </p>
             </div>
+            <Button 
+              onClick={() => setIsChallengePortalOpen(true)}
+              className="mt-2 h-9 px-4 bg-white hover:bg-zinc-200 text-black text-[10px] font-bold uppercase rounded-lg"
+            >
+              Explore Challenges
+            </Button>
           </div>
         )}
       </div>
@@ -1471,6 +1352,7 @@ export default function DashboardClient({
     const suggested = activeChallenges.filter(c => !c.userJoined && !justJoinedIds.includes(c.id));
     const upcoming = activeChallenges.filter(c => c.status === "upcoming");
     const uniqueList = [...suggested, ...upcoming].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+    const topThree = uniqueList.slice(0, 3);
 
     return (
       <div id={`tour-upcoming-challenges${idSuffix}`} className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-5 text-left relative overflow-hidden group">
@@ -1478,16 +1360,17 @@ export default function DashboardClient({
         
         <div className="flex items-center justify-between border-b border-white/5 pb-3">
           <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 font-mono">
-            SUGGESTED / UPCOMING CHALLENGES
+            EXPLORE CHALLENGES
           </h3>
           <span className="text-[9px] text-zinc-500 font-mono">
-            {uniqueList.length} Available
+            {topThree.length} Available
           </span>
         </div>
 
-        {uniqueList.length > 0 ? (
-          <div className="space-y-3">
-            {uniqueList.map((c) => {
+        {topThree.length > 0 ? (
+          <div className="grid grid-cols-1 gap-4">
+            {topThree.map((c, index) => {
+              const label = index === 0 ? "Featured" : index === 1 ? "Trending" : "Recommended";
               const isRide = c.sportType === "Ride";
               const isRun = c.sportType === "Run";
               const isWalk = c.sportType === "Walk";
@@ -1501,14 +1384,17 @@ export default function DashboardClient({
                   <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/20 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity duration-500" />
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-widest ${
-                        isRide ? "border-lime-400/20 bg-lime-400/5 text-lime-400" :
-                        isRun ? "border-red-400/20 bg-red-400/5 text-red-400" :
-                        "border-blue-400/20 bg-blue-400/5 text-blue-400"
-                      }`}>
-                        {isRide ? <Bike className="h-2.5 w-2.5 shrink-0" /> : 
-                         isRun ? <Flame className="h-2.5 w-2.5 shrink-0" /> :
-                         <Footprints className="h-2.5 w-2.5 shrink-0" />} {c.sportType}
+                      <div className="flex items-center gap-2">
+                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-widest ${
+                          isRide ? "border-lime-400/20 bg-lime-400/5 text-lime-400" :
+                          isRun ? "border-red-400/20 bg-red-400/5 text-red-400" :
+                          "border-blue-400/20 bg-blue-400/5 text-blue-400"
+                        }`}>
+                          {isRide ? <Bike className="h-2.5 w-2.5 shrink-0" /> : 
+                           isRun ? <Flame className="h-2.5 w-2.5 shrink-0" /> :
+                           <Footprints className="h-2.5 w-2.5 shrink-0" />} {c.sportType}
+                        </div>
+                        <span className="inline-block text-[8px] px-1.5 py-0.5 bg-zinc-800 text-zinc-300 rounded font-mono font-bold uppercase">{label}</span>
                       </div>
                       <h4 className="font-extrabold text-xs text-white uppercase tracking-tight mt-1.5">{c.title}</h4>
                       {c.status === "upcoming" && (
@@ -1708,28 +1594,24 @@ export default function DashboardClient({
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.06, duration: 0.3 }}
-                className={`p-3.5 rounded-2xl border transition-all duration-300 relative overflow-hidden group/item cursor-default ${
+                className={`p-2.5 rounded-xl border transition-all duration-300 relative overflow-hidden group/item cursor-default ${
                   cfg.accent
                 }`}
               >
-                {/* Type badge + timestamp row */}
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className={`inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border font-mono ${cfg.badge}`}>
+                <div className="flex items-center gap-3">
+                  <div className={`shrink-0 ${cfg.badge.split(' ')[0]} ${cfg.badge.split(' ')[1]} p-1.5 rounded-md`}>
                     {cfg.icon}
-                    {item.meta}
-                  </span>
-                  <span className="text-[9px] text-zinc-600 font-mono shrink-0">{item.timestamp}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-[10px] font-bold text-white truncate">
+                      {item.title}
+                    </h4>
+                    <p className="text-[9px] text-zinc-500 truncate mt-0.5">
+                      {item.body}
+                    </p>
+                  </div>
+                  <span className="text-[8px] text-zinc-600 font-mono shrink-0 whitespace-nowrap">{item.timestamp}</span>
                 </div>
-
-                {/* Title */}
-                <h4 className="text-[11px] font-extrabold text-white leading-snug tracking-tight mb-1">
-                  {item.title}
-                </h4>
-
-                {/* Body */}
-                <p className="text-[10px] text-zinc-500 leading-relaxed font-medium">
-                  {item.body}
-                </p>
 
                 {/* Subtle hover shimmer line */}
                 <div className={`absolute bottom-0 left-0 right-0 h-px opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 bg-gradient-to-r from-transparent via-current to-transparent ${cfg.dot === 'bg-lime-400' ? 'text-lime-400/30' : cfg.dot === 'bg-amber-400' ? 'text-amber-400/30' : cfg.dot === 'bg-red-400' ? 'text-red-400/30' : cfg.dot === 'bg-purple-400' ? 'text-purple-400/30' : cfg.dot === 'bg-sky-400' ? 'text-sky-400/30' : 'text-zinc-600/30'}`} />
@@ -1950,9 +1832,19 @@ export default function DashboardClient({
 
         <div className="space-y-2 font-mono">
           {leaderboardData.length > 0 ? (
-            leaderboardData.map((competitor: any, index: number) => {
+            leaderboardData.slice(0, 5).map((competitor: any, index: number) => {
               const rank = index + 1;
               const isMe = competitor.userId === profile.id;
+              
+              let gapText = "";
+              if (index === 0) {
+                gapText = "Leader";
+              } else {
+                const ahead = leaderboardData[index - 1];
+                const gap = ahead.completed - competitor.completed;
+                gapText = `-${gap.toFixed(1)} ${unit}`;
+              }
+
               return (
                 <motion.div 
                   key={competitor.userId}
@@ -1976,9 +1868,14 @@ export default function DashboardClient({
                       {competitor.name} {isMe && "(You)"}
                     </span>
                   </div>
-                  <span className={`font-extrabold text-[11px] ${isMe ? "text-lime-400" : "text-zinc-300"}`}>
-                    {competitor.completed.toFixed(1)} {unit}
-                  </span>
+                  <div className="flex flex-col items-end">
+                    <span className={`font-extrabold text-[11px] ${isMe ? "text-lime-400" : "text-zinc-300"}`}>
+                      {competitor.completed.toFixed(1)} {unit}
+                    </span>
+                    <span className={`text-[8px] font-bold tracking-wider mt-0.5 ${index === 0 ? "text-amber-400/80" : "text-red-400/80"}`}>
+                      {gapText}
+                    </span>
+                  </div>
                 </motion.div>
               );
             })
