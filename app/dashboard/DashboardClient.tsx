@@ -7,7 +7,7 @@ import { useToast } from "@/components/Toast";
 import { usePageLoader } from "@/components/PageLoader";
 import { 
   Loader2, LogOut, Activity, AlertTriangle, CheckCircle, 
-  Award, Bike, Footprints, Flame, Trophy, 
+  Award, Bike, Footprints, Flame, Trophy, Edit3, 
   ChevronRight, TrendingUp, Sparkles, Clock, Target, 
   Dumbbell, Home, Users, HelpCircle, X, Shield, Settings,
   Check, Bell, AlertCircle, Megaphone, Star, Zap, Pin, PartyPopper
@@ -121,6 +121,30 @@ export default function DashboardClient({
 
   // Sync success indicator for micro-interaction
   const [showSyncSuccess, setShowSyncSuccess] = useState(false);
+
+  // Daily Goal Customization States
+  const [userDailyGoal, setUserDailyGoal] = useState<number>(5.0);
+  const [isEditingGoal, setIsEditingGoal] = useState(false);
+  const [tempGoalInput, setTempGoalInput] = useState("");
+
+  useEffect(() => {
+    const savedGoal = localStorage.getItem("kyl_arena_daily_goal");
+    if (savedGoal) {
+      const parsed = parseFloat(savedGoal);
+      if (!isNaN(parsed) && parsed > 0) {
+        setUserDailyGoal(parsed);
+      }
+    }
+  }, []);
+
+  const saveDailyGoal = () => {
+    const parsed = parseFloat(tempGoalInput);
+    if (!isNaN(parsed) && parsed > 0) {
+      setUserDailyGoal(parsed);
+      localStorage.setItem("kyl_arena_daily_goal", parsed.toString());
+    }
+    setIsEditingGoal(false);
+  };
 
   useEffect(() => {
     const handlePageShow = (event: PageTransitionEvent) => {
@@ -1104,10 +1128,15 @@ export default function DashboardClient({
              actDate.getFullYear() === today.getFullYear();
     });
     const todayDistance = todaysActivities.reduce((acc, act) => acc + (act.distance / 1000), 0);
-    const dailyTarget = 5.0; // 5 KM daily target
+    
+    // Use customizable user goal
+    const dailyTarget = userDailyGoal;
+    
     const remaining = Math.max(0, dailyTarget - todayDistance).toFixed(1);
     const pct = Math.min(100, Math.round((todayDistance / dailyTarget) * 100));
     const estimatedMins = Math.round((Number(remaining) * 6)); // Rough estimate 6 mins/km
+    
+    const bareMinimum = calculateBareMinimumGoal();
 
     return (
       <div id={`tour-stats-section${idSuffix}`} className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-5 text-left relative overflow-hidden group">
@@ -1143,10 +1172,55 @@ export default function DashboardClient({
           </div>
           
           <div className="space-y-3 bg-zinc-950/40 p-4 rounded-2xl border border-white/5">
-            <div className="flex justify-between text-[10px] font-mono">
-              <span className="text-zinc-400">Target: {dailyTarget} KM</span>
-              <span className="text-lime-400 font-extrabold">{pct}% Complete</span>
-            </div>
+            {isEditingGoal ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono text-zinc-400">Target:</span>
+                  <input 
+                    type="number"
+                    step="0.1"
+                    min="0.1"
+                    value={tempGoalInput}
+                    onChange={(e) => setTempGoalInput(e.target.value)}
+                    className="w-16 bg-zinc-900 border border-white/10 rounded px-1.5 py-0.5 text-[10px] font-mono text-white outline-none focus:border-lime-400/50"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveDailyGoal();
+                      if (e.key === "Escape") setIsEditingGoal(false);
+                    }}
+                  />
+                  <span className="text-[10px] font-mono text-zinc-400 mr-2">KM</span>
+                  <button onClick={saveDailyGoal} className="text-lime-400 hover:text-lime-300 p-1">
+                    <Check className="h-3.5 w-3.5" />
+                  </button>
+                  <button onClick={() => setIsEditingGoal(false)} className="text-red-400 hover:text-red-300 p-1">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                {bareMinimum > 0 && (
+                  <p className="text-[8.5px] text-amber-400/80 font-medium">
+                    Minimum recommended to complete active challenges: {bareMinimum.toFixed(1)} KM/day
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="flex justify-between text-[10px] font-mono">
+                <span className="text-zinc-400 flex items-center gap-1.5 group/edit">
+                  Target: {dailyTarget} KM
+                  <button 
+                    onClick={() => {
+                      setTempGoalInput(userDailyGoal.toString());
+                      setIsEditingGoal(true);
+                    }}
+                    className="text-zinc-600 hover:text-lime-400 transition-colors opacity-0 group-hover/edit:opacity-100 p-0.5"
+                    title="Edit Daily Goal"
+                  >
+                    <Edit3 className="h-3 w-3" />
+                  </button>
+                </span>
+                <span className="text-lime-400 font-extrabold">{pct}% Complete</span>
+              </div>
+            )}
             <div className="w-full bg-zinc-900 h-3 rounded-full overflow-hidden border border-white/5">
               <motion.div 
                 className="bg-lime-400 h-full rounded-full" 
@@ -1191,6 +1265,38 @@ export default function DashboardClient({
     });
 
     return Number(completed.toFixed(1));
+  }
+
+  function calculateBareMinimumGoal() {
+    const enrolled = activeChallenges.filter(c => c.userJoined || justJoinedIds.includes(c.id));
+    if (enrolled.length === 0) return 0;
+    
+    let maxMinTarget = 0;
+    
+    enrolled.forEach(c => {
+      // For simplicity, we only calculate bare minimum for Distance based goals (KM)
+      if (c.goalType !== "Distance") return;
+      
+      const completed = getProgressVal(c);
+      const remainingTarget = Math.max(0, c.goalTarget - completed);
+      
+      if (remainingTarget === 0) return;
+      
+      const endDate = new Date(c.endDate);
+      const today = new Date();
+      endDate.setUTCHours(23, 59, 59, 999);
+      today.setUTCHours(0, 0, 0, 0);
+      
+      const msLeft = endDate.getTime() - today.getTime();
+      const daysLeft = Math.max(1, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+      
+      const requiredPerDay = remainingTarget / daysLeft;
+      if (requiredPerDay > maxMinTarget) {
+        maxMinTarget = requiredPerDay;
+      }
+    });
+    
+    return maxMinTarget;
   }
 
   async function handleJoin(challengeId: string, challengeTitle: string) {
