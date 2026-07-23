@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Loader2, Megaphone } from "lucide-react";
+import { X, Loader2, Megaphone, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/Toast";
 import { createClient } from "@/lib/supabase/client";
