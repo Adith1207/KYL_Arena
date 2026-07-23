@@ -1,23 +1,15 @@
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/session";
 
 /**
  * Root Next.js proxy function (Next.js 16+ convention — replaces deprecated middleware.ts).
  *
- * Authentication strategy (Edge-safe, zero server-only APIs):
+ * Authentication strategy (fully Edge-safe):
  *   - Session cookie refresh is delegated to lib/supabase/session.ts via updateSession().
- *     That helper uses createServerClient from @supabase/ssr with request/response cookies only.
- *   - Route-guard checks use a lightweight Supabase auth-token cookie presence check.
- *     No next/headers, no cookies(), no draftMode(), no createServerClient() called here.
- *   - Full JWT verification happens inside server components / route handlers that run in
- *     the Node.js runtime where next/headers and createClient() are available.
- *
- * Authentication Flow:
- *   1. Browser → /dashboard (or any protected path)
- *   2. proxy.ts: updateSession refreshes JWT in the response cookies
- *   3. proxy.ts: cookie-presence check decides whether to redirect to /login
- *   4. Server component (app/dashboard/page.tsx): supabase.auth.getUser() verifies JWT
- *   5. Dashboard renders (or redirects to /login if session truly invalid)
+ *   - Route-guard uses createServerClient from @supabase/ssr with request cookies only.
+ *     No next/headers, no cookies(), no draftMode() — all Edge-compatible.
+ *   - Full JWT verification also happens inside server components for double safety.
  */
 export async function proxy(request: NextRequest) {
   // --- Step 1: Refresh Supabase session cookies (Edge-safe) ---
@@ -45,16 +37,23 @@ export async function proxy(request: NextRequest) {
     let isAuthenticated = false;
 
     if (isMock) {
-      // Mock mode: read the lightweight dev-only cookie
       isAuthenticated = request.cookies.get("kyl-mock-auth")?.value === "true";
     } else {
-      // Production: check for the Supabase auth-token session cookie.
-      // This is a presence check only — full JWT verification is deferred to
-      // the server component. This keeps proxy.ts entirely Node-API-free.
-      const allCookies = request.cookies.getAll();
-      isAuthenticated = allCookies.some(
-        (c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token")
-      );
+      // Use createServerClient with request cookies only — this is Edge-safe.
+      // No next/headers, no Node.js APIs. The @supabase/ssr client reads the
+      // chunked auth-token cookies (sb-xxx-auth-token.0, .1, etc.) correctly.
+      try {
+        const supabase = createServerClient(url!, anonKey!, {
+          cookies: {
+            getAll() { return request.cookies.getAll(); },
+            setAll() { /* no-op in proxy — updateSession handles cookie writing */ },
+          },
+        });
+        const { data: { user } } = await supabase.auth.getUser();
+        isAuthenticated = !!user;
+      } catch {
+        isAuthenticated = false;
+      }
     }
 
     if (isProtectedPath && !isAuthenticated) {
