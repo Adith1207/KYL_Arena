@@ -2,11 +2,13 @@
 
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2, Trophy, Flame, Shield, Activity, AlertTriangle } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 function LoginPageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const errorParam = searchParams.get("error");
   const [loadingProvider, setLoadingProvider] = useState<"google" | "strava" | null>(null);
@@ -310,7 +312,14 @@ function LoginPageContent() {
                   </Button>
                 ) : currentUser ? (
                   <Button
-                    onClick={() => window.location.href = "/dashboard"}
+                    type="button"
+                    onClick={() => {
+                      console.log("[KYL] Button clicked");
+                      console.log("[KYL] Current pathname:", window.location.pathname);
+                      console.log("[KYL] Attempting navigation to: /dashboard");
+                      router.push("/dashboard");
+                      console.log("[KYL] Navigation dispatched");
+                    }}
                     className="w-full h-14 bg-lime-400 hover:bg-lime-300 text-black font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-3 text-xs uppercase tracking-wider hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
                   >
                     Go to Dashboard
