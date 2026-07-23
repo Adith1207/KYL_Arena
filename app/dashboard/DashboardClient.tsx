@@ -91,7 +91,20 @@ export default function DashboardClient({
   const router = useRouter();
   const { addToast } = useToast();
   const { showLoader, hideLoader } = usePageLoader();
-  const [profile, setProfile] = useState<ProfileData>(initialProfile);
+  const [profile, setProfile] = useState<ProfileData>({
+    ...initialProfile,
+    id: initialProfile?.id || "unknown",
+    name: initialProfile?.name || "Athlete",
+    email: initialProfile?.email || "",
+    avatar: initialProfile?.avatar || "",
+    auth_provider: initialProfile?.auth_provider || "google",
+    role: initialProfile?.role || "user",
+    strava_connected: initialProfile?.strava_connected || false,
+    strava_athlete_id: initialProfile?.strava_athlete_id || null,
+    activities: initialProfile?.activities || [],
+    activities_count: initialProfile?.activities_count || 0,
+    all_activities: initialProfile?.all_activities || [],
+  });
   const [loadingConnect, setLoadingConnect] = useState(false);
   const [loadingDisconnect, setLoadingDisconnect] = useState(false);
   const [loadingLogout, setLoadingLogout] = useState(false);
