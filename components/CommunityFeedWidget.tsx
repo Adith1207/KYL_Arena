@@ -26,8 +26,10 @@ export function CommunityFeedWidget({ userId, limit = 20, className = "", fullPa
   useEffect(() => {
     fetchFeed();
 
+    const channelId = Math.random().toString(36).substring(7);
+    
     const feedChannel = supabase
-      .channel('public:community_feed')
+      .channel(`public:community_feed_${channelId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_feed' }, (payload) => {
         setFeedItems(current => [payload.new, ...current]);
         if (payload.new.author_id !== userId) {
@@ -43,7 +45,7 @@ export function CommunityFeedWidget({ userId, limit = 20, className = "", fullPa
       .subscribe();
 
     const reactionsChannel = supabase
-      .channel('public:community_feed_reactions')
+      .channel(`public:community_feed_reactions_${channelId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'community_feed_reactions' }, (payload) => {
         if (payload.eventType === 'INSERT') {
           setReactions(current => [...current, payload.new]);
