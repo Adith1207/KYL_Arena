@@ -2,8 +2,9 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * Updates the user's Supabase session token in cookies to refresh session timeouts.
- * Checks for Mock Mode and bypasses client instantiations if env variables are empty.
+ * Edge-safe Supabase session refresher for proxy.ts.
+ * Uses only request/response cookies — no next/headers, no Node.js APIs.
+ * Refreshes the session JWT on every proxied request so it doesn't expire.
  */
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({

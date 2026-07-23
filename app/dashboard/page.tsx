@@ -23,11 +23,36 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const stravaConnected = typeof resolvedParams.strava_connected === "string" ? resolvedParams.strava_connected : undefined;
 
   try {
+    // --- Step 4: Environment Variable Verification ---
+    const requiredEnvVars = [
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "STRAVA_CLIENT_ID",
+      "STRAVA_CLIENT_SECRET",
+    ];
+    for (const envVar of requiredEnvVars) {
+      if (!process.env[envVar] || process.env[envVar]?.includes("placeholder")) {
+        console.warn(`[WARNING] Missing or placeholder environment variable: ${envVar}`);
+      }
+    }
+    // -------------------------------------------------
+
     const supabase = await createClient();
     const supabaseAdmin = await createAdminClient();
     
     // Verify user session
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    let user = null;
+    let authError = null;
+    try {
+      const result = await supabase.auth.getUser();
+      user = result.data?.user;
+      authError = result.error;
+    } catch (e) {
+      console.error("Failed to fetch user session:", e);
+      authError = e;
+    }
+    
     if (authError || !user) {
       redirect("/login");
     }
@@ -102,11 +127,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     // Fetch user's daily goals preference
     let dailyGoal = null;
     try {
+      console.log("Loading Daily Goals...");
       const { data, error } = await supabase
         .from("daily_goals")
         .select("*")
         .eq("user_id", user.id)
         .single();
+      console.log("Finished Daily Goals");
       if (!error && data) {
         dailyGoal = data;
       }
@@ -117,6 +144,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     // Fetch user's daily goal history for today
     let dailyGoalHistory = null;
     try {
+      console.log("Loading Daily Goals...");
       const dateStr = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
         .from("daily_goal_history")
@@ -124,6 +152,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         .eq("user_id", user.id)
         .eq("date", dateStr)
         .single();
+      console.log("Finished Daily Goals");
       if (!error && data) {
         dailyGoalHistory = data;
       }

@@ -12,12 +12,18 @@ export async function GET(request: Request) {
   const next = searchParams.get("next") ?? "/dashboard";
 
   if (code) {
-    const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
-      const host = request.headers.get("x-forwarded-host") || new URL(request.url).host;
-      const protocol = request.headers.get("x-forwarded-proto") || (new URL(request.url).protocol === "https:" ? "https" : "http");
-      return NextResponse.redirect(`${protocol}://${host}${next}`);
+    try {
+      const supabase = await createClient();
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (!error) {
+        const host = request.headers.get("x-forwarded-host") || new URL(request.url).host;
+        const protocol = request.headers.get("x-forwarded-proto") || (new URL(request.url).protocol === "https:" ? "https" : "http");
+        return NextResponse.redirect(`${protocol}://${host}${next}`);
+      } else {
+        console.error("Auth callback exchange error:", error);
+      }
+    } catch (e) {
+      console.error("Auth callback unexpected error:", e);
     }
   }
 
