@@ -47,6 +47,8 @@ interface ProfileData {
     created_at?: string | null;
   } | null;
   all_activities?: any[];
+  dailyGoal?: any;
+  dailyGoalHistory?: any;
 }
 
 interface DashboardClientProps {
@@ -123,27 +125,59 @@ export default function DashboardClient({
   const [showSyncSuccess, setShowSyncSuccess] = useState(false);
 
   // Daily Goal Customization States
-  const [userDailyGoal, setUserDailyGoal] = useState<number>(5.0);
+  const calculateSuggestedGoal = () => {
+    if (!profile.all_activities || profile.all_activities.length === 0) return 5.0;
+    const fourteenDaysAgo = new Date();
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+    const recentActivities = profile.all_activities.filter(a => new Date(a.start_date) >= fourteenDaysAgo);
+    if (recentActivities.length === 0) return 5.0;
+    const totalDist = recentActivities.reduce((sum, a) => sum + (a.distance || 0), 0) / 1000;
+    const avgDist = totalDist / 14;
+    return avgDist > 0 ? Number((avgDist * 0.8).toFixed(1)) : 5.0;
+  };
+
+  const initialGoal = profile.dailyGoal?.distance_goal || 0;
+  const [userDailyGoal, setUserDailyGoal] = useState<number>(initialGoal);
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [tempGoalInput, setTempGoalInput] = useState("");
+  const [showGoalSuggestion, setShowGoalSuggestion] = useState(!profile.dailyGoal);
+  const [suggestedGoalValue] = useState(calculateSuggestedGoal());
+  const [celebrationFired, setCelebrationFired] = useState(profile.dailyGoalHistory?.completed || false);
+  const [showCelebration, setShowCelebration] = useState(false);
 
-  useEffect(() => {
-    const savedGoal = localStorage.getItem("kyl_arena_daily_goal");
-    if (savedGoal) {
-      const parsed = parseFloat(savedGoal);
-      if (!isNaN(parsed) && parsed > 0) {
-        setUserDailyGoal(parsed);
-      }
-    }
-  }, []);
-
-  const saveDailyGoal = () => {
-    const parsed = parseFloat(tempGoalInput);
-    if (!isNaN(parsed) && parsed > 0) {
-      setUserDailyGoal(parsed);
-      localStorage.setItem("kyl_arena_daily_goal", parsed.toString());
-    }
+  const saveDailyGoal = async (goalToSave: number = parseFloat(tempGoalInput)) => {
+    if (isNaN(goalToSave) || goalToSave <= 0) return;
+    setUserDailyGoal(goalToSave);
     setIsEditingGoal(false);
+    setShowGoalSuggestion(false);
+    
+    try {
+      await fetch("/api/goals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ distance_goal: goalToSave })
+      });
+      addNotification("Goal Saved", "Your daily target has been updated.", "success");
+    } catch (e) {
+      console.error("Failed to save goal", e);
+    }
+  };
+
+  const fireCelebration = async (goal_distance: number, completed_distance: number) => {
+    if (celebrationFired) return;
+    setCelebrationFired(true);
+    setShowCelebration(true);
+    setTimeout(() => setShowCelebration(false), 8000);
+    
+    try {
+      await fetch("/api/goals/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ goal_distance, completed_distance })
+      });
+    } catch (e) {
+      console.error("Failed to record celebration", e);
+    }
   };
 
   useEffect(() => {
@@ -692,6 +726,30 @@ export default function DashboardClient({
           )}
         </AnimatePresence>
 
+        {/* Daily Goal Celebration Popup */}
+        <AnimatePresence>
+          {showCelebration && (
+            <motion.div 
+              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              className="mb-6 p-4 rounded-2xl bg-lime-950/40 border border-lime-400/50 text-lime-400 flex items-center justify-between shadow-[0_0_30px_rgba(163,230,53,0.15)] backdrop-blur-md relative overflow-hidden group"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-lime-400/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+              <div className="flex items-center gap-4 relative z-10">
+                <div className="p-3 rounded-xl bg-lime-400/20 text-lime-400 shrink-0 shadow-[0_0_15px_rgba(163,230,53,0.3)]">
+                  <PartyPopper className="h-6 w-6 animate-bounce" />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-sm uppercase tracking-wider text-white">🎉 Daily Goal Completed</h4>
+                  <p className="text-[11px] text-zinc-300 mt-1 font-medium">You've crushed today's goal! Keep the streak alive!</p>
+                </div>
+              </div>
+              <button onClick={() => setShowCelebration(false)} className="text-[10px] uppercase font-black hover:text-white cursor-pointer px-3 py-2 bg-zinc-900/50 rounded-lg relative z-10 transition-colors hover:bg-zinc-800">Dismiss</button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Dynamic Display of System Param Notice Banners */}
         {errorParam && (
           <div className="mb-6 flex items-start gap-3 p-4 rounded-2xl bg-red-950/25 border border-red-500/20 text-red-400 text-xs">
@@ -1098,7 +1156,7 @@ export default function DashboardClient({
               <div className="space-y-1">
                 <div className="flex items-baseline gap-2">
                   <span className="text-4xl font-black text-white tracking-tighter">
-                    {Math.max(0, 5.0 - (displayActivities.filter(a => new Date(a.start_date).toDateString() === new Date().toDateString()).reduce((sum, a) => sum + (a.distance / 1000), 0))).toFixed(1)}
+                    {Math.max(0, userDailyGoal - (displayActivities.filter(a => new Date(a.start_date).toDateString() === new Date().toDateString()).reduce((sum, a) => sum + (a.distance / 1000), 0))).toFixed(1)}
                   </span>
                   <span className="text-xs font-bold text-zinc-400 font-mono">KM</span>
                 </div>
@@ -1108,7 +1166,7 @@ export default function DashboardClient({
               <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-white/5">
                 <div 
                   className="bg-lime-400 h-full rounded-full transition-all duration-1000"
-                  style={{ width: `${Math.min(100, Math.round((displayActivities.filter(a => new Date(a.start_date).toDateString() === new Date().toDateString()).reduce((sum, a) => sum + (a.distance / 1000), 0) / 5.0) * 100))}%` }}
+                  style={{ width: `${Math.min(100, Math.round((displayActivities.filter(a => new Date(a.start_date).toDateString() === new Date().toDateString()).reduce((sum, a) => sum + (a.distance / 1000), 0) / (userDailyGoal || 1)) * 100))}%` }}
                 />
               </div>
             </div>
@@ -1120,117 +1178,147 @@ export default function DashboardClient({
 
   // Render Today's Goal Section
   function renderTodaysGoalSection(idSuffix = "") {
+    if (showGoalSuggestion) {
+      return (
+        <div id={`tour-stats-section${idSuffix}`} className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-5 text-left relative overflow-hidden group">
+          <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/10 to-transparent" />
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-lime-400 font-mono flex items-center gap-2">
+            <Target className="h-4 w-4" /> SUGGESTED GOAL
+          </h3>
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-zinc-300">We recommend a daily goal of <span className="text-lime-400 font-black">{suggestedGoalValue} km</span> based on your recent activities.</p>
+            <div className="flex gap-3">
+              <Button onClick={() => saveDailyGoal(suggestedGoalValue)} className="bg-lime-400 hover:bg-lime-500 text-black font-extrabold px-6 h-10 rounded-xl text-xs uppercase tracking-wider">Accept</Button>
+              <Button onClick={() => { setShowGoalSuggestion(false); setIsEditingGoal(true); }} variant="outline" className="border-white/20 text-white hover:bg-white/10 font-extrabold px-6 h-10 rounded-xl text-xs uppercase tracking-wider">Customize</Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     const today = new Date();
     const todaysActivities = displayActivities.filter(act => {
       const actDate = new Date(act.start_date);
-      return actDate.getDate() === today.getDate() && 
+      // Filter by preferred activity type if it's set
+      const pref = profile.dailyGoal?.preferred_activity || "Any";
+      const matchesType = pref === "Any" || act.sport_type === pref;
+      return matchesType && 
+             actDate.getDate() === today.getDate() && 
              actDate.getMonth() === today.getMonth() && 
              actDate.getFullYear() === today.getFullYear();
     });
     const todayDistance = todaysActivities.reduce((acc, act) => acc + (act.distance / 1000), 0);
-    
-    // Use customizable user goal
     const dailyTarget = userDailyGoal;
     
     const remaining = Math.max(0, dailyTarget - todayDistance).toFixed(1);
-    const pct = Math.min(100, Math.round((todayDistance / dailyTarget) * 100));
-    const estimatedMins = Math.round((Number(remaining) * 6)); // Rough estimate 6 mins/km
+    const pct = Math.min(100, Math.round((todayDistance / (dailyTarget || 1)) * 100));
     
-    const bareMinimum = calculateBareMinimumGoal();
+    // Check completion
+    if (pct >= 100 && !celebrationFired) {
+      fireCelebration(dailyTarget, todayDistance);
+    }
+
+    const radius = 50;
+    const circumference = 2 * Math.PI * radius;
+    const strokeDashoffset = circumference - (pct / 100) * circumference;
+    
+    let insightMessage = "";
+    if (pct >= 100) insightMessage = "🎯 Goal completed. Amazing consistency.";
+    else if (todayDistance === 0) insightMessage = "🌧️ No activity logged today. Let's get moving.";
+    else if (Number(remaining) < 3.0) insightMessage = `🔥 Only ${remaining} km left today.`;
+    else insightMessage = `🚴 Keep pushing! You have ${remaining} km remaining.`;
 
     return (
-      <div id={`tour-stats-section${idSuffix}`} className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-5 text-left relative overflow-hidden group">
+      <div id={`tour-stats-section${idSuffix}`} className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-6 text-left relative overflow-hidden group">
         <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/10 to-transparent" />
         
         <div className="flex items-center justify-between border-b border-white/5 pb-3">
           <h3 className="text-[10px] font-black uppercase tracking-widest text-lime-400 font-mono flex items-center gap-2">
             <Target className="h-4 w-4" /> TODAY'S GOAL
           </h3>
-          <Button
-            onClick={handleSyncActivities}
-            disabled={isSyncing}
-            variant="ghost"
-            className="h-7 px-3 text-[9px] font-bold uppercase tracking-wider bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300 rounded-lg cursor-pointer"
-          >
-            {isSyncing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Zap className="h-3 w-3 mr-1" />}
-            {isSyncing ? "Syncing" : "Quick Sync"}
-          </Button>
+          <div className="text-[9px] font-mono text-zinc-500 uppercase flex items-center gap-2">
+            {profile.dailyGoal?.preferred_activity || "Any"} Activity
+            {profile.last_synced_at && (
+              <span className="hidden sm:inline"> • Synced {formatDate(profile.last_synced_at)}</span>
+            )}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
-          <div className="space-y-1">
-            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Remaining Distance</p>
-            <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-black text-white tracking-tighter">{remaining}</span>
-              <span className="text-sm font-bold text-zinc-400 font-mono">KM</span>
+        {isEditingGoal ? (
+          <div className="bg-zinc-950/40 p-5 rounded-2xl border border-white/5 space-y-3">
+            <p className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Set Daily Distance Goal</p>
+            <div className="flex items-center gap-3">
+              <input 
+                type="number" step="0.1" min="0.1"
+                value={tempGoalInput} onChange={(e) => setTempGoalInput(e.target.value)}
+                className="w-24 bg-zinc-900 border border-white/10 rounded-lg px-3 py-2 text-sm font-bold text-white outline-none focus:border-lime-400/50"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveDailyGoal();
+                  if (e.key === "Escape") setIsEditingGoal(false);
+                }}
+              />
+              <span className="text-xs font-bold text-zinc-500 mr-2">KM</span>
+              <Button onClick={() => saveDailyGoal()} className="bg-lime-400 hover:bg-lime-500 text-black font-extrabold h-9 px-4 rounded-lg text-[10px] uppercase">Save</Button>
+              <Button onClick={() => setIsEditingGoal(false)} variant="ghost" className="text-zinc-400 hover:text-white h-9 px-3 rounded-lg text-[10px] uppercase">Cancel</Button>
             </div>
-            {Number(remaining) === 0 ? (
-              <p className="text-[10px] text-lime-400 font-bold mt-1">Goal Completed! 🎉</p>
-            ) : (
-              <p className="text-[10px] text-zinc-500 font-medium mt-1">~{estimatedMins} mins of running</p>
-            )}
           </div>
-          
-          <div className="space-y-3 bg-zinc-950/40 p-4 rounded-2xl border border-white/5">
-            {isEditingGoal ? (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono text-zinc-400">Target:</span>
-                  <input 
-                    type="number"
-                    step="0.1"
-                    min="0.1"
-                    value={tempGoalInput}
-                    onChange={(e) => setTempGoalInput(e.target.value)}
-                    className="w-16 bg-zinc-900 border border-white/10 rounded px-1.5 py-0.5 text-[10px] font-mono text-white outline-none focus:border-lime-400/50"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") saveDailyGoal();
-                      if (e.key === "Escape") setIsEditingGoal(false);
-                    }}
-                  />
-                  <span className="text-[10px] font-mono text-zinc-400 mr-2">KM</span>
-                  <button onClick={saveDailyGoal} className="text-lime-400 hover:text-lime-300 p-1">
-                    <Check className="h-3.5 w-3.5" />
-                  </button>
-                  <button onClick={() => setIsEditingGoal(false)} className="text-red-400 hover:text-red-300 p-1">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                {bareMinimum > 0 && (
-                  <p className="text-[8.5px] text-amber-400/80 font-medium">
-                    Minimum recommended to complete active challenges: {bareMinimum.toFixed(1)} KM/day
-                  </p>
+        ) : (
+          <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12 justify-center py-2">
+            {/* Circular Progress Ring */}
+            <div className="relative flex items-center justify-center shrink-0">
+              <svg className="w-40 h-40 transform -rotate-90">
+                <circle cx="80" cy="80" r={radius} stroke="currentColor" strokeWidth="8" fill="transparent" className="text-zinc-800" />
+                <circle 
+                  cx="80" cy="80" r={radius} 
+                  stroke="currentColor" strokeWidth="8" fill="transparent" 
+                  strokeDasharray={circumference} 
+                  strokeDashoffset={Math.max(0, strokeDashoffset)}
+                  strokeLinecap="round"
+                  className={`transition-all duration-1000 ease-out ${pct >= 100 ? "text-lime-400 drop-shadow-[0_0_10px_rgba(163,230,53,0.5)]" : "text-lime-400"}`}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                {pct >= 100 ? (
+                  <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-lime-400 mb-1">
+                    <CheckCircle className="h-10 w-10" />
+                  </motion.div>
+                ) : (
+                  <>
+                    <span className="text-3xl font-black text-white tracking-tighter">{pct}%</span>
+                    <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider mt-1">{todayDistance.toFixed(1)} / {dailyTarget} km</span>
+                  </>
                 )}
               </div>
-            ) : (
-              <div className="flex justify-between text-[10px] font-mono">
-                <span className="text-zinc-400 flex items-center gap-1.5 group/edit">
-                  Target: {dailyTarget} KM
-                  <button 
-                    onClick={() => {
-                      setTempGoalInput(userDailyGoal.toString());
-                      setIsEditingGoal(true);
-                    }}
-                    className="text-zinc-600 hover:text-lime-400 transition-colors opacity-0 group-hover/edit:opacity-100 p-0.5"
-                    title="Edit Daily Goal"
-                  >
-                    <Edit3 className="h-3 w-3" />
-                  </button>
-                </span>
-                <span className="text-lime-400 font-extrabold">{pct}% Complete</span>
+            </div>
+
+            {/* Stats & Actions */}
+            <div className="flex-1 space-y-5 w-full">
+              <div className="bg-zinc-950/40 p-4 rounded-2xl border border-white/5 flex flex-col justify-center">
+                <p className="text-xs font-semibold text-zinc-300">{insightMessage}</p>
               </div>
-            )}
-            <div className="w-full bg-zinc-900 h-3 rounded-full overflow-hidden border border-white/5">
-              <motion.div 
-                className="bg-lime-400 h-full rounded-full" 
-                initial={{ width: 0 }}
-                animate={{ width: `${pct}%` }}
-                transition={{ duration: 1, ease: "easeOut" }}
-              />
+
+              <div className="flex flex-wrap gap-3">
+                <Button 
+                  onClick={() => { setTempGoalInput(userDailyGoal.toString()); setIsEditingGoal(true); }}
+                  variant="outline" 
+                  className="h-9 px-4 border-zinc-800 hover:border-lime-400/50 text-zinc-300 hover:text-white rounded-xl text-[10px] font-extrabold uppercase tracking-wider flex-1 sm:flex-none cursor-pointer"
+                >
+                  <Edit3 className="h-3.5 w-3.5 mr-1.5" /> Edit Goal
+                </Button>
+                <Button 
+                  onClick={handleSyncActivities}
+                  disabled={isSyncing}
+                  variant="outline" 
+                  className="h-9 px-4 border-zinc-800 hover:border-lime-400/50 text-zinc-300 hover:text-white rounded-xl text-[10px] font-extrabold uppercase tracking-wider flex-1 sm:flex-none cursor-pointer"
+                >
+                  {isSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Zap className="h-3.5 w-3.5 mr-1.5" />} 
+                  {isSyncing ? "Syncing..." : "Sync Now"}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }

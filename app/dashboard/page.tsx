@@ -99,6 +99,38 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       redirect("/arena-admin");
     }
 
+    // Fetch user's daily goals preference
+    let dailyGoal = null;
+    try {
+      const { data, error } = await supabase
+        .from("daily_goals")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+      if (!error && data) {
+        dailyGoal = data;
+      }
+    } catch (e) {
+      console.error("Failed to query daily_goals:", e);
+    }
+
+    // Fetch user's daily goal history for today
+    let dailyGoalHistory = null;
+    try {
+      const dateStr = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from("daily_goal_history")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("date", dateStr)
+        .single();
+      if (!error && data) {
+        dailyGoalHistory = data;
+      }
+    } catch (e) {
+      console.error("Failed to query daily_goal_history:", e);
+    }
+
     // Fetch associated athlete details if Strava is connected
     let stravaConnection = null;
     let activities: {
@@ -341,6 +373,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       activities,
       activities_count: activitiesCount,
       all_activities: allActivities,
+      dailyGoal,
+      dailyGoalHistory,
     };
 
     // Build diagnostics bundle
