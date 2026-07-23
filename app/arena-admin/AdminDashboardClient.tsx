@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
+import { BroadcastModal } from "./components/BroadcastModal";
 
 interface ProfileData {
   id: string;
@@ -119,7 +120,6 @@ export default function AdminDashboardClient({
   // Quick Actions Modals
   const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
   const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
-  const [broadcastText, setBroadcastText] = useState("");
   const [loadingCreate, setLoadingCreate] = useState(false);
   const [loadingSync, setLoadingSync] = useState(false);
 
@@ -203,14 +203,6 @@ export default function AdminDashboardClient({
       addToast("Sync Complete", "success", "System is fully synchronized.");
       setLoadingSync(false);
     }, 1500);
-  };
-
-  const handleBroadcastAnnouncement = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!broadcastText.trim()) return;
-    addToast("Announcement Sent", "success", "Message broadcasted to community.");
-    setIsBroadcastModalOpen(false);
-    setBroadcastText("");
   };
 
   const getInitials = (fullName: string) => {
@@ -906,32 +898,11 @@ export default function AdminDashboardClient({
       </AnimatePresence>
 
       {/* BROADCAST MODAL */}
-      <AnimatePresence>
-        {isBroadcastModalOpen && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-              <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-zinc-900 border border-white/10 rounded-xl w-full max-w-md overflow-hidden shadow-sm">
-                <div className="p-6 border-b border-white/5">
-                  <h3 className="text-xl font-semibold text-white">Announcement</h3>
-                  <p className="text-sm text-zinc-400 mt-1">Broadcast to all active athletes.</p>
-                </div>
-                <form onSubmit={handleBroadcastAnnouncement} className="p-6 space-y-4">
-                  <textarea 
-                    value={broadcastText} 
-                    onChange={e => setBroadcastText(e.target.value)} 
-                    placeholder="Type your message..."
-                    className="w-full bg-zinc-950 border border-white/10 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-zinc-500 min-h-[120px]"
-                  />
-                  <div className="flex gap-3 justify-end">
-                    <Button type="button" variant="ghost" onClick={() => setIsBroadcastModalOpen(false)} className="text-zinc-400 hover:text-white">Cancel</Button>
-                    <Button type="submit" className="bg-white hover:bg-zinc-200 text-black">Send</Button>
-                  </div>
-                </form>
-              </motion.div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      <BroadcastModal 
+        isOpen={isBroadcastModalOpen} 
+        onClose={() => setIsBroadcastModalOpen(false)} 
+        userId={profile.id} 
+      />
 
     </div>
   );

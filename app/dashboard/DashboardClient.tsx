@@ -13,6 +13,7 @@ import {
   Check, Bell, AlertCircle, Megaphone, Star, Zap, Pin, PartyPopper
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CommunityFeedWidget } from "@/components/CommunityFeedWidget";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import DashboardTour from "@/components/DashboardTour";
 
@@ -1660,164 +1661,26 @@ export default function DashboardClient({
   }
 
   // Render Community Feed Section
-  // TODO: Replace mock data below with a live fetch from the `community_feed` Supabase table.
   function renderCommunityFeedSection(idSuffix = "") {
-    type FeedType = "announcement" | "event" | "milestone" | "notice" | "deadline" | "shoutout";
-
-    const feedItems: {
-      id: string;
-      type: FeedType;
-      title: string;
-      body: string;
-      timestamp: string;
-      meta?: string;
-    }[] = (communityFeed && communityFeed.length > 0) ? communityFeed : [
-      {
-        id: "cf_1",
-        type: "announcement",
-        title: "🚴 July Century Ride — Now Live!",
-        body: "The July Century Ride challenge is officially open. Log your first 100 km before July 31st and earn the Century Club badge.",
-        timestamp: "Just now",
-        meta: "Challenge",
-      },
-      {
-        id: "cf_2",
-        type: "shoutout",
-        title: "🏅 Shout-out: Riya Menon",
-        body: "Riya crushed the 50 km milestone in a single ride this morning. Incredible effort — the community is watching! 🔥",
-        timestamp: "2 hrs ago",
-        meta: "Athlete",
-      },
-      {
-        id: "cf_3",
-        type: "deadline",
-        title: "⏰ Deadline Approaching: Monsoon Miles",
-        body: "You have 3 days left to hit your target for the Monsoon Miles challenge. Push it to the finish line!",
-        timestamp: "5 hrs ago",
-        meta: "Deadline",
-      },
-      {
-        id: "cf_4",
-        type: "milestone",
-        title: "🎉 Community Hit 10,000 km!",
-        body: "Together, KYL Arena athletes have logged a cumulative 10,000 km this month. That's the distance from Mumbai to London. Epic.",
-        timestamp: "Yesterday",
-        meta: "Milestone",
-      },
-      {
-        id: "cf_5",
-        type: "event",
-        title: "📅 Virtual Group Ride — July 12",
-        body: "Join the Saturday virtual group ride at 6:30 AM IST. Register via Strava and link your activity to the arena. All levels welcome.",
-        timestamp: "Yesterday",
-        meta: "Event",
-      },
-      {
-        id: "cf_6",
-        type: "notice",
-        title: "📌 Admin: Leaderboard Refresh",
-        body: "Leaderboards are refreshed every Sunday at midnight IST. Manual re-sync is available in your dashboard settings if needed.",
-        timestamp: "2 days ago",
-        meta: "Admin",
-      },
-    ];
-
-    const typeConfig = {
-      announcement: {
-        icon: <Megaphone className="h-3.5 w-3.5" />,
-        accent: "border-lime-400/20 bg-lime-400/5",
-        badge: "bg-lime-400/10 text-lime-400 border-lime-400/20",
-        dot: "bg-lime-400",
-      },
-      shoutout: {
-        icon: <Star className="h-3.5 w-3.5" />,
-        accent: "border-amber-400/20 bg-amber-400/5",
-        badge: "bg-amber-400/10 text-amber-400 border-amber-400/20",
-        dot: "bg-amber-400",
-      },
-      deadline: {
-        icon: <Clock className="h-3.5 w-3.5" />,
-        accent: "border-red-400/20 bg-red-400/5",
-        badge: "bg-red-400/10 text-red-400 border-red-400/20",
-        dot: "bg-red-400",
-      },
-      milestone: {
-        icon: <PartyPopper className="h-3.5 w-3.5" />,
-        accent: "border-purple-400/20 bg-purple-400/5",
-        badge: "bg-purple-400/10 text-purple-400 border-purple-400/20",
-        dot: "bg-purple-400",
-      },
-      event: {
-        icon: <Zap className="h-3.5 w-3.5" />,
-        accent: "border-sky-400/20 bg-sky-400/5",
-        badge: "bg-sky-400/10 text-sky-400 border-sky-400/20",
-        dot: "bg-sky-400",
-      },
-      notice: {
-        icon: <Pin className="h-3.5 w-3.5" />,
-        accent: "border-zinc-600/30 bg-zinc-800/20",
-        badge: "bg-zinc-700/30 text-zinc-400 border-zinc-600/30",
-        dot: "bg-zinc-500",
-      },
-    };
-
     return (
       <div id={`tour-community-feed-section${idSuffix}`} className="bg-zinc-900/30 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-4 text-left relative overflow-hidden group">
         <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-lime-400/10 to-transparent" />
-
-        {/* Header */}
+        
         <div className="flex items-center justify-between border-b border-white/5 pb-3">
           <div className="flex items-center gap-2">
             <div className="h-5 w-5 rounded-lg bg-lime-400/10 border border-lime-400/15 flex items-center justify-center text-lime-400">
               <Megaphone className="h-3 w-3" />
             </div>
             <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 font-mono">
-              Community Feed
+              Live Feed
             </h3>
           </div>
-          <span className="text-[9px] text-zinc-600 font-mono">{feedItems.length} posts</span>
+          <Link href="/dashboard/community" className="text-[10px] text-zinc-500 hover:text-white transition-colors">
+            View All →
+          </Link>
         </div>
 
-        {/* Feed Items */}
-        <div className="space-y-3">
-          {feedItems.map((item, idx) => {
-            const cfg = typeConfig[item.type];
-            return (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.06, duration: 0.3 }}
-                className={`p-2.5 rounded-xl border transition-all duration-300 relative overflow-hidden group/item cursor-default ${
-                  cfg.accent
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`shrink-0 ${cfg.badge.split(' ')[0]} ${cfg.badge.split(' ')[1]} p-1.5 rounded-md`}>
-                    {cfg.icon}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-[10px] font-bold text-white truncate">
-                      {item.title}
-                    </h4>
-                    <p className="text-[9px] text-zinc-500 truncate mt-0.5">
-                      {item.body}
-                    </p>
-                  </div>
-                  <span className="text-[8px] text-zinc-600 font-mono shrink-0 whitespace-nowrap">{item.timestamp}</span>
-                </div>
-
-                {/* Subtle hover shimmer line */}
-                <div className={`absolute bottom-0 left-0 right-0 h-px opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 bg-gradient-to-r from-transparent via-current to-transparent ${cfg.dot === 'bg-lime-400' ? 'text-lime-400/30' : cfg.dot === 'bg-amber-400' ? 'text-amber-400/30' : cfg.dot === 'bg-red-400' ? 'text-red-400/30' : cfg.dot === 'bg-purple-400' ? 'text-purple-400/30' : cfg.dot === 'bg-sky-400' ? 'text-sky-400/30' : 'text-zinc-600/30'}`} />
-              </motion.div>
-            );
-          })}
-        </div>
-
-        {/* Footer hint */}
-        <p className="text-[9px] text-zinc-700 font-mono text-center pt-1">
-          Powered by <span className="text-zinc-500">community_feed</span> · Updates live
-        </p>
+        <CommunityFeedWidget userId={profile.id} limit={6} />
       </div>
     );
   }

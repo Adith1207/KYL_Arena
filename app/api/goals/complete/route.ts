@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createFeedEvent } from "@/lib/feed";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -30,6 +31,18 @@ export async function POST(req: Request) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // Emit Feed Event
+    await createFeedEvent({
+      type: "achievement",
+      title: "Daily Goal Achieved",
+      body: `🎉 ${user.user_metadata?.full_name || "An athlete"} crushed their daily goal of ${goal_distance}km!`,
+      priority: "normal",
+      author_id: user.id,
+      author_name: user.user_metadata?.full_name,
+      author_avatar: user.user_metadata?.avatar_url,
+      visibility: "public",
+    });
 
     return NextResponse.json({ success: true, data });
   } catch (e: any) {

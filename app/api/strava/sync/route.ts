@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { createFeedEvent } from "@/lib/feed";
 import { getValidStravaAccessToken } from "@/lib/strava/token";
 
 interface ActivityData {
@@ -153,6 +154,18 @@ export async function syncUserActivities(userId: string): Promise<{ success: boo
 
   if (profileError) {
     console.error("Database error updating profile last_synced_at:", profileError);
+  }
+
+  // 7. Emit Feed Event
+  if (activities.length > 0) {
+    await createFeedEvent({
+      type: "sync",
+      title: "Activities Synchronized",
+      body: `✅ ${activities.length} new activities synchronized via Strava.`,
+      priority: "normal",
+      author_id: userId,
+      visibility: "public",
+    });
   }
 
   return { success: true, activitiesCount: activities.length };
