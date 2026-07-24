@@ -157,9 +157,40 @@ function createMockBrowserClient() {
       }
     },
 
-    // Mock query logic returning profiles from active user memory
     from(table: string) {
       return new MockQueryBuilder(table) as any;
+    },
+
+    rpc: async (fnName: string, args: any) => {
+      if (fnName === "get_analytics_report_data") {
+        return {
+          data: {
+            overview: {
+              totalDistance: 12450.5, totalActivities: 450, completionRate: 68.5, activeMembers: 120, newMembers: 15, challengesCompleted: 2, avgDistance: 27.6, avgActivities: 3.7
+            },
+            communityGrowth: [
+              { date: "2026-06-01", count: 10 }, { date: "2026-06-05", count: 25 }, { date: "2026-06-15", count: 80 }
+            ],
+            sportDistribution: { cycling: 60, running: 25, walking: 15 },
+            dailyVolume: [
+              { date: "Jun 01", activities: 12, distance: 340.5 }, { date: "Jun 05", activities: 45, distance: 1250.0 }
+            ],
+            challengeCompletion: [
+              { name: "Summer Century", participants: 12, completed: 8, remaining: 4, completion_percent: 66 }
+            ],
+            topAthletes: {
+              byDistance: [{ name: "Adith", value: 105.4, unit: "km" }],
+              byActivities: [{ name: "Adith", value: 4, unit: "acts" }],
+              byElevation: [{ name: "Adith", value: 500, unit: "m" }]
+            },
+            communityInsights: {
+              mostActiveAthlete: "Adith", mostActiveAthleteValue: 4, longestRide: "Adith", longestRideValue: 35.2, longestRun: "Emma", longestRunValue: 12.0, highestElevation: "Adith", highestElevationValue: 500, recentlyJoined: "Kevin", inactiveCount: 2
+            }
+          },
+          error: null
+        };
+      }
+      return { data: null, error: null };
     }
   };
 }

@@ -100,21 +100,15 @@ export default async function ReportsAdminPage() {
   }
 
   // Fetch data for reports
-  const [activitiesRes, challengesRes, profilesRes, participationsRes] = await Promise.all([
-    supabaseAdmin.from("activities").select("distance, moving_time, start_date, sport_type"),
-    supabaseAdmin.from("challenges").select("id, title, status, goal_target, goal_metric, start_date, end_date"),
-    supabaseAdmin.from("profiles").select("id, created_at"),
-    supabaseAdmin.from("challenge_participants").select("challenge_id, user_id")
+  const [challengesRes] = await Promise.all([
+    supabaseAdmin.from("challenges").select("id, title, status, goal_target, goal_metric, start_date, end_date, challenge_code").order("created_at", { ascending: false })
   ]);
 
   return (
     <ReportsClient
       profile={profile}
       userRole={userRole}
-      initialActivities={activitiesRes.data || []}
       initialChallenges={challengesRes.data || []}
-      initialProfiles={profilesRes.data || []}
-      initialParticipations={participationsRes.data || []}
     />
   );
 }
