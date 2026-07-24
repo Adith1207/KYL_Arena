@@ -1,13 +1,51 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import ScrollReveal from "@/components/ScrollReveal";
+import { createClient } from "@/lib/supabase/client";
 
-export default function Hero() {
+interface HeroProps {
+  initialProfileCount: number;
+  activeChallenge: any | null;
+}
+
+export default function Hero({ initialProfileCount, activeChallenge }: HeroProps) {
+  const [profileCount, setProfileCount] = useState(initialProfileCount);
+  const supabase = createClient();
+
+  useEffect(() => {
+    // Subscribe to new profiles to update count in realtime
+    const channel = supabase
+      .channel("public:profiles")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "profiles" },
+        () => {
+          setProfileCount((prev) => prev + 1);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "profiles" },
+        () => {
+          setProfileCount((prev) => Math.max(0, prev - 1));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase]);
+
+  const buttonText = activeChallenge ? `Join ${activeChallenge.title}` : "No Active Challenge";
+  const buttonHref = activeChallenge ? `/challenge/${activeChallenge.slug || activeChallenge.id}` : "#"; // Or just /login as it was
+
   return (
-    <section className="relative min-h-[90vh] md:min-h-screen flex items-center justify-start bg-[url('/hero_backdrop.png')] bg-cover bg-center pt-24 overflow-hidden">
+    <section id="home" className="relative min-h-[90vh] md:min-h-screen flex items-center justify-start bg-[url('/hero_backdrop.png')] bg-cover bg-center pt-24 overflow-hidden">
       
       {/* Dark overlay with side-to-side gradient for typography readability */}
       <div className="absolute inset-0 bg-gradient-to-r from-zinc-950 via-zinc-950/85 to-zinc-950/30" />
@@ -54,18 +92,23 @@ export default function Hero() {
                 <Button
                   variant="default"
                   size="lg"
-                  className="bg-lime-400 hover:bg-lime-300 text-black font-extrabold rounded-lg h-12 px-6 flex items-center gap-2 text-xs uppercase tracking-wider transition-all hover:scale-102 cursor-pointer"
-                  asChild
+                  disabled={!activeChallenge}
+                  className="bg-lime-400 hover:bg-lime-300 text-black font-extrabold rounded-lg h-12 px-6 flex items-center gap-2 text-[10px] sm:text-xs uppercase tracking-wider transition-all hover:scale-102 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  asChild={!!activeChallenge}
                 >
-                  <Link href="/login">
-                    Join Challenge
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
+                  {activeChallenge ? (
+                    <Link href="/login">
+                      <span className="truncate max-w-[150px] sm:max-w-xs">{buttonText}</span>
+                      <ArrowRight className="h-4 w-4 shrink-0" />
+                    </Link>
+                  ) : (
+                    <span className="truncate">{buttonText}</span>
+                  )}
                 </Button>
                 <Button
                   variant="outline"
                   size="lg"
-                  className="border-white/20 text-white hover:bg-white/10 rounded-lg h-12 px-6 text-xs uppercase tracking-wider font-extrabold transition-all"
+                  className="border-white/20 text-white hover:bg-white/10 rounded-lg h-12 px-6 text-xs uppercase tracking-wider font-extrabold transition-all shrink-0 cursor-pointer"
                   onClick={() => {
                     const el = document.getElementById("challenge-preview");
                     if (el) el.scrollIntoView({ behavior: "smooth" });
@@ -99,7 +142,7 @@ export default function Hero() {
                 </div>
                 <div className="flex flex-col">
                   <span className="text-xs font-black text-lime-400 uppercase tracking-wider">
-                    500+ Athletes
+                    {profileCount} Athletes
                   </span>
                   <span className="text-[10px] text-zinc-400 font-medium">
                     Already Competing

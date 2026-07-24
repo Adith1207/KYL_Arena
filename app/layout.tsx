@@ -27,6 +27,7 @@ export const metadata: Metadata = {
 
 import { PageLoaderProvider } from "@/components/PageLoader";
 import { ToastProvider } from "@/components/Toast";
+import SmoothScroll from "@/components/SmoothScroll";
 
 export default function RootLayout({
   children,
@@ -41,7 +42,9 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <ToastProvider>
           <PageLoaderProvider>
-            {children}
+            <SmoothScroll>
+              {children}
+            </SmoothScroll>
           </PageLoaderProvider>
         </ToastProvider>
       </body>
