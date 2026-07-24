@@ -1,4 +1,6 @@
+import os
 
+content = """
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
@@ -187,9 +189,9 @@ export default function ReportsClient({
   const generateCSV = () => {
     // Generate simple CSV from Daily Volume
     let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Date,Activities,Distance(km)\n";
+    csvContent += "Date,Activities,Distance(km)\\n";
     data.dailyVolume.forEach((r: any) => {
-      csvContent += `${r.date},${r.activities},${r.distance}\n`;
+      csvContent += `${r.date},${r.activities},${r.distance}\\n`;
     });
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -515,7 +517,7 @@ export default function ReportsClient({
                         >
                           {COLORS.map((color, index) => <Cell key={`cell-${index}`} fill={color} />)}
                         </Pie>
-                        <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px' }} formatter={(val: any) => `${val}%`} />
+                        <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px' }} formatter={(val: number) => `${val}%`} />
                         <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px', color: '#a1a1aa' }} />
                       </PieChart>
                     </ResponsiveContainer>
@@ -706,3 +708,7 @@ export default function ReportsClient({
     </div>
   );
 }
+"""
+
+with open("app/arena-admin/reports/ReportsClient.tsx", "w") as f:
+    f.write(content)
