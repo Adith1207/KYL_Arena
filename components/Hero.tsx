@@ -10,9 +10,10 @@ import { createClient } from "@/lib/supabase/client";
 interface HeroProps {
   initialProfileCount: number;
   activeChallenge: any | null;
+  initialAvatars: string[];
 }
 
-export default function Hero({ initialProfileCount, activeChallenge }: HeroProps) {
+export default function Hero({ initialProfileCount, activeChallenge, initialAvatars }: HeroProps) {
   const [profileCount, setProfileCount] = useState(initialProfileCount);
   const supabase = createClient();
 
@@ -123,13 +124,7 @@ export default function Hero({ initialProfileCount, activeChallenge }: HeroProps
             <ScrollReveal delayMs={600} durationMs={800} direction="up">
               <div className="flex items-center gap-4 pt-6">
                 <div className="flex -space-x-2.5 overflow-hidden">
-                  {[
-                    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80",
-                    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80",
-                    "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=100&q=80",
-                    "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=100&q=80",
-                    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80",
-                  ].map((src, i) => (
+                  {initialAvatars.length > 0 ? initialAvatars.map((src, i) => (
                     <div key={i} className="relative inline-block h-8 w-8 rounded-full ring-2 ring-zinc-950 overflow-hidden bg-zinc-800">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -138,7 +133,9 @@ export default function Hero({ initialProfileCount, activeChallenge }: HeroProps
                         className="h-full w-full object-cover"
                       />
                     </div>
-                  ))}
+                  )) : (
+                    <div className="relative inline-block h-8 w-8 rounded-full ring-2 ring-zinc-950 overflow-hidden bg-zinc-800" />
+                  )}
                 </div>
                 <div className="flex flex-col">
                   <span className="text-xs font-black text-lime-400 uppercase tracking-wider">
